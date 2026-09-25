@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/login_screen.dart';
+import '../features/profile/about_screen.dart';
 import '../features/auth/otp_screen.dart';
 import '../features/auth/splash_screen.dart';
 import '../features/auth/welcome_screen.dart';
@@ -50,6 +51,7 @@ final appRouter = GoRouter(
       ],
     ),
     GoRoute(path: '/wishlist', builder: (_, _) => const WishlistScreen()),
+    GoRoute(path: '/about', builder: (_, _) => const AboutScreen()),
     GoRoute(
       path: '/products',
       builder: (_, state) {

@@ -65,6 +65,7 @@ flutter:
 
   assets:
     - assets/payments/
+    - assets/fonts/ICONLY_LICENSE
 
   fonts:
     - family: IconlyLight

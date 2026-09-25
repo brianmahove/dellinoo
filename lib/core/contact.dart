@@ -10,3 +10,6 @@ Future<bool> openWhatsApp(String message) {
   final uri = Uri.https('wa.me', '/$kWhatsAppNumber', {'text': message});
   return launchUrl(uri, mode: LaunchMode.externalApplication);
 }
+
+/// Opens [url] in the phone's browser. Returns false if nothing could handle it.
+Future<bool> openLink(String url) => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);

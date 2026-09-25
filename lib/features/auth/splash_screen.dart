@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/app_info.dart';
 import '../../core/theme.dart';
 import '../../state/providers.dart';
 import '../../widgets/brand.dart';
@@ -26,9 +27,24 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: AppColors.primary,
-      body: Center(
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Text(
+            'by ${AppInfo.developer}',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.black.withValues(alpha: 0.65),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ),
+      ),
+      body: const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

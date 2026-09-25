@@ -6,6 +6,12 @@ Flutter e-commerce app for a client who **buys goods in China and sells them to 
 - **Status:** customer UI complete on **mock data**. Backend, real auth, payments and admin panel are not built yet (see Roadmap).
 - **Timeline agreed with client (Sep 2026):** UI shown Sat 27 Sep → backend the following week.
 
+## Ownership & licence
+
+- **Designed & developed by Vizion.** Proprietary: © 2026 Vizion, all rights reserved (see `LICENSE`).
+- App credits live in `lib/core/app_info.dart` (`AppInfo.developer`, `copyright`, `version`) and appear on the splash ("by Vizion"), Profile footer and About page (`/about`).
+- Third-party licences show in-app via Flutter's licence page; the vendored Iconly licence is registered in `main()`. Keep `LICENSE`'s third-party list in sync when adding assets.
+
 ## Business rules
 
 - Every product is either **In stock** (already in Zimbabwe, 1–3 days) or **From China** (pre-order, ~2–3 weeks). The UI always shows a concrete date ("Get it by 28 Sep" / "Arrives 16 Oct"), from `StockStatus.etaDays` (3 / 21) via `arrivalShort` / `arrivalLong` in `lib/core/format.dart`.

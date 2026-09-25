@@ -1,0 +1,42 @@
+Dellinoo mobile application
+Copyright (c) 2026 Vizion. All rights reserved.
+
+Designed and developed by Vizion.
+
+PROPRIETARY AND CONFIDENTIAL
+
+This software, including its source code, design, graphics and documentation
+(the "Software"), is the property of Vizion and is protected by copyright law.
+
+No part of the Software may be copied, modified, merged, published,
+distributed, sublicensed, sold, reverse engineered or used to create
+derivative works, in whole or in part, by any means, without the prior
+written permission of Vizion.
+
+Access to this repository does not grant any licence or right to use the
+Software except as expressly agreed in writing with Vizion.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+VIZION BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+-------------------------------------------------------------------------------
+Third-party components
+
+This Software includes third-party components that remain under their own
+licences, which are unaffected by the above:
+
+- Flutter and Dart packages listed in pubspec.yaml, each under its own
+  licence (viewable in the app under Profile > About Dellinoo > Open-source
+  licences).
+- Iconly icon fonts (assets/fonts/IconlyLight.ttf, IconlyBold.ttf), MIT
+  licence — see assets/fonts/ICONLY_LICENSE.
+- Font Awesome brand icons (WhatsApp, Visa), CC BY 4.0, via the
+  font_awesome_flutter package.
+- EcoCash, OneMoney, InnBucks, ZimSwitch, Visa and Mastercard names and
+  logos are trademarks of their respective owners and are used only to
+  indicate accepted payment methods.
+- Demo product images are loaded from dummyjson.com for development only
+  and are not part of the Software.

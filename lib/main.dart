@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show LicenseEntryWithLineBreaks, LicenseRegistry;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,10 @@ import 'widgets/motion.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Iconly fonts are vendored (not a package), so add their licence by hand.
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(['Iconly'], await rootBundle.loadString('assets/fonts/ICONLY_LICENSE'));
+  });
   final prefs = await SharedPreferences.getInstance();
   runApp(ProviderScope(overrides: [prefsProvider.overrideWithValue(prefs)], child: const DellinooApp()));
 }

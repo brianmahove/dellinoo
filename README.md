@@ -1,17 +1,26 @@
-# dellinoo
+# Dellinoo
 
-A new Flutter project.
+Mobile shopping app for importing goods from China and selling them in
+Zimbabwe — fashion, shoes, handbags, phones, watches, laptops, games and
+electronics, with in-stock fast delivery or ordered-from-China pre-orders.
 
-## Getting Started
+Built with Flutter (Android first).
 
-This project is a starting point for a Flutter application.
+**Designed & developed by Vizion.**
 
-A few resources to get you started if this is your first Flutter project:
+## Getting started
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+flutter pub get
+flutter run
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+See [CLAUDE.md](CLAUDE.md) for architecture, design system and conventions.
+
+## Licence
+
+Copyright © 2026 Vizion. All rights reserved.
+
+This is proprietary software. No part of it may be copied, modified or
+distributed without written permission from Vizion. See [LICENSE](LICENSE)
+for the full terms and third-party notices.

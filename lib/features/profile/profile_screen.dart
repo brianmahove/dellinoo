@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/contact.dart';
+import '../../core/app_info.dart';
 import '../../core/theme.dart';
 import '../../data/mock_data.dart';
 import '../../data/models.dart';
@@ -159,7 +160,7 @@ class ProfileScreen extends ConsumerWidget {
               onChanged: ref.read(dataSaverProvider.notifier).set,
             ),
             _Item(IconlyLight.setting, 'Settings', () => soon('Settings')),
-            _Item(IconlyLight.info_circle, 'About Dellinoo', () => soon('About')),
+            _Item(IconlyLight.info_circle, 'About Dellinoo', () => context.push('/about')),
             if (user != null)
               _Item(IconlyLight.logout, 'Sign out', () {
                 ref.read(authProvider.notifier).signOut();
@@ -168,7 +169,31 @@ class ProfileScreen extends ConsumerWidget {
           ]),
           const SizedBox(height: 16),
           Center(
-            child: Text('Dellinoo v1.0.0', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${AppInfo.name} v${AppInfo.version} · Made by ',
+                  style: TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
+                PressScale(
+                  child: InkWell(
+                    onTap: () => openLink(AppInfo.developerUrl),
+                    child: ShimmerSweep(
+                      child: Text(
+                        AppInfo.developer,
+                        style: TextStyle(
+                          color: AppColors.ink,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           // Room to scroll the last items clear of the floating nav bar.
           SizedBox(height: kNavBarSpace + MediaQuery.paddingOf(context).bottom),
