@@ -9,6 +9,7 @@ import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
+import '../../widgets/motion.dart';
 import '../../core/iconly.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -216,11 +217,15 @@ class _Group extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(22)),
-      child: Column(children: items),
+    // Material (not a decorated Container) so the ListTiles' tap ripples show.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(22),
+        clipBehavior: Clip.antiAlias,
+        child: Column(children: items),
+      ),
     );
   }
 }
@@ -274,14 +279,22 @@ void _showAppearanceSheet(BuildContext context, WidgetRef ref) {
                       (ThemeMode.light, 'Light'),
                       (ThemeMode.dark, 'Dark'),
                     ])
-                      PillChip(
-                        label: label,
-                        selected: mode == m,
-                        dense: true,
-                        onTap: () {
-                          Navigator.of(sheetContext).pop();
-                          ref.read(themeModeProvider.notifier).set(m);
-                        },
+                      Builder(
+                        builder: (pillContext) => PillChip(
+                          label: label,
+                          selected: mode == m,
+                          dense: true,
+                          onTap: () async {
+                            final box = pillContext.findRenderObject() as RenderBox?;
+                            final origin = box?.localToGlobal(box.size.center(Offset.zero)) ?? Offset.zero;
+                            final notifier = ref.read(themeModeProvider.notifier);
+                            Navigator.of(sheetContext).pop();
+                            // Let the sheet slide away, then wipe to the new theme
+                            // in a circle growing from the tapped pill.
+                            await Future<void>.delayed(const Duration(milliseconds: 280));
+                            await themeRevealKey.currentState?.reveal(origin, () => notifier.set(m));
+                          },
+                        ),
                       ),
                   ],
                 ),

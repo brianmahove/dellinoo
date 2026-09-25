@@ -11,6 +11,7 @@ import '../core/theme.dart';
 import '../data/models.dart';
 import '../state/providers.dart';
 import 'glass.dart';
+import 'motion.dart';
 import '../core/iconly.dart';
 
 /// Space the floating nav bar covers at the bottom of tab screens.
@@ -291,6 +292,10 @@ class WishlistButton extends ConsumerWidget {
       glass: glass,
       onTap: () {
         HapticFeedback.selectionClick();
+        if (!saved) {
+          final box = context.findRenderObject() as RenderBox?;
+          if (box != null) showHeartBurst(context, box.localToGlobal(box.size.center(Offset.zero)));
+        }
         ref.read(wishlistProvider.notifier).toggle(productId, ref.read(productProvider(productId))?.price ?? 0);
       },
     );
@@ -343,99 +348,108 @@ class ProductCard extends StatelessWidget {
     final stockColor = inStock ? AppColors.inStock : AppColors.preorder;
     return SizedBox(
       width: width,
-      // Card-local blur group: its glass only ever sits over this card's photo.
-      child: GlassGroup(
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(22),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () => context.push('/product/${product.id}', extra: heroTag),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: ProductBackdrop(color: tint, radius: BorderRadius.circular(22)),
-                ),
-                Positioned.fill(
-                  // Photo runs under the glass strip so the blur has something to frost.
-                  bottom: 24,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 34, 12, 0),
-                    child: ProductPhotoHero(
-                      tag: heroTag,
-                      child: NetImage(product.thumbnail, fit: BoxFit.contain),
-                    ),
+      child: PressScale(
+        // Card-local blur group: its glass only ever sits over this card's photo.
+        child: GlassGroup(
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(22),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => context.push('/product/${product.id}', extra: heroTag),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: ProductBackdrop(color: tint, radius: BorderRadius.circular(22)),
                   ),
-                ),
-                Positioned(left: 10, top: 10, child: RatingPill(product.rating)),
-                Positioned(right: 10, top: 10, child: WishlistButton(product.id, glass: true)),
-                if (product.onSale)
-                  Positioned(
-                    left: 10,
-                    top: 42,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(color: AppColors.black, borderRadius: BorderRadius.circular(10)),
-                      child: Text(
-                        '-${product.discountPercent}%',
-                        style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w800),
+                  Positioned.fill(
+                    // Photo runs under the glass strip so the blur has something to frost.
+                    bottom: 24,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 34, 12, 0),
+                      child: ProductPhotoHero(
+                        tag: heroTag,
+                        child: NetImage(product.thumbnail, fit: BoxFit.contain),
                       ),
                     ),
                   ),
-                if (showPriceDrop)
-                  Positioned(
-                    left: 10,
-                    top: product.onSale ? 68 : 42,
-                    child: Consumer(
-                      builder: (_, ref, _) {
-                        final drop = ref.watch(priceDropProvider(product.id));
-                        if (drop == null) return const SizedBox.shrink();
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: AppColors.inStock, borderRadius: BorderRadius.circular(10)),
-                          child: Text(
-                            '↓ ${money(drop)} cheaper',
-                            style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                Positioned(
-                  left: 8,
-                  right: 8,
-                  bottom: 8,
-                  child: GlassBox(
-                    padding: const EdgeInsets.fromLTRB(10, 7, 10, 8),
-                    borderRadius: BorderRadius.circular(16),
-                    tint: AppColors.glass(0.6),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          product.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: AppColors.ink, fontSize: 14, fontWeight: FontWeight.w700),
+                  Positioned(left: 10, top: 10, child: RatingPill(product.rating)),
+                  Positioned(right: 10, top: 10, child: WishlistButton(product.id, glass: true)),
+                  if (product.onSale)
+                    Positioned(
+                      left: 10,
+                      top: 42,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(color: AppColors.black, borderRadius: BorderRadius.circular(10)),
+                        child: Text(
+                          '-${product.discountPercent}%',
+                          style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w800),
                         ),
-                        const SizedBox(height: 1),
-                        PriceText(product, size: 17),
-                        const SizedBox(height: 1),
-                        Row(
-                          children: [
-                            Icon(inStock ? IconlyBold.tick_square : IconlyBold.send, size: 12, color: stockColor),
-                            const SizedBox(width: 3),
-                            Text(
-                              arrivalShort(product.stockStatus),
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: stockColor),
+                      ),
+                    ),
+                  if (showPriceDrop)
+                    Positioned(
+                      left: 10,
+                      top: product.onSale ? 68 : 42,
+                      child: Consumer(
+                        builder: (_, ref, _) {
+                          final drop = ref.watch(priceDropProvider(product.id));
+                          if (drop == null) return const SizedBox.shrink();
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.inStock,
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                          ],
-                        ),
-                      ],
+                            child: Text(
+                              '↓ ${money(drop)} cheaper',
+                              style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  Positioned(
+                    left: 8,
+                    right: 8,
+                    bottom: 8,
+                    child: GlassBox(
+                      padding: const EdgeInsets.fromLTRB(10, 7, 10, 8),
+                      borderRadius: BorderRadius.circular(16),
+                      tint: AppColors.glass(0.6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            product.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: AppColors.ink, fontSize: 14, fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 1),
+                          PriceText(product, size: 17),
+                          const SizedBox(height: 1),
+                          () {
+                            final line = Row(
+                              children: [
+                                Icon(inStock ? IconlyBold.tick_square : IconlyBold.send, size: 12, color: stockColor),
+                                const SizedBox(width: 3),
+                                Text(
+                                  arrivalShort(product.stockStatus),
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: stockColor),
+                                ),
+                              ],
+                            );
+                            // A soft shine draws the eye to fast-delivery items.
+                            return inStock ? ShimmerSweep(child: line) : line;
+                          }(),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -452,11 +466,15 @@ class ProductSliverGrid extends StatelessWidget {
     this.heroScope = 'grid',
     this.showPriceDrop = false,
     this.animateKey = '',
+    this.slideFrom = 0,
   });
 
   final List<Product> products;
   final String heroScope;
   final bool showPriceDrop;
+
+  /// Horizontal entrance offset: negative = from the left, positive = from the right.
+  final double slideFrom;
 
   /// Change this (e.g. to the selected category) to replay the entrance animation.
   final String animateKey;
@@ -488,6 +506,7 @@ class ProductSliverGrid extends StatelessWidget {
           return FadeInUp(
             key: ValueKey('$animateKey-${products[i].id}'),
             delay: Duration(milliseconds: 45 * i),
+            dx: slideFrom,
             child: card,
           );
         },
@@ -972,11 +991,14 @@ class ProductBackdrop extends StatelessWidget {
 
 /// Fades a widget in while it rises a little. Plays once when first built.
 class FadeInUp extends StatefulWidget {
-  const FadeInUp({super.key, required this.child, this.delay = Duration.zero, this.offset = 24});
+  const FadeInUp({super.key, required this.child, this.delay = Duration.zero, this.offset = 24, this.dx = 0});
 
   final Widget child;
   final Duration delay;
   final double offset;
+
+  /// Optional horizontal start offset (for left/right slide-ins).
+  final double dx;
 
   @override
   State<FadeInUp> createState() => _FadeInUpState();
@@ -1007,7 +1029,7 @@ class _FadeInUpState extends State<FadeInUp> with SingleTickerProviderStateMixin
       animation: _curve,
       builder: (_, child) => Opacity(
         opacity: _curve.value,
-        child: Transform.translate(offset: Offset(0, widget.offset * (1 - _curve.value)), child: child),
+        child: Transform.translate(offset: Offset(widget.dx, widget.offset) * (1 - _curve.value), child: child),
       ),
       child: widget.child,
     );

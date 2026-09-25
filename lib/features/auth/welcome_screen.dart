@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/iconly.dart';
 import '../../core/theme.dart';
+import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
+import '../../widgets/payment_logos.dart';
 
 /// Three-slide intro shown on first launch: what Dellinoo sells, the two
 /// delivery speeds, and how to pay / get help.
@@ -271,17 +273,16 @@ class _PaySlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget chip(Color color, String label) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    Widget chip(String asset, {double width = 96}) => Container(
+      width: width,
+      height: 50,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: color,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 16, offset: const Offset(0, 6))],
       ),
-      child: Text(
-        label,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
-      ),
+      child: Image.asset(asset, fit: BoxFit.contain),
     );
 
     return _Slide(
@@ -290,22 +291,23 @@ class _PaySlide extends StatelessWidget {
           Positioned(
             top: 50,
             left: 16,
-            child: Transform.rotate(angle: -0.1, child: chip(const Color(0xFF0057A8), 'EcoCash')),
+            child: Transform.rotate(angle: -0.1, child: chip(PaymentMethod.ecocash.logo, width: 110)),
           ),
-          Positioned(
-            top: 34,
-            right: 18,
-            child: Transform.rotate(angle: 0.1, child: chip(const Color(0xFFE2231A), 'OneMoney')),
-          ),
+          Positioned(top: 34, right: 18, child: Transform.rotate(angle: 0.1, child: chip(PaymentMethod.onemoney.logo))),
           Positioned(
             bottom: 70,
             left: 26,
-            child: Transform.rotate(angle: 0.06, child: chip(const Color(0xFF00843D), 'InnBucks')),
+            child: Transform.rotate(angle: 0.06, child: chip(PaymentMethod.innbucks.logo, width: 64)),
           ),
           Positioned(
             bottom: 90,
             right: 20,
-            child: Transform.rotate(angle: -0.08, child: chip(const Color(0xFF3C3C46), 'Visa · ZimSwitch')),
+            child: Transform.rotate(
+              angle: -0.08,
+              child: Column(
+                children: [chip(PaymentMethod.card.logo, width: 88), const SizedBox(height: 8), const CardBrandsChip()],
+              ),
+            ),
           ),
           Container(
             width: 76,

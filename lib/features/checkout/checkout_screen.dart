@@ -10,6 +10,8 @@ import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
+import '../../widgets/motion.dart';
+import '../../widgets/payment_logos.dart';
 import '../../core/iconly.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
@@ -155,6 +157,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               leading: _PaymentLogo(m),
               title: m.label,
               subtitle: m.subtitle,
+              // Card also takes Visa and Mastercard, shown next to the ZimSwitch logo.
+              trailing: m == PaymentMethod.card ? const CardBrandsChip() : null,
             ),
           if (_payment.needsPhone) ...[
             const SizedBox(height: 8),
@@ -211,7 +215,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           _AmountRow('Subtotal', money(subtotal)),
           _AmountRow('Delivery', _area == null ? '—' : (fee == 0 ? 'FREE' : money(fee))),
           const SizedBox(height: 4),
-          _AmountRow('Total', money(subtotal + fee), bold: true),
+          _AmountRow('Total', money(subtotal + fee), bold: true, amount: subtotal + fee),
         ],
       ),
     );
@@ -262,7 +266,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ),
             child: FilledButton(
               onPressed: _placing ? null : _next,
-              child: Text(_step < _steps.length - 1 ? 'Continue' : 'Pay ${money(subtotal + fee)}'),
+              child: _step < _steps.length - 1
+                  ? const Text('Continue')
+                  : Row(mainAxisSize: MainAxisSize.min, children: [const Text('Pay '), AnimatedMoney(subtotal + fee)]),
             ),
           ),
         ),
@@ -435,33 +441,29 @@ class _PaymentLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (color, text) = switch (method) {
-      PaymentMethod.ecocash => (const Color(0xFF0057A8), 'Eco'),
-      PaymentMethod.onemoney => (const Color(0xFFE2231A), 'One'),
-      PaymentMethod.innbucks => (const Color(0xFF00843D), 'Inn'),
-      PaymentMethod.card => (const Color(0xFF3C3C46), null),
-    };
     return Container(
-      width: 40,
-      height: 28,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
-      child: text == null
-          ? const Icon(IconlyBold.wallet, color: Colors.white, size: 18)
-          : Text(
-              text,
-              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
-            ),
+      width: 58,
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE6E0D9)),
+      ),
+      child: Image.asset(method.logo, fit: BoxFit.contain, filterQuality: FilterQuality.medium),
     );
   }
 }
 
 class _AmountRow extends StatelessWidget {
-  const _AmountRow(this.label, this.value, {this.bold = false});
+  const _AmountRow(this.label, this.value, {this.bold = false, this.amount});
 
   final String label;
   final String value;
   final bool bold;
+
+  /// When set, the value rolls to new amounts instead of jumping.
+  final double? amount;
 
   @override
   Widget build(BuildContext context) {
@@ -476,7 +478,7 @@ class _AmountRow extends StatelessWidget {
         children: [
           Text(label, style: style),
           const Spacer(),
-          Text(value, style: style),
+          amount == null ? Text(value, style: style) : AnimatedMoney(amount!, style: style),
         ],
       ),
     );

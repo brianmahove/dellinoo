@@ -8,6 +8,7 @@ import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
+import '../../widgets/motion.dart';
 import '../../core/iconly.dart';
 
 class CartScreen extends ConsumerWidget {
@@ -111,7 +112,7 @@ class _Summary extends StatelessWidget {
             children: [
               Text('Sub-total', style: label),
               const Spacer(),
-              Text(money(subtotal), style: value),
+              AnimatedMoney(subtotal, style: value),
             ],
           ),
           const SizedBox(height: 12),
@@ -127,7 +128,7 @@ class _Summary extends StatelessWidget {
             children: [
               const Text('Total Cost', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               const Spacer(),
-              Text(money(subtotal), style: value.copyWith(fontSize: 19, fontWeight: FontWeight.w800)),
+              AnimatedMoney(subtotal, style: value.copyWith(fontSize: 19, fontWeight: FontWeight.w800)),
             ],
           ),
           const SizedBox(height: 16),
@@ -229,7 +230,7 @@ class _CartTile extends ConsumerWidget {
                             onChanged: (v) => v == 0 ? removeWithUndo() : cart.setQuantity(item.key, v),
                           ),
                           const Spacer(),
-                          Text(money(item.total), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                          AnimatedMoney(item.total, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                         ],
                       ),
                     ],

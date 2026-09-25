@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
 import 'state/providers.dart';
+import 'widgets/motion.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,17 +45,20 @@ class _DellinooAppState extends ConsumerState<DellinooApp> with WidgetsBindingOb
     final dark = mode == ThemeMode.dark || (mode == ThemeMode.system && platformDark);
     AppColors.dark = dark;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
-      // Keyed by mode: switching remounts the widget tree so every screen picks
-      // up the new AppColors. Navigation (GoRouter) and app state (Riverpod)
-      // live outside this tree, so the user stays where they were.
-      child: MaterialApp.router(
-        key: ValueKey(dark),
-        title: 'Dellinoo',
-        debugShowCheckedModeBanner: false,
-        theme: buildTheme(),
-        routerConfig: appRouter,
+    return ThemeReveal(
+      key: themeRevealKey,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+        // Keyed by mode: switching remounts the widget tree so every screen picks
+        // up the new AppColors. Navigation (GoRouter) and app state (Riverpod)
+        // live outside this tree, so the user stays where they were.
+        child: MaterialApp.router(
+          key: ValueKey(dark),
+          title: 'Dellinoo',
+          debugShowCheckedModeBanner: false,
+          theme: buildTheme(),
+          routerConfig: appRouter,
+        ),
       ),
     );
   }

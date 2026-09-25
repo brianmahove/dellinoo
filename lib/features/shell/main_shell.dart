@@ -66,21 +66,45 @@ class _MainShellState extends ConsumerState<MainShell> {
               tint: AppColors.glass(0.45),
               child: SizedBox(
                 height: 68,
-                child: Row(
+                child: Stack(
                   children: [
-                    for (var i = 0; i < tabs.length; i++)
-                      Expanded(
-                        child: _NavItem(
-                          icon: tabs[i].$1,
-                          label: tabs[i].$2,
-                          selected: shell.currentIndex == i,
-                          badge: i == 2 ? cartCount : 0,
-                          onTap: () {
-                            setState(() => _navVisible = true);
-                            shell.goBranch(i, initialLocation: i == shell.currentIndex);
-                          },
+                    // Glass highlight that slides to the selected tab (iOS style).
+                    AnimatedAlign(
+                      alignment: Alignment(-1 + 2 * shell.currentIndex / (tabs.length - 1), 0),
+                      duration: const Duration(milliseconds: 380),
+                      curve: Curves.easeOutBack,
+                      child: FractionallySizedBox(
+                        widthFactor: 1 / tabs.length,
+                        heightFactor: 1,
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: AppColors.dark ? 0.22 : 0.3),
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(color: Colors.white.withValues(alpha: AppColors.dark ? 0.12 : 0.6)),
+                            ),
+                          ),
                         ),
                       ),
+                    ),
+                    Row(
+                      children: [
+                        for (var i = 0; i < tabs.length; i++)
+                          Expanded(
+                            child: _NavItem(
+                              icon: tabs[i].$1,
+                              label: tabs[i].$2,
+                              selected: shell.currentIndex == i,
+                              badge: i == 2 ? cartCount : 0,
+                              onTap: () {
+                                setState(() => _navVisible = true);
+                                shell.goBranch(i, initialLocation: i == shell.currentIndex);
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),

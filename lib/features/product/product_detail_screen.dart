@@ -42,6 +42,7 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   final Map<String, String> _options = {};
   final _pages = PageController();
+  final _scroll = ScrollController();
   int _image = 0;
   int _qty = 1;
   bool _showErrors = false;
@@ -66,6 +67,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   @override
   void dispose() {
+    _scroll.dispose();
     _pages.dispose();
     super.dispose();
   }
@@ -163,260 +165,330 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     String photoUrl(int i) => dataSaver && i == 0 ? product.thumbnail : product.images[i];
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: top + 330,
-              child: Stack(
-                children: [
-                  // Tinted header in the product's colour; fades in with the page.
-                  Positioned.fill(
-                    child: ProductBackdrop(color: AppColors.tintFor(product.id), radius: _headerRadius),
+      body: Stack(
+        children: [
+          CustomScrollView(
+            controller: _scroll,
+            slivers: [
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: top + 330,
+                  child: Stack(
+                    children: [
+                      // Tinted header in the product's colour; fades in with the page.
+                      Positioned.fill(
+                        child: ProductBackdrop(color: AppColors.tintFor(product.id), radius: _headerRadius),
+                      ),
+                      Positioned.fill(
+                        top: top + 60,
+                        bottom: 10,
+                        child: AnimatedBuilder(
+                          animation: _scroll,
+                          builder: (_, child) {
+                            final o = (_scroll.hasClients ? _scroll.offset : 0.0).clamp(0.0, 330.0);
+                            return Opacity(
+                              opacity: (1 - o / 300).clamp(0.0, 1.0),
+                              child: Transform.translate(
+                                offset: Offset(0, o * 0.4),
+                                child: Transform.scale(scale: 1 - 0.3 * o / 330, child: child),
+                              ),
+                            );
+                          },
+                          child: PageView.builder(
+                            key: _imageKey,
+                            controller: _pages,
+                            itemCount: product.images.length,
+                            onPageChanged: (i) => setState(() => _image = i),
+                            itemBuilder: (_, i) {
+                              if (deferred(i)) {
+                                return _TapToLoadPhoto(onTap: () => setState(() => _loadedPhotos.add(i)));
+                              }
+                              Widget image = NetImage(
+                                photoUrl(i),
+                                fit: BoxFit.contain,
+                                placeholderUrl: product.thumbnail,
+                              );
+                              if (i == 0 && widget.heroTag != null) {
+                                image = ProductPhotoHero(tag: widget.heroTag!, child: image);
+                              }
+                              return GestureDetector(
+                                onTap: () => _openGallery(product),
+                                child: Padding(padding: const EdgeInsets.symmetric(horizontal: 40), child: image),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  Positioned.fill(
-                    top: top + 60,
-                    bottom: 10,
-                    child: PageView.builder(
-                      key: _imageKey,
-                      controller: _pages,
+                ),
+              ),
+              if (product.images.length > 1)
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 76,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       itemCount: product.images.length,
-                      onPageChanged: (i) => setState(() => _image = i),
+                      separatorBuilder: (_, _) => const SizedBox(width: 12),
                       itemBuilder: (_, i) {
-                        if (deferred(i)) {
-                          return _TapToLoadPhoto(onTap: () => setState(() => _loadedPhotos.add(i)));
-                        }
-                        Widget image = NetImage(photoUrl(i), fit: BoxFit.contain, placeholderUrl: product.thumbnail);
-                        if (i == 0 && widget.heroTag != null) {
-                          image = ProductPhotoHero(tag: widget.heroTag!, child: image);
-                        }
-                        return GestureDetector(
-                          onTap: () => _openGallery(product),
-                          child: Padding(padding: const EdgeInsets.symmetric(horizontal: 40), child: image),
+                        final selected = i == _image;
+                        return Center(
+                          child: GestureDetector(
+                            onTap: () => _pages.animateToPage(
+                              i,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOut,
+                            ),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: selected ? 68 : 56,
+                              height: selected ? 68 : 56,
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: selected ? AppColors.primary : AppColors.surface, width: 2.5),
+                              ),
+                              child: deferred(i)
+                                  ? Icon(IconlyLight.image, color: AppColors.muted, size: 20)
+                                  : ClipOval(child: NetImage(photoUrl(i), fit: BoxFit.contain)),
+                            ),
+                          ),
                         );
                       },
                     ),
                   ),
-                  Positioned(
-                    top: top + 12,
-                    left: 20,
-                    right: 20,
-                    child: Row(
-                      children: [
-                        const BackCircleButton(),
-                        const Spacer(),
-                        CircleIconButton(
-                          key: _cartKey,
-                          icon: IconlyLight.buy,
-                          badge: cartCount,
-                          onTap: () => context.go('/cart'),
-                        ),
-                        const SizedBox(width: 10),
-                        WishlistButton(product.id, size: 46),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (product.images.length > 1)
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 76,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: product.images.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 12),
-                  itemBuilder: (_, i) {
-                    final selected = i == _image;
-                    return Center(
-                      child: GestureDetector(
-                        onTap: () =>
-                            _pages.animateToPage(i, duration: const Duration(milliseconds: 300), curve: Curves.easeOut),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: selected ? 68 : 56,
-                          height: selected ? 68 : 56,
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: selected ? AppColors.primary : AppColors.surface, width: 2.5),
-                          ),
-                          child: deferred(i)
-                              ? Icon(IconlyLight.image, color: AppColors.muted, size: 20)
-                              : ClipOval(child: NetImage(photoUrl(i), fit: BoxFit.contain)),
-                        ),
-                      ),
-                    );
-                  },
                 ),
-              ),
-            ),
-          SliverToBoxAdapter(
-            child: Container(
-              margin: const EdgeInsets.only(top: 16),
-              padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 16),
+                  padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                  ),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          product.name,
-                          style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, height: 1.2),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: AppColors.primary, width: 1.5),
-                        ),
-                        child: QuantityStepper(value: _qty, onChanged: (v) => setState(() => _qty = v)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    product.brand,
-                    style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Text('From: ', style: TextStyle(color: AppColors.muted, fontSize: 16)),
-                      Expanded(child: PriceText(product, size: 20)),
-                      if (colourGroup != null)
-                        for (final o in colourGroup.options)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: _Swatch(
-                              color: _swatches[o.toLowerCase()] ?? AppColors.muted,
-                              selected: _options['Colour'] == o,
-                              onTap: () => setState(() => _options['Colour'] = o),
-                            ),
-                          ),
-                    ],
-                  ),
-                  if (colourGroup != null)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          _options['Colour'] ?? (_showErrors ? 'Pick a colour' : 'Colour'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _showErrors && _options['Colour'] == null ? AppColors.danger : AppColors.muted,
-                          ),
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 14),
-                  StockBadge(product.stockStatus),
-                  const SizedBox(height: 4),
-                  Text(
-                    product.stockStatus == StockStatus.inStock
-                        ? 'Already in Zimbabwe — order today, delivered in 1–3 days.'
-                        : 'Ordered from our supplier in China after you pay.',
-                    style: TextStyle(color: AppColors.muted, fontSize: 13),
-                  ),
-                  for (final g in otherGroups) ...[
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Text(g.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-                        if (_showErrors && _options[g.name] == null)
-                          const Text(
-                            '  required',
-                            style: TextStyle(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
-                        const Spacer(),
-                        if (g == otherGroups.first) _Rating(product),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final o in g.options)
-                          PillChip(
-                            label: o,
-                            dense: true,
-                            selected: _options[g.name] == o,
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() => _options[g.name] = o);
-                            },
-                          ),
-                      ],
-                    ),
-                    if (g == otherGroups.first && hasSizeGuide(product.categoryId))
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: TextButton.icon(
-                          style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                          onPressed: () => showSizeGuide(context, product.categoryId),
-                          icon: const Icon(Icons.straighten_rounded, size: 18),
-                          label: const Text('Size guide'),
-                        ),
-                      ),
-                  ],
-                  if (otherGroups.isEmpty) ...[const SizedBox(height: 16), _Rating(product)],
-                  const SizedBox(height: 22),
-                  const Text('Description', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () => setState(() => _expanded = !_expanded),
-                    child: Text.rich(
-                      TextSpan(
-                        text: _expanded || product.description.length < 90
-                            ? '${product.description} '
-                            : '${product.description.substring(0, 90)}... ',
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (product.description.length >= 90)
-                            TextSpan(
-                              text: _expanded ? 'Show less' : 'Read more',
-                              style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w700),
+                          Expanded(
+                            child: Text(
+                              product.name,
+                              style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, height: 1.2),
                             ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: AppColors.primary, width: 1.5),
+                            ),
+                            child: QuantityStepper(value: _qty, onChanged: (v) => setState(() => _qty = v)),
+                          ),
                         ],
                       ),
-                      style: TextStyle(color: AppColors.muted, height: 1.5, fontSize: 14),
-                    ),
+                      const SizedBox(height: 4),
+                      Text(
+                        product.brand,
+                        style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Text('From: ', style: TextStyle(color: AppColors.muted, fontSize: 16)),
+                          Expanded(child: PriceText(product, size: 20)),
+                          if (colourGroup != null)
+                            for (final o in colourGroup.options)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: _Swatch(
+                                  color: _swatches[o.toLowerCase()] ?? AppColors.muted,
+                                  selected: _options['Colour'] == o,
+                                  onTap: () => setState(() => _options['Colour'] = o),
+                                ),
+                              ),
+                        ],
+                      ),
+                      if (colourGroup != null)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              _options['Colour'] ?? (_showErrors ? 'Pick a colour' : 'Colour'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _showErrors && _options['Colour'] == null ? AppColors.danger : AppColors.muted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 14),
+                      StockBadge(product.stockStatus),
+                      const SizedBox(height: 4),
+                      Text(
+                        product.stockStatus == StockStatus.inStock
+                            ? 'Already in Zimbabwe — order today, delivered in 1–3 days.'
+                            : 'Ordered from our supplier in China after you pay.',
+                        style: TextStyle(color: AppColors.muted, fontSize: 13),
+                      ),
+                      for (final g in otherGroups) ...[
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Text(g.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                            if (_showErrors && _options[g.name] == null)
+                              const Text(
+                                '  required',
+                                style: TextStyle(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                            const Spacer(),
+                            if (g == otherGroups.first) _Rating(product),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final o in g.options)
+                              PillChip(
+                                label: o,
+                                dense: true,
+                                selected: _options[g.name] == o,
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  setState(() => _options[g.name] = o);
+                                },
+                              ),
+                          ],
+                        ),
+                        if (g == otherGroups.first && hasSizeGuide(product.categoryId))
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: TextButton.icon(
+                              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                              onPressed: () => showSizeGuide(context, product.categoryId),
+                              icon: const Icon(Icons.straighten_rounded, size: 18),
+                              label: const Text('Size guide'),
+                            ),
+                          ),
+                      ],
+                      if (otherGroups.isEmpty) ...[const SizedBox(height: 16), _Rating(product)],
+                      const SizedBox(height: 22),
+                      const Text('Description', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () => setState(() => _expanded = !_expanded),
+                        child: Text.rich(
+                          TextSpan(
+                            text: _expanded || product.description.length < 90
+                                ? '${product.description} '
+                                : '${product.description.substring(0, 90)}... ',
+                            children: [
+                              if (product.description.length >= 90)
+                                TextSpan(
+                                  text: _expanded ? 'Show less' : 'Read more',
+                                  style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w700),
+                                ),
+                            ],
+                          ),
+                          style: TextStyle(color: AppColors.muted, height: 1.5, fontSize: 14),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _TrustBadges(product),
+                      const SizedBox(height: 8),
+                      const _InfoRow(
+                        Icons.local_shipping_outlined,
+                        'Delivery across Zimbabwe — fee by area at checkout',
+                      ),
+                      const _InfoRow(IconlyLight.wallet, 'EcoCash, OneMoney, InnBucks or card'),
+                    ],
                   ),
-                  const SizedBox(height: 20),
-                  _TrustBadges(product),
-                  const SizedBox(height: 8),
-                  const _InfoRow(Icons.local_shipping_outlined, 'Delivery across Zimbabwe — fee by area at checkout'),
-                  const _InfoRow(IconlyLight.wallet, 'EcoCash, OneMoney, InnBucks or card'),
-                ],
+                ),
               ),
+              if (similar.isNotEmpty)
+                SliverMainAxisGroup(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: ColoredBox(color: AppColors.surface, child: SectionHeader('You may also like')),
+                    ),
+                    DecoratedSliver(
+                      decoration: BoxDecoration(color: AppColors.surface),
+                      sliver: ProductSliverGrid(similar, heroScope: 'similar'),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          // Fixed top bar: buttons always reachable; once the photo scrolls away
+          // it turns into frosted glass and the product name slides in.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AnimatedBuilder(
+              animation: _scroll,
+              builder: (_, _) {
+                final o = _scroll.hasClients ? _scroll.offset : 0.0;
+                final t = ((o - 190) / 90).clamp(0.0, 1.0);
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Opacity(
+                        opacity: t,
+                        child: GlassBox(
+                          borderRadius: BorderRadius.zero,
+                          border: false,
+                          tint: AppColors.glass(0.7),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(20, top + 12, 20, 12),
+                      child: Row(
+                        children: [
+                          const BackCircleButton(),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Opacity(
+                              opacity: t,
+                              child: Transform.translate(
+                                offset: Offset(0, 12 * (1 - t)),
+                                child: Text(
+                                  product.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          CircleIconButton(
+                            key: _cartKey,
+                            icon: IconlyLight.buy,
+                            badge: cartCount,
+                            onTap: () => context.go('/cart'),
+                          ),
+                          const SizedBox(width: 10),
+                          WishlistButton(product.id, size: 46),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
-          if (similar.isNotEmpty)
-            SliverMainAxisGroup(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: ColoredBox(color: AppColors.surface, child: SectionHeader('You may also like')),
-                ),
-                DecoratedSliver(
-                  decoration: BoxDecoration(color: AppColors.surface),
-                  sliver: ProductSliverGrid(similar, heroScope: 'similar'),
-                ),
-              ],
-            ),
         ],
       ),
       floatingActionButton: WhatsAppButton(

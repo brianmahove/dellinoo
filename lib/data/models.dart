@@ -92,15 +92,18 @@ class DeliveryArea {
 }
 
 enum PaymentMethod {
-  ecocash('EcoCash', 'Pay with your EcoCash wallet', true),
-  onemoney('OneMoney', 'Pay with your OneMoney wallet', true),
-  innbucks('InnBucks', 'Pay with an InnBucks code', false),
-  card('Card', 'Visa, Mastercard or ZimSwitch', false);
+  ecocash('EcoCash', 'Pay with your EcoCash wallet', true, 'assets/payments/ecocash.png'),
+  onemoney('OneMoney', 'Pay with your OneMoney wallet', true, 'assets/payments/onemoney.png'),
+  innbucks('InnBucks', 'Pay with an InnBucks code', false, 'assets/payments/innbucks.png'),
+  card('Card', 'Visa, Mastercard or ZimSwitch', false, 'assets/payments/zimswitch.png');
 
-  const PaymentMethod(this.label, this.subtitle, this.needsPhone);
+  const PaymentMethod(this.label, this.subtitle, this.needsPhone, this.logo);
   final String label;
   final String subtitle;
   final bool needsPhone;
+
+  /// Brand logo shown on a white tile (stays white in dark mode so logos read).
+  final String logo;
 }
 
 enum OrderStatus {

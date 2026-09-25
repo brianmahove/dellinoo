@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
+import '../../widgets/motion.dart';
 import 'product_list_screen.dart';
 import '../../core/iconly.dart';
 
@@ -20,6 +22,30 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   String? _categoryId;
   ProductFilter _filter = const ProductFilter(sort: SortOption.popular);
 
+  /// +1 when the new category is to the right of the old one, -1 when left:
+  /// the grid slides in from that side.
+  double _direction = 0;
+  final _pillKeys = <String, GlobalKey>{};
+
+  void _selectCategory(String? id, List<String?> order) {
+    if (id == _categoryId) return;
+    final from = order.indexOf(_categoryId), to = order.indexOf(id);
+    setState(() {
+      _direction = (to - from).sign.toDouble();
+      _categoryId = id;
+    });
+    // Glide the tapped pill to the middle of the row.
+    final pill = _pillKeys[id ?? 'all']?.currentContext;
+    if (pill != null) {
+      Scrollable.ensureVisible(
+        pill,
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final categories = ref.watch(categoriesProvider).value ?? const [];
@@ -28,7 +54,12 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       body: SafeArea(
         bottom: false,
         child: CustomScrollView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           slivers: [
+            CupertinoSliverRefreshControl(
+              onRefresh: () => ref.refresh(productsProvider.future),
+              builder: logoRefreshIndicator,
+            ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -59,17 +90,19 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   children: [
                     PillChip(
+                      key: _pillKeys.putIfAbsent('all', GlobalKey.new),
                       label: 'All',
                       selected: _categoryId == null,
-                      onTap: () => setState(() => _categoryId = null),
+                      onTap: () => _selectCategory(null, [null, ...categories.map((c) => c.id)]),
                     ),
                     for (final c in categories)
                       Padding(
                         padding: const EdgeInsets.only(left: 8),
                         child: PillChip(
+                          key: _pillKeys.putIfAbsent(c.id, GlobalKey.new),
                           label: c.name,
                           selected: _categoryId == c.id,
-                          onTap: () => setState(() => _categoryId = c.id),
+                          onTap: () => _selectCategory(c.id, [null, ...categories.map((c) => c.id)]),
                         ),
                       ),
                   ],
@@ -97,6 +130,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                 return ProductSliverGrid(
                   products,
                   animateKey: '${_categoryId ?? 'all'}-${_filter.stock.name}-${_filter.sort.name}',
+                  slideFrom: _direction * 60,
                 );
               },
             ),

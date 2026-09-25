@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,6 +10,7 @@ import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
+import '../../widgets/motion.dart';
 import '../catalog/product_list_screen.dart';
 import '../../core/iconly.dart';
 
@@ -34,123 +36,125 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: RefreshIndicator(
-          onRefresh: () => ref.refresh(productsProvider.future),
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                  child: Row(
-                    children: [
-                      Expanded(child: SearchPill(onTap: () => context.push('/search'))),
-                      const SizedBox(width: 12),
-                      CircleIconButton(
-                        icon: IconlyLight.heart,
-                        size: 52,
-                        badge: wishCount,
-                        onTap: () => context.push('/wishlist'),
-                      ),
-                    ],
-                  ),
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          slivers: [
+            CupertinoSliverRefreshControl(
+              onRefresh: () => ref.refresh(productsProvider.future),
+              builder: logoRefreshIndicator,
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Row(
+                  children: [
+                    Expanded(child: SearchPill(onTap: () => context.push('/search'))),
+                    const SizedBox(width: 12),
+                    CircleIconButton(
+                      icon: IconlyLight.heart,
+                      size: 52,
+                      badge: wishCount,
+                      onTap: () => context.push('/wishlist'),
+                    ),
+                  ],
                 ),
               ),
-              const SliverToBoxAdapter(child: _BannerCarousel()),
-              SliverToBoxAdapter(child: SectionHeader('Select by Category', onSeeAll: () => context.go('/categories'))),
-              const SliverToBoxAdapter(child: _CategoryRow()),
-              ProductsBuilder(
-                sliver: true,
-                builder: (products) {
-                  final deals = products.where((p) => p.onSale).toList();
-                  final recommended = _filter.apply(products);
-                  final byId = {for (final p in products) p.id: p};
-                  final recent = [
-                    for (final id in ref.watch(recentlyViewedProvider))
-                      if (byId[id] != null) byId[id]!,
-                  ];
-                  return SliverMainAxisGroup(
-                    slivers: [
-                      if (recent.isNotEmpty) ...[
-                        SliverToBoxAdapter(
-                          key: const ValueKey('recent-header'),
-                          child: SectionHeader(
-                            'Recently viewed',
-                            trailing: TextButton(
-                              onPressed: ref.read(recentlyViewedProvider.notifier).clear,
-                              child: const Text('Clear'),
-                            ),
-                          ),
-                        ),
-                        SliverToBoxAdapter(key: const ValueKey('recent-row'), child: _RecentRow(recent)),
-                      ],
+            ),
+            const SliverToBoxAdapter(child: _BannerCarousel()),
+            SliverToBoxAdapter(child: SectionHeader('Select by Category', onSeeAll: () => context.go('/categories'))),
+            const SliverToBoxAdapter(child: _CategoryRow()),
+            ProductsBuilder(
+              sliver: true,
+              builder: (products) {
+                final deals = products.where((p) => p.onSale).toList();
+                final recommended = _filter.apply(products);
+                final byId = {for (final p in products) p.id: p};
+                final recent = [
+                  for (final id in ref.watch(recentlyViewedProvider))
+                    if (byId[id] != null) byId[id]!,
+                ];
+                return SliverMainAxisGroup(
+                  slivers: [
+                    if (recent.isNotEmpty) ...[
                       SliverToBoxAdapter(
-                        key: const ValueKey('deals-header'),
+                        key: const ValueKey('recent-header'),
                         child: SectionHeader(
-                          'Hot Deals',
-                          onSeeAll: () =>
-                              context.push(productsLink(title: 'Hot Deals', collection: ProductCollection.deals)),
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: SizedBox(
-                          height: 250,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            itemCount: deals.length,
-                            separatorBuilder: (_, _) => const SizedBox(width: 14),
-                            itemBuilder: (_, i) => ProductCard(
-                              deals[i],
-                              key: ValueKey('deals-${deals[i].id}'),
-                              width: 170,
-                              heroScope: 'deals',
-                            ),
+                          'Recently viewed',
+                          trailing: TextButton(
+                            onPressed: ref.read(recentlyViewedProvider.notifier).clear,
+                            child: const Text('Clear'),
                           ),
                         ),
                       ),
-                      SliverToBoxAdapter(
-                        child: SectionHeader(
-                          'Recommended Styles',
-                          onSeeAll: () => context.push(productsLink(title: 'All products')),
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-                          child: Row(
-                            children: [
-                              FilterButton(
-                                active: _filter.isActive,
-                                onTap: () async {
-                                  final f = await showFilterSheet(context, _filter);
-                                  if (f != null) setState(() => _filter = f);
-                                },
-                              ),
-                              if (_filter.isActive) ...[
-                                const SizedBox(width: 10),
-                                Flexible(
-                                  child: Text(
-                                    [
-                                      if (_filter.stock != StockFilter.all) _filter.stock.label,
-                                      if (_filter.sort != SortOption.recommended) _filter.sort.label,
-                                    ].join(' · '),
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                      ProductSliverGrid(recommended, animateKey: '${_filter.stock.name}-${_filter.sort.name}'),
+                      SliverToBoxAdapter(key: const ValueKey('recent-row'), child: _RecentRow(recent)),
                     ],
-                  );
-                },
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: kNavBarSpace)),
-            ],
-          ),
+                    SliverToBoxAdapter(
+                      key: const ValueKey('deals-header'),
+                      child: SectionHeader(
+                        'Hot Deals',
+                        onSeeAll: () =>
+                            context.push(productsLink(title: 'Hot Deals', collection: ProductCollection.deals)),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 250,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          itemCount: deals.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 14),
+                          itemBuilder: (_, i) => ProductCard(
+                            deals[i],
+                            key: ValueKey('deals-${deals[i].id}'),
+                            width: 170,
+                            heroScope: 'deals',
+                          ),
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: SectionHeader(
+                        'Recommended Styles',
+                        onSeeAll: () => context.push(productsLink(title: 'All products')),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                        child: Row(
+                          children: [
+                            FilterButton(
+                              active: _filter.isActive,
+                              onTap: () async {
+                                final f = await showFilterSheet(context, _filter);
+                                if (f != null) setState(() => _filter = f);
+                              },
+                            ),
+                            if (_filter.isActive) ...[
+                              const SizedBox(width: 10),
+                              Flexible(
+                                child: Text(
+                                  [
+                                    if (_filter.stock != StockFilter.all) _filter.stock.label,
+                                    if (_filter.sort != SortOption.recommended) _filter.sort.label,
+                                  ].join(' · '),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    ProductSliverGrid(recommended, animateKey: '${_filter.stock.name}-${_filter.sort.name}'),
+                  ],
+                );
+              },
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: kNavBarSpace)),
+          ],
         ),
       ),
     );
@@ -240,6 +244,12 @@ class _BannerCarouselState extends State<_BannerCarousel> {
             onPageChanged: (i) => setState(() => _page = i),
             itemBuilder: (context, i) {
               final b = _banners[i];
+              // How far this banner is from the centre (-1..1) drives the parallax.
+              double delta() {
+                if (!_controller.hasClients || !_controller.position.haveDimensions) return 0;
+                return (i - (_controller.page ?? 0)).clamp(-1.0, 1.0).toDouble();
+              }
+
               final ctaDark = b.foreground == AppColors.black;
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -252,47 +262,51 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(22, 18, 4, 18),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text.rich(
-                                  TextSpan(
-                                    text: b.title,
-                                    children: [
-                                      TextSpan(
-                                        text: b.highlight,
-                                        style: const TextStyle(decoration: TextDecoration.underline),
-                                      ),
-                                    ],
-                                  ),
-                                  style: TextStyle(
-                                    color: b.foreground,
-                                    fontSize: 20,
-                                    height: 1.2,
-                                    fontWeight: FontWeight.w800,
-                                    decorationColor: b.foreground,
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: ctaDark ? AppColors.black : AppColors.primary,
-                                    borderRadius: BorderRadius.circular(22),
-                                  ),
-                                  child: Text(
-                                    'Shop Now',
+                          child: AnimatedBuilder(
+                            animation: _controller,
+                            builder: (_, child) => Transform.translate(offset: Offset(delta() * 30, 0), child: child),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(22, 18, 4, 18),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text.rich(
+                                    TextSpan(
+                                      text: b.title,
+                                      children: [
+                                        TextSpan(
+                                          text: b.highlight,
+                                          style: const TextStyle(decoration: TextDecoration.underline),
+                                        ),
+                                      ],
+                                    ),
                                     style: TextStyle(
-                                      color: ctaDark ? Colors.white : AppColors.black,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
+                                      color: b.foreground,
+                                      fontSize: 20,
+                                      height: 1.2,
+                                      fontWeight: FontWeight.w800,
+                                      decorationColor: b.foreground,
                                     ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 14),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: ctaDark ? AppColors.black : AppColors.primary,
+                                      borderRadius: BorderRadius.circular(22),
+                                    ),
+                                    child: Text(
+                                      'Shop Now',
+                                      style: TextStyle(
+                                        color: ctaDark ? Colors.white : AppColors.black,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -300,7 +314,15 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                           width: 150,
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(0, 12, 12, 0),
-                            child: NetImage(b.image, fit: BoxFit.contain),
+                            child: AnimatedBuilder(
+                              animation: _controller,
+                              // Photo drifts further than the text: depth.
+                              builder: (_, child) => Transform.translate(
+                                offset: Offset(delta() * 90, 0),
+                                child: Transform.scale(scale: 1 - delta().abs() * 0.12, child: child),
+                              ),
+                              child: NetImage(b.image, fit: BoxFit.contain),
+                            ),
                           ),
                         ),
                       ],
@@ -357,30 +379,33 @@ class _CategoryRow extends ConsumerWidget {
         itemBuilder: (_, i) {
           final c = categories[i];
           final image = imageFor(c.id);
-          return InkWell(
-            borderRadius: BorderRadius.circular(40),
-            onTap: () => context.push(productsLink(title: c.name, category: c.id)),
-            child: SizedBox(
-              width: 64,
-              child: Column(
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: AppColors.surface, shape: BoxShape.circle),
-                    child: image == null
-                        ? Icon(c.icon, color: AppColors.ink)
-                        : ClipOval(child: NetImage(image, fit: BoxFit.contain)),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    c.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                ],
+          return PressScale(
+            scale: 0.9,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(40),
+              onTap: () => context.push(productsLink(title: c.name, category: c.id)),
+              child: SizedBox(
+                width: 64,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: AppColors.surface, shape: BoxShape.circle),
+                      child: image == null
+                          ? Icon(c.icon, color: AppColors.ink)
+                          : ClipOval(child: NetImage(image, fit: BoxFit.contain)),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      c.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -408,33 +433,38 @@ class _RecentRow extends StatelessWidget {
         itemBuilder: (_, i) {
           final p = products[i];
           final tag = 'product-recent-${p.id}';
-          return GestureDetector(
+          return PressScale(
             key: ValueKey(tag),
-            onTap: () => context.push('/product/${p.id}', extra: tag),
-            child: SizedBox(
-              width: 104,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 104,
-                    height: 104,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: AppColors.tintFor(p.id), borderRadius: BorderRadius.circular(20)),
-                    child: ProductPhotoHero(
-                      tag: tag,
-                      child: NetImage(p.thumbnail, fit: BoxFit.contain),
+            child: GestureDetector(
+              onTap: () => context.push('/product/${p.id}', extra: tag),
+              child: SizedBox(
+                width: 104,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 104,
+                      height: 104,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.tintFor(p.id),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: ProductPhotoHero(
+                        tag: tag,
+                        child: NetImage(p.thumbnail, fit: BoxFit.contain),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(money(p.price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                  Text(
-                    p.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: AppColors.muted, fontSize: 12),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Text(money(p.price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    Text(
+                      p.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
             ),
           );

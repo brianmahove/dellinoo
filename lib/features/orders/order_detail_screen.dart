@@ -130,86 +130,119 @@ class OrderDetailScreen extends ConsumerWidget {
   }
 }
 
-class _Timeline extends StatelessWidget {
+/// Order steps. On open, the progress line draws down step by step and each
+/// completed step's dot pops in.
+class _Timeline extends StatefulWidget {
   const _Timeline(this.order);
 
   final Order order;
 
   @override
+  State<_Timeline> createState() => _TimelineState();
+}
+
+class _TimelineState extends State<_Timeline> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..forward();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final order = widget.order;
     final events = {for (final e in order.history) e.status: e};
     final steps = order.journey;
-    return Column(
-      children: [
-        for (var i = 0; i < steps.length; i++)
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  width: 32,
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: events.containsKey(steps[i]) ? AppColors.primary : AppColors.background,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: events.containsKey(steps[i]) ? AppColors.primary : AppColors.line),
-                        ),
-                        child: Icon(
-                          steps[i].icon,
-                          size: 15,
-                          color: events.containsKey(steps[i]) ? AppColors.black : AppColors.muted,
-                        ),
-                      ),
-                      if (i < steps.length - 1)
-                        Expanded(
-                          child: Container(
-                            width: 2,
-                            margin: const EdgeInsets.symmetric(vertical: 2),
-                            color: events.containsKey(steps[i + 1]) ? AppColors.primary : AppColors.line,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 4, bottom: 18),
+    final n = steps.length;
+    // Portion of the animation belonging to step i (dot) and its connector (line).
+    double phase(int i, double offset) => ((_c.value * n) - i - offset).clamp(0.0, 1.0);
+
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, _) => Column(
+        children: [
+          for (var i = 0; i < n; i++)
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    width: 32,
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          steps[i].label,
-                          style: TextStyle(
-                            fontWeight: steps[i] == order.status ? FontWeight.w700 : FontWeight.w500,
-                            color: events.containsKey(steps[i]) ? AppColors.black : AppColors.muted,
-                          ),
-                        ),
-                        if (events[steps[i]] != null)
-                          Text(
-                            dateTime(events[steps[i]]!.at),
-                            style: TextStyle(fontSize: 12.5, color: AppColors.muted),
-                          ),
-                        if (events[steps[i]]?.note != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              events[steps[i]]!.note!,
-                              style: TextStyle(fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.w600),
+                        () {
+                          final done = events.containsKey(steps[i]);
+                          final pop = done ? Curves.easeOutBack.transform(phase(i, 0)) : 1.0;
+                          return Transform.scale(
+                            scale: 0.4 + 0.6 * pop,
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: done ? AppColors.primary : AppColors.background,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: done ? AppColors.primary : AppColors.line),
+                              ),
+                              child: Icon(steps[i].icon, size: 15, color: done ? AppColors.black : AppColors.muted),
+                            ),
+                          );
+                        }(),
+                        if (i < n - 1)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: CustomPaint(
+                                size: const Size(2, 0),
+                                painter: _ConnectorPainter(
+                                  events.containsKey(steps[i + 1]) ? Curves.easeInOut.transform(phase(i, 0.5)) : 0,
+                                ),
+                              ),
                             ),
                           ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Opacity(
+                      opacity: 0.35 + 0.65 * phase(i, 0),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 4, bottom: 18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              steps[i].label,
+                              style: TextStyle(
+                                fontWeight: steps[i] == order.status ? FontWeight.w700 : FontWeight.w500,
+                                color: events.containsKey(steps[i]) ? AppColors.ink : AppColors.muted,
+                              ),
+                            ),
+                            if (events[steps[i]] != null)
+                              Text(
+                                dateTime(events[steps[i]]!.at),
+                                style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+                              ),
+                            if (events[steps[i]]?.note != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  events[steps[i]]!.note!,
+                                  style: TextStyle(fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -433,4 +466,32 @@ class _RoutePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RoutePainter old) => old.progress != progress;
+}
+
+/// Vertical timeline connector: grey track, yellow fill drawn [progress] of the way down.
+class _ConnectorPainter extends CustomPainter {
+  _ConnectorPainter(this.progress);
+
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final x = size.width / 2;
+    final track = Paint()
+      ..color = AppColors.line
+      ..strokeWidth = 2;
+    canvas.drawLine(Offset(x, 0), Offset(x, size.height), track);
+    if (progress > 0) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height * progress),
+        Paint()
+          ..color = AppColors.primary
+          ..strokeWidth = 2,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConnectorPainter old) => old.progress != progress;
 }
