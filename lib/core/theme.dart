@@ -1,59 +1,99 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Brand colours live here only. Swap them when the final logo arrives.
+///
+/// Most colours flip with [dark]; the app remounts when the mode changes
+/// (see `main.dart`), so widgets can read these directly in `build`.
 abstract final class AppColors {
-  static const primary = Color(0xFFFFC107);
-  static const primarySoft = Color(0xFFFFF3CD);
+  static bool dark = false;
 
-  /// Darker gold for text/icons on light surfaces, where pure yellow is hard to read.
-  static const accent = Color(0xFFE0A200);
-  static const ink = Color(0xFF020910);
-  static const muted = Color(0xFF929498);
-  static const line = Color(0xFFE6E0D9);
-  static const background = Color(0xFFF2EEE9);
-  static const field = Color(0xFFEFEFEF);
-  static const inStock = Color(0xFF1E9E5A);
-  static const inStockSoft = Color(0xFFE6F6EE);
-  static const preorder = Color(0xFFB86E00);
-  static const preorderSoft = Color(0xFFFFF4DE);
+  static const primary = Color(0xFFFFC107);
+
+  /// Always-black. Use for anything drawn *on* yellow, and for surfaces
+  /// that stay dark in both modes (e.g. the dark promo banner).
+  static const black = Color(0xFF020910);
   static const sale = Color(0xFFE53935);
   static const danger = Color(0xFFE53950);
-  static const dangerSoft = Color(0xFFFBD9DE);
+
+  static Color get primarySoft => dark ? const Color(0xFF3A300A) : const Color(0xFFFFF3CD);
+
+  /// Gold for text/icons on normal surfaces, where pure yellow is hard to read.
+  static Color get accent => dark ? primary : const Color(0xFFB98500);
+
+  /// Main text colour (black in light mode, near-white in dark mode).
+  static Color get ink => dark ? const Color(0xFFF3F3F5) : black;
+
+  /// Text/icons drawn on an [ink]-filled surface.
+  static Color get onInk => dark ? black : Colors.white;
+
+  /// Secondary text. Darker than the palette's #929498 so it stays readable.
+  static Color get muted => dark ? const Color(0xFFA3A5AB) : const Color(0xFF6B6D73);
+  static Color get line => dark ? const Color(0xFF2E3036) : const Color(0xFFE6E0D9);
+  static Color get background => dark ? const Color(0xFF0E0F12) : const Color(0xFFF2EEE9);
+  static Color get surface => dark ? const Color(0xFF1A1C21) : Colors.white;
+  static Color get field => dark ? const Color(0xFF262830) : const Color(0xFFEFEFEF);
+  static Color get inStock => dark ? const Color(0xFF4ADE80) : const Color(0xFF1E8E52);
+  static Color get inStockSoft => dark ? const Color(0xFF12301F) : const Color(0xFFE6F6EE);
+  static Color get preorder => dark ? const Color(0xFFFFB547) : const Color(0xFFA35F00);
+  static Color get preorderSoft => dark ? const Color(0xFF33260C) : const Color(0xFFFFF4DE);
+  static Color get dangerSoft => dark ? const Color(0xFF3A1A1F) : const Color(0xFFFBD9DE);
+
+  /// Frosted-glass fill at the given strength.
+  static Color glass(double alpha) => dark
+      ? const Color(0xFF1C1E24).withValues(alpha: (alpha + 0.15).clamp(0, 1))
+      : Colors.white.withValues(alpha: alpha);
 
   /// Soft backgrounds behind product photos, picked per product.
-  static const tints = [
-    Color(0xFFDCD8F0),
-    Color(0xFFF7E3B5),
-    Color(0xFFCFE0EC),
-    Color(0xFFD9E3C8),
-    Color(0xFFF2D6DC),
-    Color(0xFFE6DDD3),
-  ];
+  static List<Color> get tints => dark
+      ? const [
+          Color(0xFF2A2742),
+          Color(0xFF3A3221),
+          Color(0xFF1F2E3A),
+          Color(0xFF263020),
+          Color(0xFF3A252B),
+          Color(0xFF2F2A25),
+        ]
+      : const [
+          Color(0xFFDCD8F0),
+          Color(0xFFF7E3B5),
+          Color(0xFFCFE0EC),
+          Color(0xFFD9E3C8),
+          Color(0xFFF2D6DC),
+          Color(0xFFE6DDD3),
+        ];
 
   static Color tintFor(String id) => tints[id.hashCode.abs() % tints.length];
 }
 
-/// Font family used across the app. Gilroy (from the design) is a paid font;
-/// Urbanist is the closest free match. Swap here if a Gilroy licence is bought.
-TextTheme _textTheme() => GoogleFonts.urbanistTextTheme();
-
 final _stadium = WidgetStatePropertyAll<OutlinedBorder>(const StadiumBorder());
 
+/// Builds the theme for the current [AppColors.dark] mode.
 ThemeData buildTheme() {
-  final scheme = ColorScheme.fromSeed(seedColor: AppColors.primary).copyWith(
-    primary: AppColors.primary,
-    onPrimary: AppColors.ink,
-    secondary: AppColors.ink,
-    onSecondary: Colors.white,
-    surface: Colors.white,
-    onSurface: AppColors.ink,
-  );
-  final text = _textTheme().apply(bodyColor: AppColors.ink, displayColor: AppColors.ink);
+  final dark = AppColors.dark;
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: AppColors.primary,
+        brightness: dark ? Brightness.dark : Brightness.light,
+      ).copyWith(
+        primary: AppColors.primary,
+        onPrimary: AppColors.black,
+        secondary: AppColors.ink,
+        onSecondary: AppColors.onInk,
+        surface: AppColors.surface,
+        onSurface: AppColors.ink,
+      );
+  final base = dark ? ThemeData(brightness: Brightness.dark).textTheme : ThemeData().textTheme;
+  // Gilroy (from the design) is a paid font; Urbanist is the closest free match.
+  // Gilroy (from the design) is a paid font; Urbanist is the closest free match.
+  final text = GoogleFonts.urbanistTextTheme(base).apply(bodyColor: AppColors.ink, displayColor: AppColors.ink);
   final buttonText = text.titleSmall?.copyWith(fontWeight: FontWeight.w700, fontSize: 15);
+  final overlay = dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark;
 
   return ThemeData(
     useMaterial3: true,
+    brightness: dark ? Brightness.dark : Brightness.light,
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.background,
     textTheme: text,
@@ -63,6 +103,7 @@ ThemeData buildTheme() {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
+      systemOverlayStyle: overlay,
       titleTextStyle: text.titleLarge?.copyWith(fontWeight: FontWeight.w700, fontSize: 20),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -71,7 +112,7 @@ ThemeData buildTheme() {
           (s) => s.contains(WidgetState.disabled) ? AppColors.line : AppColors.primary,
         ),
         foregroundColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.disabled) ? AppColors.muted : AppColors.ink,
+          (s) => s.contains(WidgetState.disabled) ? AppColors.muted : AppColors.black,
         ),
         minimumSize: const WidgetStatePropertyAll(Size.fromHeight(54)),
         shape: _stadium,
@@ -91,15 +132,21 @@ ThemeData buildTheme() {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.accent,
-        textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+        // Black (not yellow) so links like "See all" stay readable outdoors.
+        foregroundColor: AppColors.ink,
+        textStyle: text.labelLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+          decoration: TextDecoration.underline,
+          decorationColor: AppColors.primary,
+          decorationThickness: 2,
+        ),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
+      fillColor: AppColors.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      hintStyle: const TextStyle(color: AppColors.muted),
+      hintStyle: TextStyle(color: AppColors.muted),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
       focusedBorder: OutlineInputBorder(
@@ -108,9 +155,9 @@ ThemeData buildTheme() {
       ),
     ),
     chipTheme: ChipThemeData(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       selectedColor: AppColors.primary,
-      side: const BorderSide(color: AppColors.line),
+      side: BorderSide(color: AppColors.line),
       shape: const StadiumBorder(),
       labelStyle: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
     ),
@@ -129,19 +176,27 @@ ThemeData buildTheme() {
       actionTextColor: AppColors.primary,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: Colors.white,
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: AppColors.surface,
       showDragHandle: true,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
     ),
     dialogTheme: DialogThemeData(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
     ),
-    dividerTheme: const DividerThemeData(color: AppColors.line, space: 1),
+    dividerTheme: DividerThemeData(color: AppColors.line, space: 1),
     radioTheme: RadioThemeData(
       fillColor: WidgetStateProperty.resolveWith(
         (s) => s.contains(WidgetState.selected) ? AppColors.ink : AppColors.muted,
+      ),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected) ? AppColors.black : AppColors.muted,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected) ? AppColors.primary : AppColors.field,
       ),
     ),
   );

@@ -37,4 +37,45 @@ void main() {
     expect(order.status, OrderStatus.paid);
     expect(order.total, closeTo(mockProducts.first.price * 2 + 5, 0.001));
   });
+
+  test('removing from cart can be undone at the same position', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final cart = container.read(cartProvider.notifier);
+    final a = mockProducts[0], b = mockProducts[1], c = mockProducts[2];
+    for (final p in [a, b, c]) {
+      cart.add(p, const {});
+    }
+    final key = container.read(cartProvider)[1].key;
+
+    final (item, index) = cart.removeForUndo(key)!;
+    expect(container.read(cartProvider).map((e) => e.product.id), [a.id, c.id]);
+
+    cart.restore(item, index);
+    expect(container.read(cartProvider).map((e) => e.product.id), [a.id, b.id, c.id]);
+  });
+
+  test('wishlist reports a price drop only when the price fell', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await container.read(productsProvider.future);
+    // p174 is seeded as saved when it cost $50 more; p133 at today's price.
+    expect(container.read(priceDropProvider('p174')), closeTo(50, 0.001));
+    expect(container.read(priceDropProvider('p133')), isNull);
+  });
+
+  test('China legs only appear for orders with China items', () {
+    final china = mockProducts.firstWhere((p) => p.stockStatus == StockStatus.preorder);
+    final local = mockProducts.firstWhere((p) => p.stockStatus == StockStatus.inStock);
+    Order order(Product p) => Order(
+      id: 'x',
+      items: [CartItem(product: p, options: const {}, quantity: 1)],
+      address: const Address(fullName: 'A', phone: '1', street: 's', city: 'Harare'),
+      area: const DeliveryArea(id: 'x', name: 'X', fee: 0, eta: ''),
+      payment: PaymentMethod.ecocash,
+      history: [StatusEvent(OrderStatus.placed, DateTime(2026))],
+    );
+    expect(order(china).journey, contains(OrderStatus.inTransit));
+    expect(order(local).journey.any((s) => s.chinaLeg), isFalse);
+  });
 }

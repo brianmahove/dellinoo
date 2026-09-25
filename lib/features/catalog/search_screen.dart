@@ -19,8 +19,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _controller = TextEditingController();
   String _query = '';
 
+  /// Last query that returned results; saved to "Recent searches" on leave.
+  String _lastHit = '';
+  late final _recent = ref.read(recentSearchesProvider.notifier);
+
   @override
   void dispose() {
+    final hit = _lastHit;
+    if (hit.isNotEmpty) Future.microtask(() => _recent.add(hit));
     _controller.dispose();
     super.dispose();
   }
@@ -50,6 +56,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       controller: _controller,
                       autofocus: true,
                       onChanged: (v) => setState(() => _query = v.trim()),
+                      onSubmitted: (v) => _recent.add(v),
                     ),
                   ),
                 ],
@@ -60,6 +67,30 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ? ListView(
                       padding: const EdgeInsets.all(20),
                       children: [
+                        if (ref.watch(recentSearchesProvider).isNotEmpty) ...[
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'Recent searches',
+                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+                                ),
+                              ),
+                              TextButton(onPressed: _recent.clear, child: const Text('Clear')),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          for (final q in ref.watch(recentSearchesProvider))
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                              leading: Icon(IconlyLight.time_circle, color: AppColors.muted),
+                              title: Text(q, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                              trailing: Icon(IconlyLight.arrow_right_2, size: 18, color: AppColors.muted),
+                              onTap: () => _set(q),
+                            ),
+                          const SizedBox(height: 18),
+                        ],
                         const Text('Popular searches', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
                         const SizedBox(height: 12),
                         Wrap(
@@ -83,6 +114,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   (categoryNames[p.categoryId]?.contains(q) ?? false),
                             )
                             .toList();
+                        if (results.isNotEmpty) _lastHit = _query;
                         if (results.isEmpty) {
                           return EmptyState(
                             icon: IconlyLight.search,
@@ -97,7 +129,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                                 child: Text(
                                   '${results.length} results',
-                                  style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
+                                  style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
                                 ),
                               ),
                             ),

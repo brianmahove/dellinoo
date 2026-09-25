@@ -57,7 +57,7 @@ class OrderStatusChip extends StatelessWidget {
       child: Text(
         status.label,
         style: TextStyle(
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w700,
           color: delivered ? AppColors.inStock : AppColors.ink,
         ),
@@ -76,7 +76,7 @@ class OrderCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       child: Material(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(22),
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
@@ -94,7 +94,7 @@ class OrderCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(shortDate(order.createdAt), style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                Text(shortDate(order.createdAt), style: TextStyle(color: AppColors.muted, fontSize: 12)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -113,7 +113,7 @@ class OrderCard extends StatelessWidget {
                         Text(money(order.total), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                         Text(
                           '${order.itemCount} ${order.itemCount == 1 ? 'item' : 'items'}',
-                          style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                          style: TextStyle(color: AppColors.muted, fontSize: 12),
                         ),
                       ],
                     ),

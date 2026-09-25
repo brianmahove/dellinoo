@@ -174,7 +174,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                       Expanded(
                         child: Text(
                           '${products.length} items',
-                          style: const TextStyle(color: AppColors.muted, fontSize: 15, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: AppColors.muted, fontSize: 15, fontWeight: FontWeight.w600),
                         ),
                       ),
                       FilterButton(

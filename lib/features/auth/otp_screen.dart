@@ -51,11 +51,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 children: [
                   TextSpan(
                     text: widget.phone,
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink),
+                    style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink),
                   ),
                 ],
               ),
-              style: const TextStyle(color: AppColors.muted, height: 1.5),
+              style: TextStyle(color: AppColors.muted, height: 1.5),
             ),
             const SizedBox(height: 32),
             TextField(
@@ -78,7 +78,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   ? const SizedBox(
                       width: 22,
                       height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                      child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.black),
                     )
                   : const Text('Verify'),
             ),
@@ -90,7 +90,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Demo: enter any 6 digits.',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.muted, fontSize: 12),

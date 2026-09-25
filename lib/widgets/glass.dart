@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../core/theme.dart';
+
 /// Saturation boost applied before blurring — this is what makes iOS glass
 /// look vibrant (colours glow through) instead of a flat grey smear.
 ColorFilter _saturate(double s) {
@@ -42,7 +44,7 @@ class GlassBox extends StatelessWidget {
     super.key,
     required this.child,
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
-    this.tint = const Color(0x8CFFFFFF),
+    this.tint,
     this.blur = defaultBlur,
     this.padding,
     this.border = true,
@@ -57,7 +59,7 @@ class GlassBox extends StatelessWidget {
 
   final Widget child;
   final BorderRadius borderRadius;
-  final Color tint;
+  final Color? tint;
   final double blur;
   final EdgeInsetsGeometry? padding;
   final bool border;
@@ -65,6 +67,7 @@ class GlassBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tint = this.tint ?? AppColors.glass(0.55);
     final dark = tint.computeLuminance() < 0.4;
     final content = padding == null ? child : Padding(padding: padding!, child: child);
 
@@ -286,14 +289,14 @@ void showGlassToast(
         content: GlassBox(
           shadow: true,
           borderRadius: BorderRadius.circular(22),
-          tint: Colors.white.withValues(alpha: 0.6),
+          tint: AppColors.glass(0.6),
           padding: EdgeInsets.fromLTRB(18, actionLabel == null ? 15 : 7, 7, actionLabel == null ? 15 : 7),
           child: Row(
             children: [
               Expanded(
                 child: Text(
                   message,
-                  style: const TextStyle(color: Color(0xFF020910), fontSize: 14.5, fontWeight: FontWeight.w700),
+                  style: TextStyle(color: AppColors.ink, fontSize: 14.5, fontWeight: FontWeight.w700),
                 ),
               ),
               if (actionLabel != null)

@@ -40,7 +40,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                       icon: IconlyLight.filter,
                       size: 52,
                       color: _filter.isActive ? AppColors.ink : AppColors.primary,
-                      iconColor: _filter.isActive ? AppColors.primary : AppColors.ink,
+                      iconColor: _filter.isActive ? AppColors.primary : AppColors.black,
                       onTap: () async {
                         final f = await showFilterSheet(context, _filter);
                         if (f != null) setState(() => _filter = f);

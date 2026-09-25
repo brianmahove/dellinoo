@@ -26,21 +26,28 @@ class OrderSuccessScreen extends ConsumerWidget {
               const Spacer(),
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(color: AppColors.inStockSoft, shape: BoxShape.circle),
-                child: const Icon(Icons.check_rounded, size: 64, color: AppColors.inStock),
+                decoration: BoxDecoration(color: AppColors.inStockSoft, shape: BoxShape.circle),
+                child: Icon(Icons.check_rounded, size: 64, color: AppColors.inStock),
               ),
               const SizedBox(height: 24),
               const Text('Order placed!', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
               Text(
                 'Order #$orderId${order != null ? ' · ${money(order.total)}' : ''}',
-                style: const TextStyle(color: AppColors.muted, fontSize: 15),
+                style: TextStyle(color: AppColors.muted, fontSize: 15),
               ),
               const SizedBox(height: 20),
               Text(
-                hasPreorder
-                    ? 'Thanks for shopping with Dellinoo. In-stock items will be delivered in 1–3 days. Items from China arrive in 2–3 weeks, and we will update you along the way.'
-                    : 'Thanks for shopping with Dellinoo. We are preparing your order and will notify you when it is out for delivery.',
+                order == null
+                    ? 'Thanks for shopping with Dellinoo.'
+                    : hasPreorder
+                    ? 'Thanks for shopping with Dellinoo. In-stock items arrive by '
+                          '${weekdayDayMonth(StockStatus.inStock.arrivalFrom(order.createdAt))}; items from China by '
+                          '${weekdayDayMonth(StockStatus.preorder.arrivalFrom(order.createdAt))}. '
+                          'We will update you along the way.'
+                    : 'Thanks for shopping with Dellinoo. Your order arrives by '
+                          '${weekdayDayMonth(StockStatus.inStock.arrivalFrom(order.createdAt))}. '
+                          'We will notify you when it is out for delivery.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(height: 1.5),
               ),

@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
+import '../../widgets/glass.dart';
 import '../../core/iconly.dart';
 
 class CartScreen extends ConsumerWidget {
@@ -53,13 +54,14 @@ class CartScreen extends ConsumerWidget {
                             color: AppColors.preorderSoft,
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: const Row(
+                          child: Row(
                             children: [
                               Icon(IconlyBold.send, color: AppColors.preorder, size: 18),
                               SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  'Some items ship from China and arrive in 2–3 weeks. In-stock items may arrive first.',
+                                  'Items from China arrive by ${dayMonth(StockStatus.preorder.arrivalFrom(DateTime.now()))}. '
+                                  'In-stock items may arrive first.',
                                   style: TextStyle(
                                     fontSize: 12.5,
                                     color: AppColors.preorder,
@@ -88,12 +90,12 @@ class _Summary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    TextStyle label = const TextStyle(color: AppColors.muted, fontSize: 15);
+    TextStyle label = TextStyle(color: AppColors.muted, fontSize: 15);
     TextStyle value = const TextStyle(fontSize: 16, fontWeight: FontWeight.w700);
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 10, 22, 0),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       child: Column(
@@ -145,6 +147,19 @@ class _CartTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cart = ref.read(cartProvider.notifier);
+    void removeWithUndo() {
+      final removed = cart.removeForUndo(item.key);
+      if (removed == null) return;
+      final (it, index) = removed;
+      showGlassToast(
+        context,
+        'Removed ${it.product.name}',
+        actionLabel: 'Undo',
+        duration: const Duration(seconds: 4),
+        onAction: () => cart.restore(it, index),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       child: ClipRRect(
@@ -152,7 +167,7 @@ class _CartTile extends ConsumerWidget {
         child: Dismissible(
           key: ValueKey(item.key),
           direction: DismissDirection.endToStart,
-          onDismissed: (_) => cart.remove(item.key),
+          onDismissed: (_) => removeWithUndo(),
           background: Container(
             color: AppColors.dangerSoft,
             alignment: Alignment.centerRight,
@@ -160,7 +175,7 @@ class _CartTile extends ConsumerWidget {
             child: const Icon(IconlyBold.delete, color: AppColors.danger, size: 28),
           ),
           child: Container(
-            color: Colors.white,
+            color: AppColors.surface,
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
@@ -193,11 +208,11 @@ class _CartTile extends ConsumerWidget {
                         Text.rich(
                           TextSpan(
                             text: '${e.key}  : ',
-                            style: const TextStyle(color: AppColors.muted),
+                            style: TextStyle(color: AppColors.muted),
                             children: [
                               TextSpan(
                                 text: e.value,
-                                style: const TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600),
+                                style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600),
                               ),
                             ],
                           ),
@@ -211,7 +226,7 @@ class _CartTile extends ConsumerWidget {
                             value: item.quantity,
                             min: 0,
                             small: true,
-                            onChanged: (v) => cart.setQuantity(item.key, v),
+                            onChanged: (v) => v == 0 ? removeWithUndo() : cart.setQuantity(item.key, v),
                           ),
                           const Spacer(),
                           Text(money(item.total), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),

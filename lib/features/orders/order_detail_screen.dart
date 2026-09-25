@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/format.dart';
+import '../../core/contact.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
-import '../../widgets/glass.dart';
 import 'orders_screen.dart';
 import '../../core/iconly.dart';
 
@@ -36,6 +37,7 @@ class OrderDetailScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 10),
         children: [
+          if (order.hasChinaItems) _ChinaJourney(order),
           _Card(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,10 +85,10 @@ class OrderDetailScreen extends ConsumerWidget {
                                 const SizedBox(height: 2),
                                 Text(
                                   [if (i.options.isNotEmpty) i.optionsLabel, 'Qty ${i.quantity}'].join('  ·  '),
-                                  style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
+                                  style: TextStyle(fontSize: 12.5, color: AppColors.muted),
                                 ),
                                 const SizedBox(height: 4),
-                                StockBadge(i.product.stockStatus, compact: true),
+                                StockBadge(i.product.stockStatus, compact: true, orderedAt: order.createdAt),
                               ],
                             ),
                           ),
@@ -117,8 +119,8 @@ class OrderDetailScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
             child: OutlinedButton.icon(
-              onPressed: () => showGlassToast(context, 'Opens WhatsApp chat with Dellinoo (next build)'),
-              icon: const Icon(IconlyLight.chat),
+              onPressed: () => openWhatsApp('Hi Dellinoo, I need help with my order #${order.id}.'),
+              icon: const FaIcon(FontAwesomeIcons.whatsapp),
               label: const Text('Need help? Chat on WhatsApp'),
             ),
           ),
@@ -136,7 +138,7 @@ class _Timeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final events = {for (final e in order.history) e.status: e};
-    const steps = OrderStatus.values;
+    final steps = order.journey;
     return Column(
       children: [
         for (var i = 0; i < steps.length; i++)
@@ -159,7 +161,7 @@ class _Timeline extends StatelessWidget {
                         child: Icon(
                           steps[i].icon,
                           size: 15,
-                          color: events.containsKey(steps[i]) ? AppColors.ink : AppColors.muted,
+                          color: events.containsKey(steps[i]) ? AppColors.black : AppColors.muted,
                         ),
                       ),
                       if (i < steps.length - 1)
@@ -184,24 +186,20 @@ class _Timeline extends StatelessWidget {
                           steps[i].label,
                           style: TextStyle(
                             fontWeight: steps[i] == order.status ? FontWeight.w700 : FontWeight.w500,
-                            color: events.containsKey(steps[i]) ? AppColors.ink : AppColors.muted,
+                            color: events.containsKey(steps[i]) ? AppColors.black : AppColors.muted,
                           ),
                         ),
                         if (events[steps[i]] != null)
                           Text(
                             dateTime(events[steps[i]]!.at),
-                            style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
+                            style: TextStyle(fontSize: 12.5, color: AppColors.muted),
                           ),
                         if (events[steps[i]]?.note != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(
                               events[steps[i]]!.note!,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.accent,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: TextStyle(fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.w600),
                             ),
                           ),
                       ],
@@ -225,7 +223,7 @@ class _Card extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
     padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
+    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(22)),
     child: child,
   );
 }
@@ -250,7 +248,7 @@ class _Info extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              Text(subtitle, style: const TextStyle(color: AppColors.muted, fontSize: 12, height: 1.4)),
+              Text(subtitle, style: TextStyle(color: AppColors.muted, fontSize: 12, height: 1.4)),
             ],
           ),
         ),
@@ -284,4 +282,155 @@ class _Row extends StatelessWidget {
       ),
     );
   }
+}
+
+/// China -> Zimbabwe route card: a plane moves along the route as the order
+/// progresses. Stays dark in both themes so it stands out.
+class _ChinaJourney extends StatelessWidget {
+  const _ChinaJourney(this.order);
+
+  final Order order;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = order.status;
+    final idx = OrderStatus.values.indexOf(status);
+    int at(OrderStatus s) => OrderStatus.values.indexOf(s);
+    final progress = idx >= at(OrderStatus.arrivedZim)
+        ? 1.0
+        : idx == at(OrderStatus.inTransit)
+        ? 0.55
+        : idx == at(OrderStatus.boughtInChina)
+        ? 0.12
+        : 0.0;
+    final (headline, sub) = switch (status) {
+      OrderStatus.inTransit => ('Flying to Zimbabwe', 'Your items are in the air'),
+      OrderStatus.boughtInChina => ('Bought in China', 'Packing at our Guangzhou warehouse'),
+      OrderStatus.arrivedZim ||
+      OrderStatus.outForDelivery ||
+      OrderStatus.delivered => ('Landed in Harare', 'Your China items are in Zimbabwe'),
+      _ => ('Ordering from our supplier', 'We buy your items in China after payment'),
+    };
+    final eta = StockStatus.preorder.arrivalFrom(order.createdAt);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(color: AppColors.black, borderRadius: BorderRadius.circular(22)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            headline,
+            style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 2),
+          Text(sub, style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 13.5)),
+          const SizedBox(height: 22),
+          SizedBox(
+            height: 34,
+            child: LayoutBuilder(
+              builder: (_, c) {
+                const pin = 34.0;
+                final track = c.maxWidth - pin * 2;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      left: pin,
+                      right: pin,
+                      top: pin / 2 - 1,
+                      child: CustomPaint(size: Size(track, 2), painter: _RoutePainter(progress)),
+                    ),
+                    const Positioned(left: 0, child: _Pin(label: 'CN')),
+                    const Positioned(right: 0, child: _Pin(label: 'ZW')),
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeOutCubic,
+                      left: pin + track * progress - 13,
+                      top: 4,
+                      child: Transform.rotate(
+                        angle: 0.8,
+                        child: const Icon(IconlyBold.send, color: AppColors.primary, size: 26),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text('Guangzhou', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12.5)),
+              const Spacer(),
+              Text('Harare', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12.5)),
+            ],
+          ),
+          if (progress < 1) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Expected in Zimbabwe by ${weekdayDayMonth(eta)}',
+                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Pin extends StatelessWidget {
+  const _Pin({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+      child: Center(
+        child: Text(
+          label,
+          style: const TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 12),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dashed route line, solid yellow for the part already travelled.
+class _RoutePainter extends CustomPainter {
+  _RoutePainter(this.progress);
+
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final done = Paint()
+      ..color = AppColors.primary
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+    final todo = Paint()
+      ..color = Colors.white.withValues(alpha: 0.3)
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    final split = size.width * progress;
+    canvas.drawLine(Offset.zero, Offset(split, 0), done);
+    for (var x = split + 4; x < size.width; x += 10) {
+      canvas.drawLine(Offset(x, 0), Offset((x + 5).clamp(0, size.width), 0), todo);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RoutePainter old) => old.progress != progress;
 }

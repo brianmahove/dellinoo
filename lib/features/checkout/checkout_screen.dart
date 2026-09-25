@@ -25,6 +25,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   PaymentMethod _payment = PaymentMethod.ecocash;
   final _walletPhone = TextEditingController(text: '0771234567');
   bool _placing = false;
+  int _step = 0;
 
   @override
   void dispose() {
@@ -54,6 +55,32 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     context.go('/order-success/${order.id}');
   }
 
+  static const _steps = ['Address', 'Delivery', 'Payment'];
+
+  void _next() {
+    if (_step == 1 && _area == null) {
+      HapticFeedback.heavyImpact();
+      showGlassToast(context, 'Please choose a delivery option');
+      return;
+    }
+    if (_step < _steps.length - 1) {
+      HapticFeedback.selectionClick();
+      setState(() => _step++);
+    } else {
+      _placeOrder();
+    }
+  }
+
+  void _back() {
+    if (_step > 0) {
+      setState(() => _step--);
+    } else if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/cart');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = ref.watch(cartProvider);
@@ -68,148 +95,241 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
     }
 
-    return Scaffold(
-      appBar: const PageHeader(title: 'Checkout'),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+    final addressSection = _Section(
+      title: 'Delivery address',
+      trailing: TextButton(
+        onPressed: () async {
+          final updated = await showGlassBottomSheet<Address>(
+            context: context,
+            isScrollControlled: true,
+            builder: (_) => _AddressSheet(initial: _address),
+          );
+          if (updated != null) setState(() => _address = updated);
+        },
+        child: const Text('Change'),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Section(
-            title: 'Delivery address',
-            trailing: TextButton(
-              onPressed: () async {
-                final updated = await showGlassBottomSheet<Address>(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (_) => _AddressSheet(initial: _address),
-                );
-                if (updated != null) setState(() => _address = updated);
-              },
-              child: const Text('Change'),
-            ),
-            child: Row(
+          Icon(IconlyLight.location, color: AppColors.ink),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(IconlyLight.location, color: AppColors.ink),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${_address.fullName}  ·  ${_address.phone}',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(_address.oneLine, style: const TextStyle(color: AppColors.muted)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _Section(
-            title: 'Delivery option',
-            child: Column(
-              children: [
-                for (final a in areas)
-                  _SelectTile(
-                    selected: _area?.id == a.id,
-                    onTap: () => setState(() => _area = a),
-                    title: a.name,
-                    subtitle: a.eta,
-                    trailing: Text(
-                      a.fee == 0 ? 'FREE' : money(a.fee),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: a.fee == 0 ? AppColors.inStock : AppColors.ink,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          _Section(
-            title: 'Payment method',
-            child: Column(
-              children: [
-                for (final m in PaymentMethod.values)
-                  _SelectTile(
-                    selected: _payment == m,
-                    onTap: () => setState(() => _payment = m),
-                    leading: _PaymentLogo(m),
-                    title: m.label,
-                    subtitle: m.subtitle,
-                  ),
-                if (_payment.needsPhone) ...[
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _walletPhone,
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                    decoration: InputDecoration(
-                      labelText: '${_payment.label} number',
-                      prefixIcon: const Icon(IconlyLight.call),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          _Section(
-            title: 'Order summary (${items.length} ${items.length == 1 ? 'item' : 'items'})',
-            child: Column(
-              children: [
-                for (final i in items)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: SizedBox(width: 48, height: 48, child: NetImage(i.product.thumbnail)),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                i.product.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                              Text(
-                                [if (i.options.isNotEmpty) i.optionsLabel, 'Qty ${i.quantity}'].join('  ·  '),
-                                style: const TextStyle(fontSize: 11, color: AppColors.muted),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(money(i.total), style: const TextStyle(fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
-                const Divider(),
-                const SizedBox(height: 8),
-                _AmountRow('Subtotal', money(subtotal)),
-                _AmountRow('Delivery', _area == null ? '—' : (fee == 0 ? 'FREE' : money(fee))),
-                const SizedBox(height: 4),
-                _AmountRow('Total', money(subtotal + fee), bold: true),
+                Text('${_address.fullName}  ·  ${_address.phone}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(_address.oneLine, style: TextStyle(color: AppColors.muted)),
               ],
             ),
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: AppColors.line)),
+    );
+    final deliverySection = _Section(
+      title: 'Delivery option',
+      child: Column(
+        children: [
+          for (final a in areas)
+            _SelectTile(
+              selected: _area?.id == a.id,
+              onTap: () => setState(() => _area = a),
+              title: a.name,
+              subtitle: a.eta,
+              trailing: Text(
+                a.fee == 0 ? 'FREE' : money(a.fee),
+                style: TextStyle(fontWeight: FontWeight.w700, color: a.fee == 0 ? AppColors.inStock : AppColors.ink),
+              ),
+            ),
+        ],
+      ),
+    );
+    final paymentSection = _Section(
+      title: 'Payment method',
+      child: Column(
+        children: [
+          for (final m in PaymentMethod.values)
+            _SelectTile(
+              selected: _payment == m,
+              onTap: () => setState(() => _payment = m),
+              leading: _PaymentLogo(m),
+              title: m.label,
+              subtitle: m.subtitle,
+            ),
+          if (_payment.needsPhone) ...[
+            const SizedBox(height: 8),
+            TextField(
+              controller: _walletPhone,
+              keyboardType: TextInputType.phone,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+              decoration: InputDecoration(
+                labelText: '${_payment.label} number',
+                prefixIcon: const Icon(IconlyLight.call),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+    final summarySection = _Section(
+      title: 'Order summary (${items.length} ${items.length == 1 ? 'item' : 'items'})',
+      child: Column(
+        children: [
+          for (final i in items)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(width: 48, height: 48, child: NetImage(i.product.thumbnail)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          i.product.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        Text(
+                          [if (i.options.isNotEmpty) i.optionsLabel, 'Qty ${i.quantity}'].join('  ·  '),
+                          style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(money(i.total), style: const TextStyle(fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          const Divider(),
+          const SizedBox(height: 8),
+          _AmountRow('Subtotal', money(subtotal)),
+          _AmountRow('Delivery', _area == null ? '—' : (fee == 0 ? 'FREE' : money(fee))),
+          const SizedBox(height: 4),
+          _AmountRow('Total', money(subtotal + fee), bold: true),
+        ],
+      ),
+    );
+
+    final pages = [
+      [addressSection, summarySection],
+      [deliverySection],
+      [paymentSection, summarySection],
+    ];
+
+    return PopScope(
+      // System back steps backwards through checkout before leaving it.
+      canPop: _step == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _step--);
+      },
+      child: Scaffold(
+        appBar: PageHeader(
+          title: 'Checkout',
+          onBack: _back,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(46),
+            child: _StepIndicator(steps: _steps, current: _step),
           ),
-          child: FilledButton(onPressed: _placing ? null : _placeOrder, child: Text('Pay ${money(subtotal + fee)}')),
         ),
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween(begin: const Offset(0.06, 0), end: Offset.zero).animate(animation),
+              child: child,
+            ),
+          ),
+          child: ListView(
+            key: ValueKey(_step),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            children: pages[_step],
+          ),
+        ),
+        floatingActionButton: const WhatsAppButton(message: 'Hi Dellinoo, I need help with checking out.'),
+        bottomNavigationBar: SafeArea(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border(top: BorderSide(color: AppColors.line)),
+            ),
+            child: FilledButton(
+              onPressed: _placing ? null : _next,
+              child: Text(_step < _steps.length - 1 ? 'Continue' : 'Pay ${money(subtotal + fee)}'),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "1 Address - 2 Delivery - 3 Payment" progress header.
+class _StepIndicator extends StatelessWidget {
+  const _StepIndicator({required this.steps, required this.current});
+
+  final List<String> steps;
+  final int current;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Row(
+        children: [
+          for (var i = 0; i < steps.length; i++) ...[
+            if (i > 0)
+              Expanded(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  height: 3,
+                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                  decoration: BoxDecoration(
+                    color: i <= current ? AppColors.primary : AppColors.line,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: i <= current ? AppColors.primary : AppColors.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: i <= current ? AppColors.primary : AppColors.line, width: 1.5),
+              ),
+              child: Center(
+                child: i < current
+                    ? const Icon(Icons.check_rounded, size: 16, color: AppColors.black)
+                    : Text(
+                        '${i + 1}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          color: i <= current ? AppColors.black : AppColors.muted,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              steps[i],
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: i == current ? FontWeight.w800 : FontWeight.w500,
+                color: i <= current ? AppColors.ink : AppColors.muted,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -227,7 +347,7 @@ class _Section extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(22)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -277,7 +397,7 @@ class _SelectTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? AppColors.primarySoft : Colors.white,
+            color: selected ? AppColors.primarySoft : AppColors.surface,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: selected ? AppColors.primary : AppColors.line, width: selected ? 2 : 1),
           ),
@@ -295,7 +415,7 @@ class _SelectTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-                    Text(subtitle, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                    Text(subtitle, style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
                   ],
                 ),
               ),
@@ -406,7 +526,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
           SizedBox(
             height: 56,
             child: _done
-                ? const Icon(IconlyBold.tick_square, color: AppColors.inStock, size: 56)
+                ? Icon(IconlyBold.tick_square, color: AppColors.inStock, size: 56)
                 : const Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()),
           ),
           const SizedBox(height: 16),
@@ -418,7 +538,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
           Text(
             _done ? 'Thank you!' : message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.muted, height: 1.4),
+            style: TextStyle(color: AppColors.muted, height: 1.4),
           ),
           if (!_done) ...[
             const SizedBox(height: 12),

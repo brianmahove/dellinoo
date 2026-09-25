@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import '../core/iconly.dart';
 
 enum StockStatus {
-  inStock('In stock', 'Delivered in 1–3 days'),
-  preorder('Arrives in 2–3 weeks', 'Ships from China');
+  inStock('In stock', 'Delivered in 1–3 days', 3),
+  preorder('Arrives in 2–3 weeks', 'Ships from China', 21);
 
-  const StockStatus(this.label, this.detail);
+  const StockStatus(this.label, this.detail, this.etaDays);
   final String label;
   final String detail;
+
+  /// Worst-case days until the customer has it (admin-configurable later).
+  final int etaDays;
+
+  DateTime arrivalFrom(DateTime orderedAt) => orderedAt.add(Duration(days: etaDays));
 }
 
 class Category {
@@ -102,12 +107,18 @@ enum OrderStatus {
   placed('Order placed', IconlyLight.paper),
   paid('Payment confirmed', IconlyLight.wallet),
   processing('Processing', IconlyLight.bag_2),
+  boughtInChina('Bought in China', IconlyLight.bag, chinaLeg: true),
+  inTransit('Flying to Zimbabwe', IconlyBold.send, chinaLeg: true),
+  arrivedZim('Arrived in Harare', IconlyLight.location, chinaLeg: true),
   outForDelivery('Out for delivery', Icons.local_shipping_outlined),
   delivered('Delivered', IconlyLight.tick_square);
 
-  const OrderStatus(this.label, this.icon);
+  const OrderStatus(this.label, this.icon, {this.chinaLeg = false});
   final String label;
   final IconData icon;
+
+  /// Steps that only apply when the order has items coming from China.
+  final bool chinaLeg;
 }
 
 class StatusEvent {
@@ -151,6 +162,14 @@ class Order {
   double get subtotal => items.fold(0, (sum, i) => sum + i.total);
   double get total => subtotal + area.fee;
   int get itemCount => items.fold(0, (sum, i) => sum + i.quantity);
+
+  bool get hasChinaItems => items.any((i) => i.product.stockStatus == StockStatus.preorder);
+
+  /// The steps this order goes through (China legs only if needed).
+  List<OrderStatus> get journey => [
+    for (final s in OrderStatus.values)
+      if (!s.chinaLeg || hasChinaItems) s,
+  ];
 }
 
 class AppUser {

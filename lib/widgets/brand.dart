@@ -15,14 +15,14 @@ class BrandMark extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: inverted ? AppColors.ink : AppColors.primary,
+        color: inverted ? AppColors.black : AppColors.primary,
         borderRadius: BorderRadius.circular(size * 0.28),
       ),
       alignment: Alignment.center,
       child: Text(
         'D',
         style: TextStyle(
-          color: inverted ? AppColors.primary : AppColors.ink,
+          color: inverted ? AppColors.primary : AppColors.black,
           fontSize: size * 0.58,
           fontWeight: FontWeight.w800,
           height: 1,

@@ -38,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 24),
             const Text('Welcome to Dellinoo', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Enter your phone number to sign in or create an account. We will send you a verification code.',
               style: TextStyle(color: AppColors.muted, height: 1.5),
             ),
@@ -51,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
               inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(9)],
               onChanged: (_) => setState(() {}),
               style: const TextStyle(fontSize: 16, letterSpacing: 1),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: '77 123 4567',
                 prefixIcon: Padding(
                   padding: EdgeInsets.only(left: 14, right: 8),
@@ -74,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: const Text('Continue'),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'By continuing you agree to our Terms of Service and Privacy Policy.',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.muted, fontSize: 12),

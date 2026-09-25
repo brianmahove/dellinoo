@@ -39,7 +39,26 @@ const mockAddress = Address(
 List<Order> buildMockOrders() {
   Product p(String id) => mockProducts.firstWhere((x) => x.id == id);
   final now = DateTime.now();
+  final fromChina = mockProducts.where((p) => p.stockStatus == StockStatus.preorder).toList();
   return [
+    Order(
+      id: 'DL10227',
+      items: [CartItem(product: fromChina[1], options: const {}, quantity: 1)],
+      address: mockAddress,
+      area: mockDeliveryAreas[2],
+      payment: PaymentMethod.innbucks,
+      history: [
+        StatusEvent(OrderStatus.placed, now.subtract(const Duration(days: 9))),
+        StatusEvent(OrderStatus.paid, now.subtract(const Duration(days: 9))),
+        StatusEvent(OrderStatus.processing, now.subtract(const Duration(days: 8))),
+        StatusEvent(
+          OrderStatus.boughtInChina,
+          now.subtract(const Duration(days: 6)),
+          'Packed at our Guangzhou warehouse',
+        ),
+        StatusEvent(OrderStatus.inTransit, now.subtract(const Duration(days: 1)), 'Air cargo · Guangzhou → Harare'),
+      ],
+    ),
     Order(
       id: 'DL10231',
       items: [
@@ -58,9 +77,7 @@ List<Order> buildMockOrders() {
     ),
     Order(
       id: 'DL10198',
-      items: [
-        CartItem(product: p('p177'), options: const {'Size': 'M'}, quantity: 1),
-      ],
+      items: [CartItem(product: fromChina[0], options: const {}, quantity: 1)],
       address: mockAddress,
       area: mockDeliveryAreas[0],
       payment: PaymentMethod.onemoney,
@@ -68,6 +85,9 @@ List<Order> buildMockOrders() {
         StatusEvent(OrderStatus.placed, now.subtract(const Duration(days: 20))),
         StatusEvent(OrderStatus.paid, now.subtract(const Duration(days: 20))),
         StatusEvent(OrderStatus.processing, now.subtract(const Duration(days: 19)), 'Ordered from supplier in China'),
+        StatusEvent(OrderStatus.boughtInChina, now.subtract(const Duration(days: 16))),
+        StatusEvent(OrderStatus.inTransit, now.subtract(const Duration(days: 10))),
+        StatusEvent(OrderStatus.arrivedZim, now.subtract(const Duration(days: 5))),
         StatusEvent(OrderStatus.outForDelivery, now.subtract(const Duration(days: 4)), 'Ready for pickup'),
         StatusEvent(OrderStatus.delivered, now.subtract(const Duration(days: 3))),
       ],

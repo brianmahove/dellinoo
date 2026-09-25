@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/otp_screen.dart';
 import '../features/auth/splash_screen.dart';
+import '../features/auth/welcome_screen.dart';
 import '../features/cart/cart_screen.dart';
 import '../features/catalog/categories_screen.dart';
 import '../features/catalog/product_list_screen.dart';
@@ -22,6 +23,7 @@ final appRouter = GoRouter(
   initialLocation: '/splash',
   routes: [
     GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
+    GoRoute(path: '/welcome', builder: (_, _) => const WelcomeScreen()),
     GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
     GoRoute(
       path: '/otp',
@@ -59,8 +61,11 @@ final appRouter = GoRouter(
     GoRoute(path: '/search', builder: (_, _) => const SearchScreen()),
     GoRoute(
       path: '/product/:id',
-      builder: (_, state) =>
-          ProductDetailScreen(key: ValueKey(state.pathParameters['id']), productId: state.pathParameters['id']!),
+      builder: (_, state) => ProductDetailScreen(
+        key: ValueKey(state.pathParameters['id']),
+        productId: state.pathParameters['id']!,
+        heroTag: state.extra as String?,
+      ),
     ),
     GoRoute(path: '/checkout', builder: (_, _) => const CheckoutScreen()),
     GoRoute(

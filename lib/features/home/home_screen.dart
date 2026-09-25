@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
@@ -62,8 +63,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 builder: (products) {
                   final deals = products.where((p) => p.onSale).toList();
                   final recommended = _filter.apply(products);
+                  final byId = {for (final p in products) p.id: p};
+                  final recent = [
+                    for (final id in ref.watch(recentlyViewedProvider))
+                      if (byId[id] != null) byId[id]!,
+                  ];
                   return SliverMainAxisGroup(
                     slivers: [
+                      if (recent.isNotEmpty) ...[
+                        SliverToBoxAdapter(
+                          child: SectionHeader(
+                            'Recently viewed',
+                            trailing: TextButton(
+                              onPressed: ref.read(recentlyViewedProvider.notifier).clear,
+                              child: const Text('Clear'),
+                            ),
+                          ),
+                        ),
+                        SliverToBoxAdapter(child: _RecentRow(recent)),
+                      ],
                       SliverToBoxAdapter(
                         child: SectionHeader(
                           'Hot Deals',
@@ -79,7 +97,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             itemCount: deals.length,
                             separatorBuilder: (_, _) => const SizedBox(width: 14),
-                            itemBuilder: (_, i) => ProductCard(deals[i], width: 170),
+                            itemBuilder: (_, i) => ProductCard(deals[i], width: 170, heroScope: 'deals'),
                           ),
                         ),
                       ),
@@ -110,7 +128,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       if (_filter.sort != SortOption.recommended) _filter.sort.label,
                                     ].join(' · '),
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
+                                    style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
                                   ),
                                 ),
                               ],
@@ -149,14 +167,14 @@ final _banners = [
     'Up to 30%',
     "https://cdn.dummyjson.com/product-images/womens-dresses/black-women's-gown/thumbnail.webp",
     AppColors.primary,
-    AppColors.ink,
+    AppColors.black,
     productsLink(title: 'Hot Deals', collection: ProductCollection.deals),
   ),
   _Banner(
     'Latest Phones\nWith ',
     'Warranty',
     'https://cdn.dummyjson.com/product-images/smartphones/iphone-13-pro/thumbnail.webp',
-    AppColors.ink,
+    AppColors.black,
     Colors.white,
     productsLink(title: 'Phones', category: 'phones'),
   ),
@@ -165,7 +183,7 @@ final _banners = [
     '\$89',
     'https://cdn.dummyjson.com/product-images/mens-shoes/nike-air-jordan-1-red-and-black/thumbnail.webp',
     const Color(0xFFE6DDD3),
-    AppColors.ink,
+    AppColors.black,
     productsLink(title: 'Shoes', category: 'shoes'),
   ),
 ];
@@ -215,7 +233,7 @@ class _BannerCarouselState extends State<_BannerCarousel> {
             onPageChanged: (i) => setState(() => _page = i),
             itemBuilder: (context, i) {
               final b = _banners[i];
-              final ctaDark = b.foreground == AppColors.ink;
+              final ctaDark = b.foreground == AppColors.black;
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Material(
@@ -255,13 +273,13 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                                   decoration: BoxDecoration(
-                                    color: ctaDark ? AppColors.ink : AppColors.primary,
+                                    color: ctaDark ? AppColors.black : AppColors.primary,
                                     borderRadius: BorderRadius.circular(22),
                                   ),
                                   child: Text(
                                     'Shop Now',
                                     style: TextStyle(
-                                      color: ctaDark ? Colors.white : AppColors.ink,
+                                      color: ctaDark ? Colors.white : AppColors.black,
                                       fontWeight: FontWeight.w700,
                                       fontSize: 14,
                                     ),
@@ -343,7 +361,7 @@ class _CategoryRow extends ConsumerWidget {
                     width: 64,
                     height: 64,
                     padding: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: AppColors.surface, shape: BoxShape.circle),
                     child: image == null
                         ? Icon(c.icon, color: AppColors.ink)
                         : ClipOval(child: NetImage(image, fit: BoxFit.contain)),
@@ -354,6 +372,59 @@ class _CategoryRow extends ConsumerWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Compact row of products the user opened recently.
+class _RecentRow extends StatelessWidget {
+  const _RecentRow(this.products);
+
+  final List<Product> products;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 146,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: products.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (_, i) {
+          final p = products[i];
+          final tag = 'product-recent-${p.id}';
+          return GestureDetector(
+            onTap: () => context.push('/product/${p.id}', extra: tag),
+            child: SizedBox(
+              width: 104,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 104,
+                    height: 104,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: AppColors.tintFor(p.id), borderRadius: BorderRadius.circular(20)),
+                    child: Hero(
+                      tag: tag,
+                      child: NetImage(p.thumbnail, fit: BoxFit.contain),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(money(p.price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                  Text(
+                    p.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: AppColors.muted, fontSize: 12),
                   ),
                 ],
               ),
