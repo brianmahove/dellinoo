@@ -107,6 +107,9 @@ Design comes from reference mockups the user supplied: **yellow `#FFC107`, black
 - **Size charts** (`lib/features/product/size_guide.dart`), **delivery fees/areas/times**, `etaDays` (3 / 21).
 - Demo catalogue has no real kids' clothing or video games (Kids = girls' dresses, Games = sports balls).
 - Logo is a placeholder "D" mark (`lib/widgets/brand.dart`); final colours may change with the real logo.
+  The launcher icon uses the same mark: sources in `assets/icon/` (Urbanist ExtraBold "D"), config under
+  `flutter_launcher_icons` in `pubspec.yaml`; regenerate with `dart run flutter_launcher_icons`. The native
+  launch screen (`res/drawable*/launch_background.xml`, `values-v31`) is yellow with the D to avoid a white flash.
 
 ## Roadmap
 
