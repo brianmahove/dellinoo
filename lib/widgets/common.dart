@@ -89,7 +89,12 @@ class CircleIconButton extends StatelessWidget {
                 isLabelVisible: badge > 0,
                 backgroundColor: AppColors.danger,
                 label: Text('$badge'),
-                child: Icon(icon, size: size * 0.46, color: iconColor ?? AppColors.ink),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 350),
+                  switchInCurve: Curves.elasticOut,
+                  transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+                  child: Icon(icon, key: ValueKey(icon), size: size * 0.46, color: iconColor ?? AppColors.ink),
+                ),
               ),
             ),
           ),
@@ -341,7 +346,7 @@ class ProductCard extends StatelessWidget {
       // Card-local blur group: its glass only ever sits over this card's photo.
       child: GlassGroup(
         child: Material(
-          color: tint,
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(22),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -349,11 +354,14 @@ class ProductCard extends StatelessWidget {
             child: Stack(
               children: [
                 Positioned.fill(
+                  child: ProductBackdrop(color: tint, radius: BorderRadius.circular(22)),
+                ),
+                Positioned.fill(
                   // Photo runs under the glass strip so the blur has something to frost.
                   bottom: 24,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 34, 12, 0),
-                    child: Hero(
+                    child: ProductPhotoHero(
                       tag: heroTag,
                       child: NetImage(product.thumbnail, fit: BoxFit.contain),
                     ),
@@ -438,11 +446,20 @@ class ProductCard extends StatelessWidget {
 
 /// Two-column product grid as a sliver.
 class ProductSliverGrid extends StatelessWidget {
-  const ProductSliverGrid(this.products, {super.key, this.heroScope = 'grid', this.showPriceDrop = false});
+  const ProductSliverGrid(
+    this.products, {
+    super.key,
+    this.heroScope = 'grid',
+    this.showPriceDrop = false,
+    this.animateKey = '',
+  });
 
   final List<Product> products;
   final String heroScope;
   final bool showPriceDrop;
+
+  /// Change this (e.g. to the selected category) to replay the entrance animation.
+  final String animateKey;
 
   @override
   Widget build(BuildContext context) {
@@ -456,7 +473,24 @@ class ProductSliverGrid extends StatelessWidget {
           crossAxisSpacing: 14,
           mainAxisExtent: 250,
         ),
-        itemBuilder: (_, i) => ProductCard(products[i], heroScope: heroScope, showPriceDrop: showPriceDrop),
+        itemBuilder: (_, i) {
+          final card = ProductCard(
+            products[i],
+            // Keyed by product: when the list changes, Flutter must not reuse
+            // this card (and its Hero) for a different product.
+            key: ValueKey('$heroScope-${products[i].id}'),
+            heroScope: heroScope,
+            showPriceDrop: showPriceDrop,
+          );
+          // Only the first screenful animates; cards scrolled into view later
+          // just appear, so scrolling never feels sluggish.
+          if (i >= 6) return card;
+          return FadeInUp(
+            key: ValueKey('$animateKey-${products[i].id}'),
+            delay: Duration(milliseconds: 45 * i),
+            child: card,
+          );
+        },
       ),
     );
   }
@@ -497,15 +531,31 @@ class PillChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.primary : AppColors.surface,
-      shape: StadiumBorder(side: BorderSide(color: selected ? AppColors.primary : AppColors.line)),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: dense ? 16 : 22, vertical: dense ? 9 : 11),
-          child: Text(label, style: TextStyle(fontSize: 14, fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      decoration: ShapeDecoration(
+        color: selected ? AppColors.primary : AppColors.surface,
+        shape: StadiumBorder(side: BorderSide(color: selected ? AppColors.primary : AppColors.line)),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: dense ? 16 : 22, vertical: dense ? 9 : 11),
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 220),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? AppColors.black : AppColors.ink,
+                fontFamily: DefaultTextStyle.of(context).style.fontFamily,
+              ),
+              child: Text(label),
+            ),
+          ),
         ),
       ),
     );
@@ -889,6 +939,77 @@ class _EmptyIllustrationState extends State<_EmptyIllustration> with SingleTicke
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Straight-line hero movement: the photo glides directly to its new spot.
+RectTween growRectTween(Rect? begin, Rect? end) => RectTween(begin: begin, end: end);
+
+/// Product photo that flies from a card into the product page.
+class ProductPhotoHero extends StatelessWidget {
+  const ProductPhotoHero({super.key, required this.tag, required this.child});
+
+  final String tag;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Hero(tag: tag, createRectTween: growRectTween, child: child);
+}
+
+/// Rounded tinted background behind a product photo.
+class ProductBackdrop extends StatelessWidget {
+  const ProductBackdrop({super.key, required this.color, required this.radius});
+
+  final Color color;
+  final BorderRadius radius;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(color: color, borderRadius: radius),
+  );
+}
+
+/// Fades a widget in while it rises a little. Plays once when first built.
+class FadeInUp extends StatefulWidget {
+  const FadeInUp({super.key, required this.child, this.delay = Duration.zero, this.offset = 24});
+
+  final Widget child;
+  final Duration delay;
+  final double offset;
+
+  @override
+  State<FadeInUp> createState() => _FadeInUpState();
+}
+
+class _FadeInUpState extends State<FadeInUp> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+  late final _curve = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(widget.delay, () {
+      if (mounted) _c.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _curve.dispose();
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _curve,
+      builder: (_, child) => Opacity(
+        opacity: _curve.value,
+        child: Transform.translate(offset: Offset(0, widget.offset * (1 - _curve.value)), child: child),
+      ),
+      child: widget.child,
     );
   }
 }

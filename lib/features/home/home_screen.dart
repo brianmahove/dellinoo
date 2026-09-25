@@ -72,6 +72,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     slivers: [
                       if (recent.isNotEmpty) ...[
                         SliverToBoxAdapter(
+                          key: const ValueKey('recent-header'),
                           child: SectionHeader(
                             'Recently viewed',
                             trailing: TextButton(
@@ -80,9 +81,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                           ),
                         ),
-                        SliverToBoxAdapter(child: _RecentRow(recent)),
+                        SliverToBoxAdapter(key: const ValueKey('recent-row'), child: _RecentRow(recent)),
                       ],
                       SliverToBoxAdapter(
+                        key: const ValueKey('deals-header'),
                         child: SectionHeader(
                           'Hot Deals',
                           onSeeAll: () =>
@@ -97,7 +99,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             itemCount: deals.length,
                             separatorBuilder: (_, _) => const SizedBox(width: 14),
-                            itemBuilder: (_, i) => ProductCard(deals[i], width: 170, heroScope: 'deals'),
+                            itemBuilder: (_, i) => ProductCard(
+                              deals[i],
+                              key: ValueKey('deals-${deals[i].id}'),
+                              width: 170,
+                              heroScope: 'deals',
+                            ),
                           ),
                         ),
                       ),
@@ -136,7 +143,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                         ),
                       ),
-                      ProductSliverGrid(recommended),
+                      ProductSliverGrid(recommended, animateKey: '${_filter.stock.name}-${_filter.sort.name}'),
                     ],
                   );
                 },
@@ -392,7 +399,7 @@ class _RecentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 146,
+      height: 156,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -402,6 +409,7 @@ class _RecentRow extends StatelessWidget {
           final p = products[i];
           final tag = 'product-recent-${p.id}';
           return GestureDetector(
+            key: ValueKey(tag),
             onTap: () => context.push('/product/${p.id}', extra: tag),
             child: SizedBox(
               width: 104,
@@ -413,7 +421,7 @@ class _RecentRow extends StatelessWidget {
                     height: 104,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(color: AppColors.tintFor(p.id), borderRadius: BorderRadius.circular(20)),
-                    child: Hero(
+                    child: ProductPhotoHero(
                       tag: tag,
                       child: NetImage(p.thumbnail, fit: BoxFit.contain),
                     ),

@@ -49,14 +49,19 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   final _cartKey = GlobalKey();
   final _imageKey = GlobalKey();
 
+  static const _headerRadius = BorderRadius.vertical(bottom: Radius.circular(36));
+
   /// Extra photos the user chose to load while data saver is on.
   final Set<int> _loadedPhotos = {};
 
   @override
   void initState() {
     super.initState();
-    // Remember for the "Recently viewed" row on Home.
-    Future.microtask(() => ref.read(recentlyViewedProvider.notifier).add(widget.productId));
+    // Remember for the "Recently viewed" row on Home. Wait until the open
+    // transition has finished: changing Home while the photo is flying
+    // reshuffles its cards and breaks the Hero animation.
+    final recent = ref.read(recentlyViewedProvider.notifier);
+    Future.delayed(const Duration(milliseconds: 900), () => recent.add(widget.productId));
   }
 
   @override
@@ -165,6 +170,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               height: top + 330,
               child: Stack(
                 children: [
+                  // Tinted header in the product's colour; fades in with the page.
+                  Positioned.fill(
+                    child: ProductBackdrop(color: AppColors.tintFor(product.id), radius: _headerRadius),
+                  ),
                   Positioned.fill(
                     top: top + 60,
                     bottom: 10,
@@ -178,7 +187,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           return _TapToLoadPhoto(onTap: () => setState(() => _loadedPhotos.add(i)));
                         }
                         Widget image = NetImage(photoUrl(i), fit: BoxFit.contain, placeholderUrl: product.thumbnail);
-                        if (i == 0 && widget.heroTag != null) image = Hero(tag: widget.heroTag!, child: image);
+                        if (i == 0 && widget.heroTag != null) {
+                          image = ProductPhotoHero(tag: widget.heroTag!, child: image);
+                        }
                         return GestureDetector(
                           onTap: () => _openGallery(product),
                           child: Padding(padding: const EdgeInsets.symmetric(horizontal: 40), child: image),

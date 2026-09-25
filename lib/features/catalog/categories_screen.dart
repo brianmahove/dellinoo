@@ -94,7 +94,10 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                     ),
                   );
                 }
-                return ProductSliverGrid(products);
+                return ProductSliverGrid(
+                  products,
+                  animateKey: '${_categoryId ?? 'all'}-${_filter.stock.name}-${_filter.sort.name}',
+                );
               },
             ),
             const SliverToBoxAdapter(child: SizedBox(height: kNavBarSpace)),

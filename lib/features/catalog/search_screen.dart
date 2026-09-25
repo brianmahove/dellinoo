@@ -133,7 +133,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 ),
                               ),
                             ),
-                            ProductSliverGrid(results),
+                            ProductSliverGrid(results, animateKey: _query),
                           ],
                         );
                       },

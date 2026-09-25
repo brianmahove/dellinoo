@@ -17,6 +17,7 @@ import '../features/orders/orders_screen.dart';
 import '../features/product/product_detail_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/shell/main_shell.dart';
+import '../features/shell/tab_transitions.dart';
 import '../features/wishlist/wishlist_screen.dart';
 
 final appRouter = GoRouter(
@@ -29,8 +30,10 @@ final appRouter = GoRouter(
       path: '/otp',
       builder: (_, state) => OtpScreen(phone: state.uri.queryParameters['phone'] ?? ''),
     ),
-    StatefulShellRoute.indexedStack(
+    StatefulShellRoute(
       builder: (_, _, shell) => MainShell(shell: shell),
+      navigatorContainerBuilder: (_, shell, children) =>
+          FadeThroughTabs(currentIndex: shell.currentIndex, children: children),
       branches: [
         StatefulShellBranch(
           routes: [GoRoute(path: '/home', builder: (_, _) => const HomeScreen())],
@@ -61,10 +64,20 @@ final appRouter = GoRouter(
     GoRoute(path: '/search', builder: (_, _) => const SearchScreen()),
     GoRoute(
       path: '/product/:id',
-      builder: (_, state) => ProductDetailScreen(
-        key: ValueKey(state.pathParameters['id']),
-        productId: state.pathParameters['id']!,
-        heroTag: state.extra as String?,
+      // Plain fade (no slide/zoom) so the flying product photo is the only motion.
+      pageBuilder: (_, state) => CustomTransitionPage(
+        key: state.pageKey,
+        transitionDuration: const Duration(milliseconds: 750),
+        reverseTransitionDuration: const Duration(milliseconds: 600),
+        transitionsBuilder: (_, animation, _, child) => FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: child,
+        ),
+        child: ProductDetailScreen(
+          key: ValueKey(state.pathParameters['id']),
+          productId: state.pathParameters['id']!,
+          heroTag: state.extra as String?,
+        ),
       ),
     ),
     GoRoute(path: '/checkout', builder: (_, _) => const CheckoutScreen()),

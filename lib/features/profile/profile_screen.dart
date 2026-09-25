@@ -169,7 +169,8 @@ class ProfileScreen extends ConsumerWidget {
           Center(
             child: Text('Dellinoo v1.0.0', style: TextStyle(color: AppColors.muted, fontSize: 12)),
           ),
-          const SizedBox(height: 24),
+          // Room to scroll the last items clear of the floating nav bar.
+          SizedBox(height: kNavBarSpace + MediaQuery.paddingOf(context).bottom),
         ],
       ),
     );

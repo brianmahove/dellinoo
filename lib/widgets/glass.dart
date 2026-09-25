@@ -217,6 +217,7 @@ class _GlassBottomSheetRoute<T> extends ModalBottomSheetRoute<T> {
     super.capturedThemes,
     super.barrierLabel,
     super.modalBarrierColor,
+    super.constraints,
   });
 
   @override
@@ -250,7 +251,10 @@ Future<T?> showGlassBottomSheet<T>({
   final localizations = MaterialLocalizations.of(context);
   return navigator.push(
     _GlassBottomSheetRoute<T>(
-      builder: builder,
+      // Always edge to edge: without this a sheet with narrow content
+      // (e.g. a row of pills) shrinks and floats in the middle.
+      builder: (context) => SizedBox(width: double.infinity, child: builder(context)),
+      constraints: const BoxConstraints(maxWidth: double.infinity),
       isScrollControlled: isScrollControlled,
       capturedThemes: InheritedTheme.capture(from: context, to: navigator.context),
       barrierLabel: localizations.scrimOnTapHint(localizations.bottomSheetLabel),

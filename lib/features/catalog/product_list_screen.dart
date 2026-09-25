@@ -198,7 +198,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                   ),
                 )
               else
-                ProductSliverGrid(products),
+                ProductSliverGrid(products, animateKey: '${_filter.stock.name}-${_filter.sort.name}'),
             ],
           );
         },
