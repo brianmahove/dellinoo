@@ -3,8 +3,10 @@
 Flutter e-commerce app for a client who **buys goods in China and sells them to customers in Zimbabwe**. Think "a simpler SHEIN": clothes (men, women, kids), shoes, handbags, phones, watches, laptops, games, electronics.
 
 - **Platform:** Android first (package `com.dellinoo.app`). iOS later.
-- **Status:** customer UI complete on **mock data**. Backend, real auth, payments and admin panel are not built yet (see Roadmap).
+- **Status:** customer UI complete on **mock data**. Firebase project is wired in and real auth (email/password + Google) works; catalogue/orders still run on `MockCatalogRepository`. Payments and admin panel are not built yet (see Roadmap).
 - **Timeline agreed with client (Sep 2026):** UI shown Sat 27 Sep → backend the following week.
+- **Backend:** Firebase, project `mobile-billing-system-d2bfb` (existing project, reused). Admin panel is a separate Flutter **web** app in this repo, reusing the models, deployed on Firebase Hosting.
+- **Firebase Hosting** (`hosting/`, plain static HTML — not the Flutter web build) is already live at `https://mobile-billing-system-d2bfb.web.app`: `privacy.html` and `data-deletion.html`, used for Google/Facebook App Review. Redeploy with `firebase deploy --only hosting` (needs `firebase login` or a CI token once).
 
 ## Ownership & licence
 
@@ -54,8 +56,8 @@ lib/
   widgets/
     common.dart             shared UI: ProductCard, grids, pills, stepper, empty states, heroes
     glass.dart              GlassBox, glass dialogs/sheets/toasts
-    brand.dart              placeholder logo
-  features/<area>/          one folder per screen area
+    brand.dart              BrandMark/BrandLogo/BrandHero — the client's real bag-and-smile logo (assets/images/logo_*.png)
+  features/<area>/          one folder per screen area (auth/ includes welcome, login, signup, splash, otp)
 ```
 
 - **State:** Riverpod 3 (`Notifier` / `NotifierProvider`, no legacy `StateProvider`).
@@ -65,11 +67,11 @@ lib/
 
 ## Design system
 
-Design comes from reference mockups the user supplied: **yellow `#FFC107`, black `#020910`, grey, white on beige**, pill buttons, tinted product cards, floating nav bar. Font is **Urbanist** (free stand-in for the paid Gilroy; swap in `buildTheme`).
+Rebranded (Sep 2026) from the original yellow/black reference mockups to the client's real logo: **deep violet `#5B21D6`** (primary) with an **orange `#FF8A00`** accent, violet/orange gradients for brand moments and buttons, warm gold `#FFC107` kept only for ratings/stars. Black `#020910` stays for always-dark surfaces. Pill buttons, tinted product cards, floating nav bar. Font is **Urbanist** (free stand-in for the paid Gilroy; swap in `buildTheme`).
 
 ### Colours and dark mode
-- All colours live in `AppColors` (`lib/core/theme.dart`). Most are **getters that flip with `AppColors.dark`** — so they are **not `const`**; don't put them in `const` widgets.
-- Anything drawn **on yellow** must use `AppColors.black` (always black), never `AppColors.ink` (which turns light in dark mode).
+- All colours live in `AppColors` (`lib/core/theme.dart`). Most are **getters that flip with `AppColors.dark`** — so they are **not `const`**; don't put them in `const` widgets. `primary`/`primaryLight`/`accentOrange`/`gold`/`black`/`onPrimary` are fixed `const`s (same in both modes).
+- Anything drawn **on `primary` or `accentOrange`** must use `AppColors.onPrimary` (always white), never `AppColors.ink` (which turns light in dark mode).
 - Surfaces use `AppColors.surface`, not `Colors.white`. Text on an `ink`-filled surface uses `AppColors.onInk`.
 - Theme switching remounts `MaterialApp` (keyed by brightness); navigation and Riverpod state survive.
 
@@ -106,19 +108,18 @@ Design comes from reference mockups the user supplied: **yellow `#FFC107`, black
 - **Warranty / returns claims** on product pages (`_TrustBadges`: "6-month warranty", "7-day easy returns").
 - **Size charts** (`lib/features/product/size_guide.dart`), **delivery fees/areas/times**, `etaDays` (3 / 21).
 - Demo catalogue has no real kids' clothing or video games (Kids = girls' dresses, Games = sports balls).
-- Logo is a placeholder "D" mark (`lib/widgets/brand.dart`); final colours may change with the real logo.
-  The launcher icon uses the same mark: sources in `assets/icon/` (Urbanist ExtraBold "D"), config under
-  `flutter_launcher_icons` in `pubspec.yaml`; regenerate with `dart run flutter_launcher_icons`. The native
-  launch screen (`res/drawable*/launch_background.xml`, `values-v31`) is yellow with the D to avoid a white flash.
+- **Privacy Policy / Data Deletion pages** (`hosting/privacy.html`, `hosting/data-deletion.html`, deployed to Firebase Hosting for Facebook/Google App Review — see live URLs below): drafted by Claude, not reviewed by the client or a lawyer. Update once "delete my account" is a real feature.
+
+Resolved: the logo is now the client's real bag-and-smile mark (`assets/images/logo_*.png`, `lib/widgets/brand.dart`), and the launcher icon / native launch screen (`assets/icon/`, `res/drawable*/launch_background.xml`, `values-v31`) were updated to match in the violet/orange rebrand. Regenerate the launcher icon with `dart run flutter_launcher_icons` if `assets/icon/` changes again.
 
 ## Roadmap
 
 **Needed to launch**
-1. Backend + database (products, categories, stock, orders, users) behind `CatalogRepository`.
-2. Real phone OTP login (Zimbabwe numbers).
-3. Paynow payments + payment confirmation (replace the simulated `_PaymentDialog`).
-4. Admin panel: products/photos, stock type, order status updates, delivery areas & fees.
-5. Push notifications (order status, price drops).
+1. Firebase backend: Firestore (products, categories, stock, orders, users) behind `CatalogRepository`; Storage for product photos. Cart/wishlist/orders notifiers in `state/providers.dart` need to call it too, not just the repository. *(Firebase project wired in Sep 2026: `mobile-billing-system-d2bfb`, Android app `com.dellinoo.app`, `firebase_core`/`cloud_firestore`/`firebase_auth`/`firebase_storage` added, `Firebase.initializeApp()` in `main.dart` — Firestore/Storage not yet used by the repository.)*
+2. ~~Firebase Auth phone OTP login~~ **Done differently:** login/signup run on Firebase **Email/Password**, **Google Sign-In** and **Facebook Login** (`AuthNotifier` in `state/providers.dart`, wired into `login_screen.dart`/`signup_screen.dart`), matching the email/password UI from the violet/orange rebrand. Facebook app ID/client token live in `android/app/src/main/res/values/strings.xml` and `AndroidManifest.xml` (app "dellinoo", App ID `1347562878439050` — App Secret is Firebase-console-only, never in the repo). The Facebook app is still in **development mode** (missing real icon/category/privacy links for public App Review — see Placeholders). Apple Sign-In stays "coming soon" (no Apple Developer account yet; app is Android-only). The phone-OTP screen (`otp_screen.dart`) still exists but isn't linked into navigation — `AuthNotifier.signIn(phone)` stays a mock for it. Revisit if the client wants phone-only login later.
+3. Paynow payments + payment confirmation (replace the simulated `_PaymentDialog`), likely via Cloud Functions.
+4. Admin panel: separate Flutter web app in this repo (Firebase Hosting), covering products/photos, stock type, order status updates, delivery areas & fees.
+5. Push notifications via Firebase Cloud Messaging (order status, price drops).
 
 **Business extras**
 6. "Request an item" (paste SHEIN/Temu/Alibaba link or photo → quote).

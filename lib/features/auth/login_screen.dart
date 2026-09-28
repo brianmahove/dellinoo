@@ -21,7 +21,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _password = TextEditingController();
   bool _submitting = false;
 
-  bool get _valid => _identifier.text.trim().isNotEmpty && _password.text.isNotEmpty;
+  bool get _valid => emailPattern.hasMatch(_identifier.text.trim()) && _password.text.isNotEmpty;
 
   @override
   void dispose() {
@@ -32,10 +32,46 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _logIn() async {
     setState(() => _submitting = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    ref.read(authProvider.notifier).signInWithPassword(identifier: _identifier.text.trim(), password: _password.text);
-    context.go('/home');
+    try {
+      await ref
+          .read(authProvider.notifier)
+          .signInWithPassword(email: _identifier.text.trim(), password: _password.text);
+      if (!mounted) return;
+      context.go('/home');
+    } catch (e) {
+      final message = authErrorMessage(e);
+      if (mounted && message != null) showGlassToast(context, message);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _google() async {
+    setState(() => _submitting = true);
+    try {
+      await ref.read(authProvider.notifier).signInWithGoogle();
+      if (!mounted) return;
+      context.go('/home');
+    } catch (e) {
+      final message = authErrorMessage(e);
+      if (mounted && message != null) showGlassToast(context, message);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _facebook() async {
+    setState(() => _submitting = true);
+    try {
+      await ref.read(authProvider.notifier).signInWithFacebook();
+      if (!mounted) return;
+      context.go('/home');
+    } catch (e) {
+      final message = authErrorMessage(e);
+      if (mounted && message != null) showGlassToast(context, message);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   void _social(String provider) => showGlassToast(context, '$provider sign-in is coming soon');
@@ -74,10 +110,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
             const SizedBox(height: 20),
             AuthField(
-              label: 'Email or Phone Number',
+              label: 'Email Address',
               controller: _identifier,
               icon: IconlyLight.profile,
-              hint: 'Enter your email or phone number',
+              hint: 'Enter your email address',
               keyboardType: TextInputType.emailAddress,
               onChanged: (_) => setState(() {}),
             ),
@@ -108,11 +144,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             const SizedBox(height: 20),
             const AuthDivider(),
             const SizedBox(height: 16),
-            AuthSocialButton(provider: SocialProvider.google, onTap: () => _social('Google')),
+            AuthSocialButton(provider: SocialProvider.google, onTap: _submitting ? () {} : _google),
             const SizedBox(height: 12),
             AuthSocialButton(provider: SocialProvider.apple, onTap: () => _social('Apple')),
             const SizedBox(height: 12),
-            AuthSocialButton(provider: SocialProvider.facebook, onTap: () => _social('Facebook')),
+            AuthSocialButton(provider: SocialProvider.facebook, onTap: _submitting ? () {} : _facebook),
             const SizedBox(height: 24),
             Center(
               child: Wrap(

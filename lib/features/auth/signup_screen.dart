@@ -8,8 +8,6 @@ import '../../state/providers.dart';
 import '../../widgets/glass.dart';
 import 'auth_widgets.dart';
 
-final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
 
@@ -28,7 +26,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   bool get _valid =>
       _name.text.trim().isNotEmpty &&
-      _emailPattern.hasMatch(_email.text.trim()) &&
+      emailPattern.hasMatch(_email.text.trim()) &&
       _phone.text.replaceAll(' ', '').length == 9 &&
       _password.text.length >= 6 &&
       _confirm.text == _password.text &&
@@ -46,17 +44,51 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   Future<void> _signUp() async {
     setState(() => _submitting = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    ref
-        .read(authProvider.notifier)
-        .signUp(
-          name: _name.text.trim(),
-          email: _email.text.trim(),
-          phone: '+263 ${_phone.text}',
-          password: _password.text,
-        );
-    context.go('/home');
+    try {
+      await ref
+          .read(authProvider.notifier)
+          .signUp(
+            name: _name.text.trim(),
+            email: _email.text.trim(),
+            phone: '+263 ${_phone.text}',
+            password: _password.text,
+          );
+      if (!mounted) return;
+      context.go('/home');
+    } catch (e) {
+      final message = authErrorMessage(e);
+      if (mounted && message != null) showGlassToast(context, message);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _google() async {
+    setState(() => _submitting = true);
+    try {
+      await ref.read(authProvider.notifier).signInWithGoogle();
+      if (!mounted) return;
+      context.go('/home');
+    } catch (e) {
+      final message = authErrorMessage(e);
+      if (mounted && message != null) showGlassToast(context, message);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _facebook() async {
+    setState(() => _submitting = true);
+    try {
+      await ref.read(authProvider.notifier).signInWithFacebook();
+      if (!mounted) return;
+      context.go('/home');
+    } catch (e) {
+      final message = authErrorMessage(e);
+      if (mounted && message != null) showGlassToast(context, message);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   void _social(String provider) => showGlassToast(context, '$provider sign-up is coming soon');
@@ -153,11 +185,11 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             const SizedBox(height: 20),
             const AuthDivider(),
             const SizedBox(height: 16),
-            AuthSocialButton(provider: SocialProvider.google, onTap: () => _social('Google')),
+            AuthSocialButton(provider: SocialProvider.google, onTap: _submitting ? () {} : _google),
             const SizedBox(height: 12),
             AuthSocialButton(provider: SocialProvider.apple, onTap: () => _social('Apple')),
             const SizedBox(height: 12),
-            AuthSocialButton(provider: SocialProvider.facebook, onTap: () => _social('Facebook')),
+            AuthSocialButton(provider: SocialProvider.facebook, onTap: _submitting ? () {} : _facebook),
             const SizedBox(height: 24),
             Center(
               child: Wrap(

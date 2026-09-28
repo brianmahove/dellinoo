@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Dellinoo</string>
+
+    <!-- Facebook Login (see CLAUDE.md — Facebook App "dellinoo", App ID below). -->
+    <string name="facebook_app_id">1347562878439050</string>
+    <string name="fb_login_protocol_scheme">fb1347562878439050</string>
+    <string name="facebook_client_token">3acf225e667d99655023c6f18cfbcf95</string>
+</resources>

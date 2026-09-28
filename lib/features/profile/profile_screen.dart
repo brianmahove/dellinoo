@@ -182,9 +182,9 @@ class ProfileScreen extends ConsumerWidget {
             _Item(IconlyLight.setting, 'Settings', () => soon('Settings'), orange: true),
             _Item(IconlyLight.info_circle, 'About Dellinoo', () => context.push('/about')),
             if (user != null)
-              _Item(IconlyLight.logout, 'Sign out', () {
-                ref.read(authProvider.notifier).signOut();
-                context.go('/login');
+              _Item(IconlyLight.logout, 'Sign out', () async {
+                await ref.read(authProvider.notifier).signOut();
+                if (context.mounted) context.go('/login');
               }, danger: true),
           ]),
           const SizedBox(height: 16),

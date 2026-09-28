@@ -1,7 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../core/iconly.dart';
 import '../../core/theme.dart';
@@ -11,6 +13,29 @@ import '../../widgets/brand.dart';
 Color get authFieldFill => AppColors.dark ? AppColors.field : const Color(0xFFF1F0FB);
 
 const _fieldRadius = 16.0;
+
+/// Shared by login and sign-up so both validate email the same way.
+final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+/// A friendly message for a failed email/password or Google sign-in, or
+/// `null` if [error] is just the user cancelling a Google sign-in (no toast).
+String? authErrorMessage(Object error) {
+  if (error is GoogleSignInException && error.code == GoogleSignInExceptionCode.canceled) return null;
+  if (error is FirebaseAuthException) {
+    return switch (error.code) {
+      'canceled' => null, // Facebook login sheet dismissed — see AuthNotifier.signInWithFacebook.
+      'invalid-email' => 'That email address looks invalid.',
+      'user-disabled' => 'This account has been disabled.',
+      'user-not-found' || 'wrong-password' || 'invalid-credential' => 'Incorrect email or password.',
+      'email-already-in-use' => 'An account with that email already exists.',
+      'weak-password' => 'Choose a stronger password (at least 6 characters).',
+      'network-request-failed' => 'No internet connection. Check your network and try again.',
+      'too-many-requests' => 'Too many attempts. Please wait a moment and try again.',
+      _ => error.message ?? 'Something went wrong. Please try again.',
+    };
+  }
+  return 'Something went wrong. Please try again.';
+}
 
 /// Top of the sign up / log in screens: back arrow on the left, the full logo
 /// centred, and an optional [trailing] widget on the right.

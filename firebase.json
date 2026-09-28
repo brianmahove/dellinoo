@@ -1,0 +1,23 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "mobile-billing-system-d2bfb",
+          "appId": "1:239128341649:android:fa92d38452e837d462e330",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "mobile-billing-system-d2bfb",
+          "configurations": { "android": "1:239128341649:android:fa92d38452e837d462e330" }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "hosting",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  }
+}

@@ -1,5 +1,10 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart' show ThemeMode;
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/catalog_repository.dart';
@@ -33,22 +38,94 @@ final productProvider = Provider.family<Product?, String>((ref, id) {
 
 // ---------- Auth ----------
 
-class AuthNotifier extends Notifier<AppUser?> {
-  @override
-  AppUser? build() => null;
+/// Maps a Firebase [User] to the app's own [AppUser].
+AppUser? _appUserFrom(User? user) {
+  if (user == null) return null;
+  final displayName = user.displayName;
+  return AppUser(
+    name: (displayName != null && displayName.trim().isNotEmpty) ? displayName : (user.email ?? 'Dellinoo customer'),
+    phone: user.phoneNumber ?? '',
+    email: user.email,
+  );
+}
 
-  /// Phone + OTP sign-in (kept for when real OTP login lands, see roadmap).
+class AuthNotifier extends Notifier<AppUser?> {
+  StreamSubscription<User?>? _sub;
+
+  @override
+  AppUser? build() {
+    final auth = FirebaseAuth.instance;
+    ref.onDispose(() => _sub?.cancel());
+    // Keeps state in sync with sign-in/out from any source (password, Google,
+    // token expiry) and across app restarts (Firebase persists the session).
+    _sub = auth.authStateChanges().listen((user) => state = _appUserFrom(user));
+    return _appUserFrom(auth.currentUser);
+  }
+
+  /// Phone + OTP sign-in — kept for the (currently unlinked) OTP screen; see
+  /// CLAUDE.md roadmap. Real phone auth isn't wired in yet.
   void signIn(String phone) => state = AppUser(name: mockUser.name, phone: phone, email: mockUser.email);
 
-  /// Mock email/password sign-in: no backend yet, so any password is accepted.
-  void signInWithPassword({required String identifier, required String password}) =>
-      state = AppUser(name: mockUser.name, phone: mockUser.phone, email: mockUser.email);
+  Future<void> signInWithPassword({required String email, required String password}) =>
+      FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
 
-  /// Mock email/password sign-up: no backend yet, the account is created locally.
-  void signUp({required String name, required String email, required String phone, required String password}) =>
-      state = AppUser(name: name, phone: phone, email: email);
+  Future<void> signUp({
+    required String name,
+    required String email,
+    required String phone,
+    required String password,
+  }) async {
+    final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email, password: password);
+    await credential.user?.updateDisplayName(name);
+    // updateDisplayName doesn't update the cached currentUser on its own; reload
+    // so the authStateChanges listener above picks up the new name.
+    await FirebaseAuth.instance.currentUser?.reload();
+    state = _appUserFrom(FirebaseAuth.instance.currentUser);
+  }
 
-  void signOut() => state = null;
+  /// Throws [GoogleSignInException] (code `canceled`) if the user backs out.
+  Future<void> signInWithGoogle() async {
+    final account = await GoogleSignIn.instance.authenticate();
+    final idToken = account.authentication.idToken;
+    if (idToken == null) {
+      throw FirebaseAuthException(code: 'no-id-token', message: "Google didn't return a sign-in token.");
+    }
+    await FirebaseAuth.instance.signInWithCredential(GoogleAuthProvider.credential(idToken: idToken));
+  }
+
+  /// Throws a [FirebaseAuthException] with code `canceled` if the user backs
+  /// out of the Facebook sheet (see [authErrorMessage] in auth_widgets.dart,
+  /// which turns that into "no toast" rather than an error message).
+  Future<void> signInWithFacebook() async {
+    // `enabled` tracking returns a classic access token (needed by Firebase);
+    // the default `limited` tracking returns an iOS-only JWT that Firebase can't use.
+    final result = await FacebookAuth.instance.login(loginTracking: LoginTracking.enabled);
+    if (result.status == LoginStatus.cancelled) {
+      throw FirebaseAuthException(code: 'canceled', message: 'Sign in canceled');
+    }
+    final token = result.accessToken?.tokenString;
+    if (result.status != LoginStatus.success || token == null) {
+      throw FirebaseAuthException(
+        code: 'facebook-login-failed',
+        message: result.message ?? "Facebook sign-in didn't complete.",
+      );
+    }
+    await FirebaseAuth.instance.signInWithCredential(FacebookAuthProvider.credential(token));
+  }
+
+  Future<void> signOut() async {
+    await FirebaseAuth.instance.signOut();
+    try {
+      await GoogleSignIn.instance.disconnect();
+    } catch (_) {
+      // Not signed in via Google, or already disconnected — fine either way.
+    }
+    try {
+      await FacebookAuth.instance.logOut();
+    } catch (_) {
+      // Not signed in via Facebook — fine.
+    }
+  }
 }
 
 final authProvider = NotifierProvider<AuthNotifier, AppUser?>(AuthNotifier.new);

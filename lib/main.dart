@@ -1,16 +1,27 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show LicenseEntryWithLineBreaks, LicenseRegistry;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'firebase_options.dart';
 import 'state/providers.dart';
 import 'widgets/motion.dart';
 
+/// The web OAuth client Firebase generated for this project (from
+/// `google-services.json`'s `oauth_client` entry) — required by `google_sign_in`
+/// on Android even though the app itself is Android-only.
+const _googleServerClientId = '239128341649-61jkt6to40lt318r8cbc6rrh8t3u24mv.apps.googleusercontent.com';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Must be called exactly once, before any other GoogleSignIn method.
+  await GoogleSignIn.instance.initialize(serverClientId: _googleServerClientId);
   // Iconly fonts are vendored (not a package), so add their licence by hand.
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks(['Iconly'], await rootBundle.loadString('assets/fonts/ICONLY_LICENSE'));
