@@ -264,8 +264,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               color: AppColors.surface,
               border: Border(top: BorderSide(color: AppColors.line)),
             ),
-            child: FilledButton(
+            child: GradientButton(
               onPressed: _placing ? null : _next,
+              trailingIcon: IconlyLight.arrow_right,
               child: _step < _steps.length - 1
                   ? const Text('Continue')
                   : Row(mainAxisSize: MainAxisSize.min, children: [const Text('Pay '), AnimatedMoney(subtotal + fee)]),
@@ -298,7 +299,7 @@ class _StepIndicator extends StatelessWidget {
                   height: 3,
                   margin: const EdgeInsets.symmetric(horizontal: 6),
                   decoration: BoxDecoration(
-                    color: i <= current ? AppColors.primary : AppColors.line,
+                    color: i <= current ? AppColors.accentOrange : AppColors.line,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -314,13 +315,13 @@ class _StepIndicator extends StatelessWidget {
               ),
               child: Center(
                 child: i < current
-                    ? const Icon(Icons.check_rounded, size: 16, color: AppColors.black)
+                    ? const Icon(Icons.check_rounded, size: 16, color: AppColors.onPrimary)
                     : Text(
                         '${i + 1}',
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 13,
-                          color: i <= current ? AppColors.black : AppColors.muted,
+                          color: i <= current ? AppColors.onPrimary : AppColors.muted,
                         ),
                       ),
               ),
@@ -411,7 +412,7 @@ class _SelectTile extends StatelessWidget {
             children: [
               Icon(
                 selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                color: selected ? AppColors.ink : AppColors.muted,
+                color: selected ? AppColors.accentOrange : AppColors.muted,
                 size: 20,
               ),
               const SizedBox(width: 10),
@@ -478,7 +479,10 @@ class _AmountRow extends StatelessWidget {
         children: [
           Text(label, style: style),
           const Spacer(),
-          amount == null ? Text(value, style: style) : AnimatedMoney(amount!, style: style),
+          // The bold total is the price the customer pays, so it wears the violet.
+          amount == null
+              ? Text(value, style: style)
+              : AnimatedMoney(amount!, style: bold ? style.copyWith(color: AppColors.accent) : style),
         ],
       ),
     );

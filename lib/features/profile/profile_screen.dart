@@ -31,15 +31,24 @@ class ProfileScreen extends ConsumerWidget {
           Container(
             margin: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 16, 20, 0),
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(26)),
+            // Same violet-to-orange gradient as the home banners; text is always white.
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF4C1DB8), AppColors.primary, AppColors.accentOrange],
+                stops: [0, 0.6, 1],
+              ),
+              borderRadius: BorderRadius.circular(26),
+            ),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 32,
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: Colors.white,
                   child: Text(
                     user == null ? '?' : user.name.split(' ').map((w) => w[0]).take(2).join(),
-                    style: TextStyle(color: AppColors.ink, fontSize: 22, fontWeight: FontWeight.w800),
+                    style: const TextStyle(color: AppColors.primary, fontSize: 22, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -48,19 +57,20 @@ class ProfileScreen extends ConsumerWidget {
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'Welcome to Dellinoo',
-                              style: TextStyle(color: AppColors.onInk, fontSize: 18, fontWeight: FontWeight.w700),
+                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
                             ),
-                            const SizedBox(height: 6),
-                            OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.black,
-                                backgroundColor: AppColors.primary,
-                                minimumSize: const Size(120, 38),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: 140,
+                              child: GradientButton(
+                                height: 40,
+                                colors: AppColors.orangeGradient,
+                                trailingIcon: IconlyLight.arrow_right,
+                                onPressed: () => context.go('/login'),
+                                child: const Text('Sign in', style: TextStyle(fontSize: 14)),
                               ),
-                              onPressed: () => context.go('/login'),
-                              child: const Text('Sign in'),
                             ),
                           ],
                         )
@@ -69,9 +79,9 @@ class ProfileScreen extends ConsumerWidget {
                           children: [
                             Text(
                               user.name,
-                              style: TextStyle(color: AppColors.onInk, fontSize: 19, fontWeight: FontWeight.w700),
+                              style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700),
                             ),
-                            Text(user.phone, style: TextStyle(color: AppColors.onInk.withValues(alpha: 0.7))),
+                            Text(user.phone, style: TextStyle(color: Colors.white.withValues(alpha: 0.85))),
                           ],
                         ),
                 ),
@@ -109,6 +119,7 @@ class ProfileScreen extends ConsumerWidget {
                           OrderStatus.arrivedZim,
                         }.contains(o.status),
                       ),
+                      orange: true,
                     ),
                     _OrderShortcut(
                       Icons.local_shipping_outlined,
@@ -119,6 +130,7 @@ class ProfileScreen extends ConsumerWidget {
                       IconlyLight.tick_square,
                       'Delivered',
                       count((o) => o.status == OrderStatus.delivered),
+                      orange: true,
                     ),
                   ],
                 ),
@@ -126,13 +138,20 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           _Group([
-            _Item(IconlyLight.paper, 'My orders', () => context.push('/orders')),
-            _Item(IconlyLight.heart, 'Wishlist', () => context.push('/wishlist')),
-            _Item(IconlyLight.location, 'Delivery addresses', () => soon('Addresses'), subtitle: mockAddress.oneLine),
+            // Icons alternate orange / violet down the menu (the `orange` flag).
+            _Item(IconlyLight.paper, 'My orders', () => context.push('/orders'), orange: true),
+            _Item(IconlyLight.heart, 'Wishlist', () => context.go('/wishlist')),
+            _Item(
+              IconlyLight.location,
+              'Delivery addresses',
+              () => soon('Addresses'),
+              subtitle: mockAddress.oneLine,
+              orange: true,
+            ),
           ]),
           _Group([
             _Item(IconlyLight.chat, 'Chat with us on WhatsApp', () => openWhatsApp('Hi Dellinoo, I have a question.')),
-            _Item(IconlyLight.info_square, 'Help & FAQs', () => soon('Help')),
+            _Item(IconlyLight.info_square, 'Help & FAQs', () => soon('Help'), orange: true),
             _Item(Icons.local_shipping_outlined, 'Delivery information', () => soon('Delivery info')),
           ]),
           _Group([
@@ -145,9 +164,10 @@ class ProfileScreen extends ConsumerWidget {
                 ThemeMode.light => 'Light',
                 ThemeMode.dark => 'Dark',
               },
+              orange: true,
             ),
             SwitchListTile(
-              secondary: Icon(IconlyLight.download, color: AppColors.ink),
+              secondary: Icon(IconlyLight.download, color: AppColors.accent),
               title: Text(
                 'Data saver',
                 style: TextStyle(color: AppColors.ink, fontSize: 14, fontWeight: FontWeight.w500),
@@ -159,7 +179,7 @@ class ProfileScreen extends ConsumerWidget {
               value: ref.watch(dataSaverProvider),
               onChanged: ref.read(dataSaverProvider.notifier).set,
             ),
-            _Item(IconlyLight.setting, 'Settings', () => soon('Settings')),
+            _Item(IconlyLight.setting, 'Settings', () => soon('Settings'), orange: true),
             _Item(IconlyLight.info_circle, 'About Dellinoo', () => context.push('/about')),
             if (user != null)
               _Item(IconlyLight.logout, 'Sign out', () {
@@ -204,11 +224,12 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 class _OrderShortcut extends StatelessWidget {
-  const _OrderShortcut(this.icon, this.label, this.count);
+  const _OrderShortcut(this.icon, this.label, this.count, {this.orange = false});
 
   final IconData icon;
   final String label;
   final int count;
+  final bool orange;
 
   @override
   Widget build(BuildContext context) {
@@ -223,7 +244,7 @@ class _OrderShortcut extends StatelessWidget {
               Badge(
                 isLabelVisible: count > 0,
                 label: Text('$count'),
-                child: Icon(icon, color: AppColors.ink),
+                child: Icon(icon, color: orange ? AppColors.accentOrange : AppColors.accent),
               ),
               const SizedBox(height: 6),
               Text(label, style: const TextStyle(fontSize: 12.5)),
@@ -256,7 +277,7 @@ class _Group extends StatelessWidget {
 }
 
 class _Item extends StatelessWidget {
-  const _Item(this.icon, this.title, this.onTap, {this.subtitle, this.danger = false});
+  const _Item(this.icon, this.title, this.onTap, {this.subtitle, this.danger = false, this.orange = false});
 
   final IconData icon;
   final String title;
@@ -264,12 +285,16 @@ class _Item extends StatelessWidget {
   final VoidCallback onTap;
   final bool danger;
 
+  /// Orange icon instead of violet, so the list alternates.
+  final bool orange;
+
   @override
   Widget build(BuildContext context) {
     final color = danger ? AppColors.sale : AppColors.ink;
     return ListTile(
       onTap: onTap,
-      leading: Icon(icon, color: color),
+      // Icons alternate brand violet / orange; "Sign out" stays red as a destructive action.
+      leading: Icon(icon, color: danger ? AppColors.sale : (orange ? AppColors.accentOrange : AppColors.accent)),
       title: Text(
         title,
         style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w500),

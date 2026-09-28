@@ -185,7 +185,7 @@ class _TimelineState extends State<_Timeline> with SingleTickerProviderStateMixi
                                 shape: BoxShape.circle,
                                 border: Border.all(color: done ? AppColors.primary : AppColors.line),
                               ),
-                              child: Icon(steps[i].icon, size: 15, color: done ? AppColors.black : AppColors.muted),
+                              child: Icon(steps[i].icon, size: 15, color: done ? AppColors.onPrimary : AppColors.muted),
                             ),
                           );
                         }(),
@@ -310,7 +310,7 @@ class _Row extends StatelessWidget {
         children: [
           Text(label, style: style),
           const Spacer(),
-          Text(value, style: style),
+          Text(value, style: bold ? style.copyWith(color: AppColors.accent) : style),
         ],
       ),
     );
@@ -486,7 +486,7 @@ class _ConnectorPainter extends CustomPainter {
         Offset(x, 0),
         Offset(x, size.height * progress),
         Paint()
-          ..color = AppColors.primary
+          ..color = AppColors.accentOrange
           ..strokeWidth = 2,
       );
     }

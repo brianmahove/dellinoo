@@ -223,8 +223,8 @@ class _DrawnCheckState extends State<DrawnCheck> with SingleTickerProviderStateM
           child: Container(
             width: widget.size,
             height: widget.size,
-            decoration: BoxDecoration(color: AppColors.inStockSoft, shape: BoxShape.circle),
-            child: CustomPaint(painter: _CheckPainter(draw, AppColors.inStock)),
+            decoration: BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle),
+            child: CustomPaint(painter: _CheckPainter(draw, AppColors.accentOrange)),
           ),
         );
       },
@@ -278,7 +278,7 @@ class _ConfettiBurstState extends State<ConfettiBurst> with SingleTickerProvider
   void initState() {
     super.initState();
     final r = math.Random();
-    const colors = [AppColors.primary, AppColors.black, Color(0xFFFFE08A), Colors.white, Color(0xFF1E8E52)];
+    const colors = [AppColors.primary, AppColors.accentOrange, AppColors.gold, Colors.white, Color(0xFF1E8E52)];
     _pieces = List.generate(
       widget.count,
       (_) => _Piece(

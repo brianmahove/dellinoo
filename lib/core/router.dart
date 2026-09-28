@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/login_screen.dart';
 import '../features/profile/about_screen.dart';
 import '../features/auth/otp_screen.dart';
+import '../features/auth/signup_screen.dart';
 import '../features/auth/splash_screen.dart';
 import '../features/auth/welcome_screen.dart';
 import '../features/cart/cart_screen.dart';
@@ -27,6 +28,7 @@ final appRouter = GoRouter(
     GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
     GoRoute(path: '/welcome', builder: (_, _) => const WelcomeScreen()),
     GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+    GoRoute(path: '/signup', builder: (_, _) => const SignUpScreen()),
     GoRoute(
       path: '/otp',
       builder: (_, state) => OtpScreen(phone: state.uri.queryParameters['phone'] ?? ''),
@@ -46,11 +48,13 @@ final appRouter = GoRouter(
           routes: [GoRoute(path: '/cart', builder: (_, _) => const CartScreen())],
         ),
         StatefulShellBranch(
+          routes: [GoRoute(path: '/wishlist', builder: (_, _) => const WishlistScreen())],
+        ),
+        StatefulShellBranch(
           routes: [GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen())],
         ),
       ],
     ),
-    GoRoute(path: '/wishlist', builder: (_, _) => const WishlistScreen()),
     GoRoute(path: '/about', builder: (_, _) => const AboutScreen()),
     GoRoute(
       path: '/products',

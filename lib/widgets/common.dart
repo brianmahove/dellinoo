@@ -153,8 +153,18 @@ class PageHeader extends StatelessWidget implements PreferredSizeWidget {
 
 /// White search pill with the yellow circular search button.
 class SearchPill extends StatelessWidget {
-  const SearchPill({super.key, this.onTap, this.controller, this.onChanged, this.onSubmitted, this.autofocus = false});
+  const SearchPill({
+    super.key,
+    this.onTap,
+    this.controller,
+    this.onChanged,
+    this.onSubmitted,
+    this.autofocus = false,
+    this.fill,
+  });
 
+  /// Pill background; defaults to [AppColors.surface].
+  final Color? fill;
   final VoidCallback? onTap;
   final TextEditingController? controller;
   final ValueChanged<String>? onChanged;
@@ -169,7 +179,7 @@ class SearchPill extends StatelessWidget {
       child: Container(
         height: 52,
         padding: const EdgeInsets.only(left: 20, right: 5),
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(26)),
+        decoration: BoxDecoration(color: fill ?? AppColors.surface, borderRadius: BorderRadius.circular(26)),
         child: Row(
           children: [
             Expanded(
@@ -197,7 +207,7 @@ class SearchPill extends StatelessWidget {
               width: 42,
               height: 42,
               decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-              child: const Icon(IconlyLight.search, color: AppColors.black, size: 22),
+              child: const Icon(IconlyLight.search, color: AppColors.onPrimary, size: 22),
             ),
           ],
         ),
@@ -241,6 +251,71 @@ class StockBadge extends StatelessWidget {
   }
 }
 
+/// Full-width pill button with a gradient fill and optional icons. Violet by
+/// default; pass [AppColors.orangeGradient] for the second, pop-out action
+/// (e.g. violet "Add to Cart" beside orange "Buy Now").
+class GradientButton extends StatelessWidget {
+  const GradientButton({
+    super.key,
+    required this.onPressed,
+    required this.child,
+    this.icon,
+    this.trailingIcon,
+    this.colors = AppColors.buttonGradient,
+    this.height = 54,
+  });
+
+  final VoidCallback? onPressed;
+  final Widget child;
+  final IconData? icon;
+  final IconData? trailingIcon;
+  final List<Color> colors;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: colors),
+          borderRadius: BorderRadius.circular(height / 2),
+          boxShadow: enabled
+              ? [BoxShadow(color: colors.last.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 8))]
+              : null,
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(height / 2),
+            onTap: onPressed,
+            child: SizedBox(
+              height: height,
+              child: Center(
+                child: DefaultTextStyle.merge(
+                  style: const TextStyle(color: AppColors.onPrimary, fontWeight: FontWeight.w700, fontSize: 16),
+                  child: IconTheme.merge(
+                    data: const IconThemeData(color: AppColors.onPrimary, size: 20),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (icon != null) ...[Icon(icon), const SizedBox(width: 8)],
+                        Flexible(child: child),
+                        if (trailingIcon != null) ...[const SizedBox(width: 8), Icon(trailingIcon)],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class PriceText extends StatelessWidget {
   const PriceText(this.product, {super.key, this.size = 16, this.color});
 
@@ -250,7 +325,8 @@ class PriceText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = this.color ?? AppColors.ink;
+    // Prices are violet, like the brand mark (a lighter violet in dark mode).
+    final color = this.color ?? AppColors.accent;
     final onDark = this.color != null;
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.end,
@@ -316,7 +392,7 @@ class RatingPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(IconlyBold.star, size: 16, color: AppColors.primary),
+          const Icon(IconlyBold.star, size: 16, color: AppColors.gold),
           const SizedBox(width: 2),
           Text(rating.toStringAsFixed(1), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
         ],
@@ -381,10 +457,13 @@ class ProductCard extends StatelessWidget {
                       top: 42,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(color: AppColors.black, borderRadius: BorderRadius.circular(10)),
+                        decoration: BoxDecoration(
+                          color: AppColors.accentOrange,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         child: Text(
                           '-${product.discountPercent}%',
-                          style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w800),
+                          style: const TextStyle(color: AppColors.onPrimary, fontSize: 11, fontWeight: FontWeight.w800),
                         ),
                       ),
                     ),
@@ -525,7 +604,7 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 22, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       child: Row(
         children: [
           Expanded(
@@ -569,7 +648,7 @@ class PillChip extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? AppColors.black : AppColors.ink,
+                color: selected ? AppColors.onPrimary : AppColors.ink,
                 fontFamily: DefaultTextStyle.of(context).style.fontFamily,
               ),
               child: Text(label),
@@ -591,7 +670,7 @@ class FilterButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.ink,
+      color: AppColors.accentOrange,
       shape: const StadiumBorder(),
       child: InkWell(
         customBorder: const StadiumBorder(),
@@ -603,14 +682,14 @@ class FilterButton extends StatelessWidget {
             children: [
               Text(
                 'Filter',
-                style: TextStyle(color: AppColors.onInk, fontWeight: FontWeight.w600, fontSize: 15),
+                style: const TextStyle(color: AppColors.onPrimary, fontWeight: FontWeight.w600, fontSize: 15),
               ),
               const SizedBox(width: 12),
               Container(
                 width: 34,
                 height: 34,
-                decoration: BoxDecoration(color: active ? AppColors.primary : AppColors.onInk, shape: BoxShape.circle),
-                child: const Icon(IconlyLight.filter, size: 18, color: AppColors.black),
+                decoration: BoxDecoration(color: active ? AppColors.primary : Colors.white, shape: BoxShape.circle),
+                child: Icon(IconlyLight.filter, size: 18, color: active ? AppColors.onPrimary : AppColors.accentOrange),
               ),
             ],
           ),
@@ -646,7 +725,7 @@ class QuantityStepper extends StatelessWidget {
         child: Icon(
           icon,
           size: d * 0.6,
-          color: onTap == null ? AppColors.line : (filled ? AppColors.black : AppColors.ink),
+          color: onTap == null ? AppColors.line : (filled ? AppColors.onPrimary : AppColors.ink),
         ),
       ),
     );

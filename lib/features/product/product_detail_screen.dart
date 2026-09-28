@@ -502,11 +502,17 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(onPressed: () => _addWithAnimation(product), child: const Text('Add to Cart')),
+                  child: GradientButton(
+                    onPressed: () => _addWithAnimation(product),
+                    icon: IconlyBold.buy,
+                    child: const Text('Add to Cart'),
+                  ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton(
+                  child: GradientButton(
+                    colors: AppColors.orangeGradient,
+                    icon: Icons.bolt_rounded,
                     onPressed: () {
                       final options = _selectedOptions(product);
                       if (options == null) return;
@@ -536,7 +542,7 @@ class _Rating extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(IconlyBold.star, color: AppColors.primary, size: 20),
+        const Icon(IconlyBold.star, color: AppColors.gold, size: 20),
         const SizedBox(width: 2),
         Text('${product.rating.toStringAsFixed(1)}/5', style: const TextStyle(fontWeight: FontWeight.w700)),
         Text(' (${product.soldCount} sold)', style: TextStyle(color: AppColors.muted, fontSize: 13)),

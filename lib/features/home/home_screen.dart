@@ -9,7 +9,9 @@ import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
+import '../../widgets/brand.dart';
 import '../../widgets/common.dart';
+import '../../widgets/glass.dart';
 import '../../widgets/motion.dart';
 import '../catalog/product_list_screen.dart';
 import '../../core/iconly.dart';
@@ -31,7 +33,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final wishCount = ref.watch(wishlistProvider).length;
+    final cartCount = ref.watch(cartCountProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -43,21 +45,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onRefresh: () => ref.refresh(productsProvider.future),
               builder: logoRefreshIndicator,
             ),
+            // Logo on the left, notifications and cart on the right, search underneath.
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                 child: Row(
                   children: [
-                    Expanded(child: SearchPill(onTap: () => context.push('/search'))),
-                    const SizedBox(width: 12),
+                    const BrandLogo(width: 168),
+                    const Spacer(),
                     CircleIconButton(
-                      icon: IconlyLight.heart,
-                      size: 52,
-                      badge: wishCount,
-                      onTap: () => context.push('/wishlist'),
+                      icon: IconlyLight.notification,
+                      color: AppColors.tint,
+                      onTap: () => showGlassToast(context, 'Notifications are coming soon'),
+                    ),
+                    const SizedBox(width: 10),
+                    CircleIconButton(
+                      icon: IconlyLight.buy,
+                      color: AppColors.tint,
+                      badge: cartCount,
+                      onTap: () => context.go('/cart'),
                     ),
                   ],
                 ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: SearchPill(fill: AppColors.tint, onTap: () => context.push('/search')),
               ),
             ),
             const SliverToBoxAdapter(child: _BannerCarousel()),
@@ -148,7 +163,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ),
                     ),
-                    ProductSliverGrid(recommended, animateKey: '${_filter.stock.name}-${_filter.sort.name}'),
+                    ProductSliverGrid(
+                      recommended,
+                      heroScope: 'home',
+                      animateKey: '${_filter.stock.name}-${_filter.sort.name}',
+                    ),
                   ],
                 );
               },
@@ -161,41 +180,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
+/// A hero banner: white headline (second line in [highlightColor]), a short
+/// subtitle and an orange "Shop Now" pill over a violet gradient. Text is
+/// always white, so the banners look the same in light and dark mode.
 class _Banner {
-  const _Banner(this.title, this.highlight, this.image, this.background, this.foreground, this.link);
+  const _Banner({
+    required this.title,
+    required this.highlight,
+    required this.subtitle,
+    required this.image,
+    required this.gradient,
+    required this.link,
+    this.stops,
+    this.icon,
+  });
 
   final String title;
   final String highlight;
+  final String subtitle;
   final String image;
-  final Color background;
-  final Color foreground;
+  final List<Color> gradient;
+  final List<double>? stops;
   final String link;
+
+  /// Amber second headline line and symbol, readable on every banner gradient.
+  Color get highlightColor => AppColors.orangeGradient.first;
+
+  /// Optional symbol before the headline (e.g. the bolt on "Daily Deals").
+  final IconData? icon;
 }
 
 final _banners = [
   _Banner(
-    'Get Your Special\nSale ',
-    'Up to 30%',
-    "https://cdn.dummyjson.com/product-images/womens-dresses/black-women's-gown/thumbnail.webp",
-    AppColors.primary,
-    AppColors.black,
-    productsLink(title: 'Hot Deals', collection: ProductCollection.deals),
+    title: 'Shop Brands.\n',
+    highlight: 'Better Prices.',
+    subtitle: 'Shop your favourite brands all in one place.',
+    image: 'https://cdn.dummyjson.com/product-images/mens-shoes/nike-air-jordan-1-red-and-black/thumbnail.webp',
+    gradient: const [Color(0xFF4C1DB8), AppColors.primary, AppColors.accentOrange],
+    stops: const [0, 0.55, 1],
+    link: productsLink(title: 'All products'),
   ),
   _Banner(
-    'Latest Phones\nWith ',
-    'Warranty',
-    'https://cdn.dummyjson.com/product-images/smartphones/iphone-13-pro/thumbnail.webp',
-    AppColors.black,
-    Colors.white,
-    productsLink(title: 'Phones', category: 'phones'),
+    title: 'Top Picks\n',
+    highlight: 'for You',
+    subtitle: 'Trending phones, just for you.',
+    image: 'https://cdn.dummyjson.com/product-images/smartphones/iphone-13-pro/thumbnail.webp',
+    gradient: const [Color(0xFF3B1899), AppColors.primary, AppColors.primaryLight],
+    link: productsLink(title: 'Phones', category: 'phones'),
   ),
   _Banner(
-    'Fresh Sneakers\nFrom ',
-    '\$89',
-    'https://cdn.dummyjson.com/product-images/mens-shoes/nike-air-jordan-1-red-and-black/thumbnail.webp',
-    const Color(0xFFE6DDD3),
-    AppColors.black,
-    productsLink(title: 'Shoes', category: 'shoes'),
+    title: 'Daily Deals\n',
+    highlight: 'Up to 30% off',
+    subtitle: "Don't miss out on amazing offers!",
+    image: "https://cdn.dummyjson.com/product-images/womens-dresses/black-women's-gown/thumbnail.webp",
+    gradient: const [Color(0xFF2A0F73), AppColors.primary, Color(0xFFB4530A)],
+    stops: const [0, 0.6, 1],
+    icon: Icons.bolt_rounded,
+    link: productsLink(title: 'Hot Deals', collection: ProductCollection.deals),
   ),
 ];
 
@@ -237,7 +278,7 @@ class _BannerCarouselState extends State<_BannerCarousel> {
       children: [
         const SizedBox(height: 20),
         SizedBox(
-          height: 168,
+          height: 184,
           child: PageView.builder(
             controller: _controller,
             itemCount: _banners.length,
@@ -250,82 +291,113 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                 return (i - (_controller.page ?? 0)).clamp(-1.0, 1.0).toDouble();
               }
 
-              final ctaDark = b.foreground == AppColors.black;
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Material(
-                  color: b.background,
-                  borderRadius: BorderRadius.circular(26),
+                child: Container(
                   clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () => context.push(b.link),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: AnimatedBuilder(
-                            animation: _controller,
-                            builder: (_, child) => Transform.translate(offset: Offset(delta() * 30, 0), child: child),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(22, 18, 4, 18),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text.rich(
-                                    TextSpan(
-                                      text: b.title,
-                                      children: [
-                                        TextSpan(
-                                          text: b.highlight,
-                                          style: const TextStyle(decoration: TextDecoration.underline),
-                                        ),
-                                      ],
-                                    ),
-                                    style: TextStyle(
-                                      color: b.foreground,
-                                      fontSize: 20,
-                                      height: 1.2,
-                                      fontWeight: FontWeight.w800,
-                                      decorationColor: b.foreground,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: ctaDark ? AppColors.black : AppColors.primary,
-                                      borderRadius: BorderRadius.circular(22),
-                                    ),
-                                    child: Text(
-                                      'Shop Now',
-                                      style: TextStyle(
-                                        color: ctaDark ? Colors.white : AppColors.black,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 150,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(0, 12, 12, 0),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(26),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: b.gradient,
+                      stops: b.stops,
+                    ),
+                  ),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                      onTap: () => context.push(b.link),
+                      child: Row(
+                        children: [
+                          Expanded(
                             child: AnimatedBuilder(
                               animation: _controller,
-                              // Photo drifts further than the text: depth.
-                              builder: (_, child) => Transform.translate(
-                                offset: Offset(delta() * 90, 0),
-                                child: Transform.scale(scale: 1 - delta().abs() * 0.12, child: child),
+                              builder: (_, child) => Transform.translate(offset: Offset(delta() * 30, 0), child: child),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 16, 0, 16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text.rich(
+                                      TextSpan(
+                                        children: [
+                                          if (b.icon != null)
+                                            WidgetSpan(
+                                              alignment: PlaceholderAlignment.middle,
+                                              child: Icon(b.icon, color: b.highlightColor, size: 24),
+                                            ),
+                                          TextSpan(text: b.title),
+                                          TextSpan(
+                                            text: b.highlight,
+                                            style: TextStyle(color: b.highlightColor),
+                                          ),
+                                        ],
+                                      ),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 21,
+                                        height: 1.15,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      b.subtitle,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.9),
+                                        fontSize: 12,
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(colors: AppColors.orangeGradient),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'Shop Now',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          SizedBox(width: 6),
+                                          Icon(IconlyLight.arrow_right, size: 14, color: Colors.white),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              child: NetImage(b.image, fit: BoxFit.contain),
                             ),
                           ),
-                        ),
-                      ],
+                          SizedBox(
+                            width: 150,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(0, 12, 12, 0),
+                              child: AnimatedBuilder(
+                                animation: _controller,
+                                // Photo drifts further than the text: depth.
+                                builder: (_, child) => Transform.translate(
+                                  offset: Offset(delta() * 90, 0),
+                                  child: Transform.scale(scale: 1 - delta().abs() * 0.12, child: child),
+                                ),
+                                child: NetImage(b.image, fit: BoxFit.contain),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -392,7 +464,7 @@ class _CategoryRow extends ConsumerWidget {
                       width: 64,
                       height: 64,
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: AppColors.surface, shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: AppColors.tint, shape: BoxShape.circle),
                       child: image == null
                           ? Icon(c.icon, color: AppColors.ink)
                           : ClipOval(child: NetImage(image, fit: BoxFit.contain)),
@@ -456,7 +528,10 @@ class _RecentRow extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(money(p.price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    Text(
+                      money(p.price),
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.accent),
+                    ),
                     Text(
                       p.name,
                       maxLines: 1,

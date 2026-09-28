@@ -144,7 +144,14 @@ class _Art extends StatelessWidget {
           Container(
             width: 250,
             height: 250,
-            decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: AppColors.brandGradient,
+              ),
+              shape: BoxShape.circle,
+            ),
           ),
           ...children,
         ],

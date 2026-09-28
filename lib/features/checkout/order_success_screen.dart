@@ -6,6 +6,7 @@ import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
+import '../../widgets/common.dart';
 import '../../widgets/motion.dart';
 
 class OrderSuccessScreen extends ConsumerWidget {
@@ -51,9 +52,13 @@ class OrderSuccessScreen extends ConsumerWidget {
                     style: const TextStyle(height: 1.5),
                   ),
                   const Spacer(),
-                  FilledButton(onPressed: () => context.go('/orders/$orderId'), child: const Text('Track my order')),
+                  GradientButton(onPressed: () => context.go('/orders/$orderId'), child: const Text('Track my order')),
                   const SizedBox(height: 12),
-                  OutlinedButton(onPressed: () => context.go('/home'), child: const Text('Continue shopping')),
+                  GradientButton(
+                    onPressed: () => context.go('/home'),
+                    colors: AppColors.orangeGradient,
+                    child: const Text('Continue shopping'),
+                  ),
                 ],
               ),
             ),

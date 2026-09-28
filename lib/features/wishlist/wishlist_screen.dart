@@ -14,19 +14,22 @@ class WishlistScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ids = ref.watch(wishlistProvider).keys.toSet();
     return Scaffold(
-      appBar: const PageHeader(title: 'Wishlist'),
+      appBar: const PageHeader(title: 'Wishlist', showBack: false),
       body: ProductsBuilder(
         builder: (all) {
           final products = all.where((p) => ids.contains(p.id)).toList();
           final drops = products.where((p) => ref.watch(priceDropProvider(p.id)) != null).length;
           if (products.isEmpty) {
-            return EmptyState(
-              icon: IconlyLight.heart,
-              title: 'No saved items',
-              message: 'Tap the heart on any product to save it for later.',
-              action: SizedBox(
-                width: 200,
-                child: FilledButton(onPressed: () => context.go('/home'), child: const Text('Discover items')),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: kNavBarSpace),
+              child: EmptyState(
+                icon: IconlyLight.heart,
+                title: 'No saved items',
+                message: 'Tap the heart on any product to save it for later.',
+                action: SizedBox(
+                  width: 200,
+                  child: FilledButton(onPressed: () => context.go('/home'), child: const Text('Discover items')),
+                ),
               ),
             );
           }
@@ -56,6 +59,7 @@ class WishlistScreen extends ConsumerWidget {
                   ),
                 ),
               ProductSliverGrid(products, heroScope: 'wishlist', showPriceDrop: true),
+              const SliverToBoxAdapter(child: SizedBox(height: kNavBarSpace)),
             ],
           );
         },

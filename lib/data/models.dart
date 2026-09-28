@@ -176,8 +176,9 @@ class Order {
 }
 
 class AppUser {
-  const AppUser({required this.name, required this.phone});
+  const AppUser({required this.name, required this.phone, this.email});
 
   final String name;
   final String phone;
+  final String? email;
 }

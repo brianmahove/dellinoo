@@ -110,7 +110,7 @@ void showSizeGuide(BuildContext context, String categoryId) {
                         child: Text(
                           c,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 13),
+                          style: const TextStyle(color: AppColors.onPrimary, fontWeight: FontWeight.w800, fontSize: 13),
                         ),
                       ),
                   ],

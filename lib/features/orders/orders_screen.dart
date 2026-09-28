@@ -110,7 +110,10 @@ class OrderCard extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(money(order.total), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                        Text(
+                          money(order.total),
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.accent),
+                        ),
                         Text(
                           '${order.itemCount} ${order.itemCount == 1 ? 'item' : 'items'}',
                           style: TextStyle(color: AppColors.muted, fontSize: 12),

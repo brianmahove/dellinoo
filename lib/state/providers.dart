@@ -37,7 +37,17 @@ class AuthNotifier extends Notifier<AppUser?> {
   @override
   AppUser? build() => null;
 
-  void signIn(String phone) => state = AppUser(name: mockUser.name, phone: phone);
+  /// Phone + OTP sign-in (kept for when real OTP login lands, see roadmap).
+  void signIn(String phone) => state = AppUser(name: mockUser.name, phone: phone, email: mockUser.email);
+
+  /// Mock email/password sign-in: no backend yet, so any password is accepted.
+  void signInWithPassword({required String identifier, required String password}) =>
+      state = AppUser(name: mockUser.name, phone: mockUser.phone, email: mockUser.email);
+
+  /// Mock email/password sign-up: no backend yet, the account is created locally.
+  void signUp({required String name, required String email, required String phone, required String password}) =>
+      state = AppUser(name: name, phone: phone, email: email);
+
   void signOut() => state = null;
 }
 

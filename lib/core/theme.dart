@@ -10,18 +10,47 @@ import 'package:google_fonts/google_fonts.dart';
 abstract final class AppColors {
   static bool dark = false;
 
-  static const primary = Color(0xFFFFC107);
+  /// Deep violet — main brand colour (buttons, active states, links),
+  /// sampled from the Dellinoo bag mark. Legible on both light and dark
+  /// surfaces, so (like the old yellow) it stays a plain const.
+  static const primary = Color(0xFF5B21D6);
 
-  /// Always-black. Use for anything drawn *on* yellow, and for surfaces
-  /// that stay dark in both modes (e.g. the dark promo banner).
+  /// Lighter violet — gradient partner for [primary] (buttons, dark-mode tints).
+  static const primaryLight = Color(0xFF8B5CF6);
+
+  /// Orange — the other end of the logo's violet-to-orange gradient. Used
+  /// sparingly for brand moments (logo, splash, CTA pop), not as a workhorse UI colour.
+  static const accentOrange = Color(0xFFFF8A00);
+
+  /// Warm gold, kept from the old yellow palette for ratings/stars only.
+  static const gold = Color(0xFFFFC107);
+
+  /// Violet-to-orange, for the logo wordmark and full-bleed brand moments.
+  static const brandGradient = [primary, accentOrange];
+
+  /// Two-tone violet, for solid brand buttons (sign up / log in).
+  static const buttonGradient = [primaryLight, primary];
+
+  /// Amber-to-orange, for the pop-out action beside a violet one ("Buy Now").
+  static const orangeGradient = [Color(0xFFFFB020), accentOrange];
+
+  /// Always-white. Use for anything drawn *on* [primary] or [accentOrange].
+  static const onPrimary = Colors.white;
+
+  /// Always-black. Use for surfaces that stay dark in both modes (e.g. the
+  /// dark promo banner) — not for text on [primary] any more, see [onPrimary].
   static const black = Color(0xFF020910);
   static const sale = Color(0xFFE53935);
   static const danger = Color(0xFFE53950);
 
-  static Color get primarySoft => dark ? const Color(0xFF3A300A) : const Color(0xFFFFF3CD);
+  static Color get primarySoft => dark ? const Color(0xFF2A1F52) : const Color(0xFFEDE4FB);
 
-  /// Gold for text/icons on normal surfaces, where pure yellow is hard to read.
-  static Color get accent => dark ? primary : const Color(0xFFB98500);
+  /// Slightly deeper lavender than [surface], for small controls (circle
+  /// buttons, search pill) on the white page. [surface] in dark mode.
+  static Color get tint => dark ? surface : const Color(0xFFF1F0FB);
+
+  /// Readable violet for text/icons on normal surfaces.
+  static Color get accent => dark ? primaryLight : primary;
 
   /// Main text colour (black in light mode, near-white in dark mode).
   static Color get ink => dark ? const Color(0xFFF3F3F5) : black;
@@ -31,9 +60,14 @@ abstract final class AppColors {
 
   /// Secondary text. Darker than the palette's #929498 so it stays readable.
   static Color get muted => dark ? const Color(0xFFA3A5AB) : const Color(0xFF6B6D73);
-  static Color get line => dark ? const Color(0xFF2E3036) : const Color(0xFFE6E0D9);
-  static Color get background => dark ? const Color(0xFF0E0F12) : const Color(0xFFF2EEE9);
-  static Color get surface => dark ? const Color(0xFF1A1C21) : Colors.white;
+  static Color get line => dark ? const Color(0xFF2E3036) : const Color(0xFFE8E6F2);
+
+  /// Page background: pure white in light mode.
+  static Color get background => dark ? const Color(0xFF0E0F12) : Colors.white;
+
+  /// Cards, panels and bars. A pale lavender in light mode so they stand out
+  /// from the white page (a white surface would disappear on it).
+  static Color get surface => dark ? const Color(0xFF1A1C21) : const Color(0xFFF5F4FB);
   static Color get field => dark ? const Color(0xFF262830) : const Color(0xFFEFEFEF);
   static Color get inStock => dark ? const Color(0xFF4ADE80) : const Color(0xFF1E8E52);
   static Color get inStockSoft => dark ? const Color(0xFF12301F) : const Color(0xFFE6F6EE);
@@ -79,7 +113,7 @@ ThemeData buildTheme() {
         brightness: dark ? Brightness.dark : Brightness.light,
       ).copyWith(
         primary: AppColors.primary,
-        onPrimary: AppColors.black,
+        onPrimary: AppColors.onPrimary,
         secondary: AppColors.ink,
         onSecondary: AppColors.onInk,
         surface: AppColors.surface,
@@ -121,7 +155,7 @@ ThemeData buildTheme() {
           (s) => s.contains(WidgetState.disabled) ? AppColors.line : AppColors.primary,
         ),
         foregroundColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.disabled) ? AppColors.muted : AppColors.black,
+          (s) => s.contains(WidgetState.disabled) ? AppColors.muted : AppColors.onPrimary,
         ),
         minimumSize: const WidgetStatePropertyAll(Size.fromHeight(54)),
         shape: _stadium,
@@ -197,12 +231,12 @@ ThemeData buildTheme() {
     dividerTheme: DividerThemeData(color: AppColors.line, space: 1),
     radioTheme: RadioThemeData(
       fillColor: WidgetStateProperty.resolveWith(
-        (s) => s.contains(WidgetState.selected) ? AppColors.ink : AppColors.muted,
+        (s) => s.contains(WidgetState.selected) ? AppColors.accentOrange : AppColors.muted,
       ),
     ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith(
-        (s) => s.contains(WidgetState.selected) ? AppColors.black : AppColors.muted,
+        (s) => s.contains(WidgetState.selected) ? AppColors.onPrimary : AppColors.muted,
       ),
       trackColor: WidgetStateProperty.resolveWith(
         (s) => s.contains(WidgetState.selected) ? AppColors.primary : AppColors.field,

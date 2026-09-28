@@ -39,31 +39,32 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 14),
           // Developer credit.
           Material(
-            color: AppColors.black,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(22),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: () => openLink(AppInfo.developerUrl),
-              child: const Padding(
-                padding: EdgeInsets.all(18),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                 child: Row(
                   children: [
-                    _VizionMark(),
-                    SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Designed & developed by', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                          SizedBox(height: 2),
-                          Text(
-                            AppInfo.developer,
-                            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800),
-                          ),
-                        ],
+                    Flexible(
+                      child: Text(
+                        'Designed & developed by',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: AppColors.muted, fontSize: 13.5),
                       ),
                     ),
-                    _NudgingIcon(Icons.open_in_new),
+                    const SizedBox(width: 10),
+                    // The logo has white lettering for dark surfaces; the light version is recoloured navy.
+                    Image.asset(
+                      AppColors.dark ? 'assets/images/vizion_logo_dark.png' : 'assets/images/vizion_logo_light.png',
+                      height: 15,
+                      semanticLabel: AppInfo.developer,
+                    ),
+                    const Spacer(),
+                    const _NudgingIcon(Icons.open_in_new),
                   ],
                 ),
               ),
@@ -113,8 +114,7 @@ class _NudgingIcon extends StatefulWidget {
 }
 
 class _NudgingIconState extends State<_NudgingIcon> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
-    ..repeat(reverse: true);
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
 
   @override
   void dispose() {
@@ -124,32 +124,13 @@ class _NudgingIconState extends State<_NudgingIcon> with SingleTickerProviderSta
 
   @override
   Widget build(BuildContext context) {
-    final icon = Icon(widget.icon, color: Colors.white70, size: 20);
+    final icon = Icon(widget.icon, color: AppColors.muted, size: 20);
     if (reduceMotion(context)) return icon;
     final curve = CurvedAnimation(parent: _c, curve: Curves.easeInOut);
     return AnimatedBuilder(
       animation: curve,
       child: icon,
       builder: (_, child) => Transform.translate(offset: Offset(3 * curve.value, -3 * curve.value), child: child),
-    );
-  }
-}
-
-/// Placeholder Vizion mark until the studio logo is added.
-class _VizionMark extends StatelessWidget {
-  const _VizionMark();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(16)),
-      alignment: Alignment.center,
-      child: const Text(
-        'V',
-        style: TextStyle(color: AppColors.black, fontSize: 30, fontWeight: FontWeight.w900, height: 1),
-      ),
     );
   }
 }

@@ -26,7 +26,7 @@ class CartScreen extends ConsumerWidget {
       appBar: PageHeader(
         title: 'Cart (${count.toString().padLeft(2, '0')})',
         showBack: false,
-        trailing: CircleIconButton(icon: IconlyLight.heart, badge: wishCount, onTap: () => context.push('/wishlist')),
+        trailing: CircleIconButton(icon: IconlyLight.heart, badge: wishCount, onTap: () => context.go('/wishlist')),
       ),
       body: items.isEmpty
           ? Padding(
@@ -128,11 +128,18 @@ class _Summary extends StatelessWidget {
             children: [
               const Text('Total Cost', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               const Spacer(),
-              AnimatedMoney(subtotal, style: value.copyWith(fontSize: 19, fontWeight: FontWeight.w800)),
+              AnimatedMoney(
+                subtotal,
+                style: value.copyWith(fontSize: 19, fontWeight: FontWeight.w800, color: AppColors.accent),
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          FilledButton(onPressed: () => context.push('/checkout'), child: const Text('Checkout')),
+          GradientButton(
+            onPressed: () => context.push('/checkout'),
+            trailingIcon: IconlyLight.arrow_right,
+            child: const Text('Checkout'),
+          ),
           const SizedBox(height: kNavBarSpace - 8),
         ],
       ),
@@ -230,7 +237,10 @@ class _CartTile extends ConsumerWidget {
                             onChanged: (v) => v == 0 ? removeWithUndo() : cart.setQuantity(item.key, v),
                           ),
                           const Spacer(),
-                          AnimatedMoney(item.total, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                          AnimatedMoney(
+                            item.total,
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.accent),
+                          ),
                         ],
                       ),
                     ],

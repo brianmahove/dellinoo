@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
-import '../../widgets/glass.dart';
 import '../../core/iconly.dart';
 
 class MainShell extends ConsumerStatefulWidget {
@@ -22,8 +21,8 @@ class _MainShellState extends ConsumerState<MainShell> {
   bool _navVisible = true;
 
   /// Only the browsing tabs hide the bar; Cart keeps it because its
-  /// Checkout panel sits right above it.
-  bool get _canHide => widget.shell.currentIndex <= 1;
+  /// Checkout panel sits right above it, and Profile is short enough not to need it.
+  bool get _canHide => const {0, 1, 3}.contains(widget.shell.currentIndex);
 
   bool _onScroll(UserScrollNotification n) {
     if (n.metrics.axis != Axis.vertical) return false;
@@ -40,10 +39,12 @@ class _MainShellState extends ConsumerState<MainShell> {
   Widget build(BuildContext context) {
     final shell = widget.shell;
     final cartCount = ref.watch(cartCountProvider);
+    final wishlistCount = ref.watch(wishlistProvider).length;
     const tabs = [
       (IconlyLight.home, 'Home'),
       (IconlyLight.bag, 'Shop'),
       (IconlyLight.buy, 'Cart'),
+      (IconlyLight.heart, 'Wishlist'),
       (IconlyLight.profile, 'Profile'),
     ];
     final visible = _navVisible || !_canHide;
@@ -58,53 +59,38 @@ class _MainShellState extends ConsumerState<MainShell> {
         child: AnimatedOpacity(
           opacity: visible ? 1 : 0,
           duration: const Duration(milliseconds: 200),
-          child: SafeArea(
-            minimum: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-            child: GlassBox(
-              shadow: true,
-              borderRadius: BorderRadius.circular(34),
-              tint: AppColors.glass(0.45),
+          child: DecoratedBox(
+            // Solid, edge-to-edge bar — white in light mode, near-black in dark
+            // mode — instead of the floating glass pill.
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, -4)),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
               child: SizedBox(
-                height: 68,
-                child: Stack(
+                height: 76,
+                child: Row(
                   children: [
-                    // Glass highlight that slides to the selected tab (iOS style).
-                    AnimatedAlign(
-                      alignment: Alignment(-1 + 2 * shell.currentIndex / (tabs.length - 1), 0),
-                      duration: const Duration(milliseconds: 380),
-                      curve: Curves.easeOutBack,
-                      child: FractionallySizedBox(
-                        widthFactor: 1 / tabs.length,
-                        heightFactor: 1,
-                        child: Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: AppColors.dark ? 0.22 : 0.3),
-                              borderRadius: BorderRadius.circular(28),
-                              border: Border.all(color: Colors.white.withValues(alpha: AppColors.dark ? 0.12 : 0.6)),
-                            ),
-                          ),
+                    for (var i = 0; i < tabs.length; i++)
+                      Expanded(
+                        child: _NavItem(
+                          icon: tabs[i].$1,
+                          label: tabs[i].$2,
+                          selected: shell.currentIndex == i,
+                          badge: switch (i) {
+                            2 => cartCount,
+                            3 => wishlistCount,
+                            _ => 0,
+                          },
+                          onTap: () {
+                            setState(() => _navVisible = true);
+                            shell.goBranch(i, initialLocation: i == shell.currentIndex);
+                          },
                         ),
                       ),
-                    ),
-                    Row(
-                      children: [
-                        for (var i = 0; i < tabs.length; i++)
-                          Expanded(
-                            child: _NavItem(
-                              icon: tabs[i].$1,
-                              label: tabs[i].$2,
-                              selected: shell.currentIndex == i,
-                              badge: i == 2 ? cartCount : 0,
-                              onTap: () {
-                                setState(() => _navVisible = true);
-                                shell.goBranch(i, initialLocation: i == shell.currentIndex);
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -136,34 +122,38 @@ class _NavItem extends StatelessWidget {
     return InkResponse(
       onTap: onTap,
       radius: 36,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        child: selected
-            ? Column(
-                key: const ValueKey('on'),
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(color: AppColors.ink, shape: BoxShape.circle),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                ],
-              )
-            : Center(
-                key: const ValueKey('off'),
-                child: BounceOnChange(
-                  value: badge,
-                  child: Badge(
-                    isLabelVisible: badge > 0,
-                    backgroundColor: AppColors.danger,
-                    label: Text('$badge'),
-                    child: Icon(icon, size: 26, color: AppColors.ink),
-                  ),
-                ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: BounceOnChange(
+              value: badge,
+              child: Badge(
+                isLabelVisible: badge > 0,
+                backgroundColor: AppColors.danger,
+                label: Text('$badge'),
+                child: Icon(icon, size: 22, color: selected ? AppColors.onPrimary : AppColors.muted),
               ),
+            ),
+          ),
+          const SizedBox(height: 5),
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 220),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? AppColors.ink : AppColors.muted,
+            ),
+            child: Text(label),
+          ),
+        ],
       ),
     );
   }

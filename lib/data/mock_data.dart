@@ -27,7 +27,7 @@ const mockDeliveryAreas = <DeliveryArea>[
   DeliveryArea(id: 'other', name: 'Other towns (courier)', fee: 12, eta: '3–5 days'),
 ];
 
-const mockUser = AppUser(name: 'Tatenda Moyo', phone: '+263 77 123 4567');
+const mockUser = AppUser(name: 'Tatenda Moyo', phone: '+263 77 123 4567', email: 'tatenda.moyo@example.com');
 
 const mockAddress = Address(
   fullName: 'Tatenda Moyo',

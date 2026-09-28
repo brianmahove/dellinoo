@@ -66,6 +66,7 @@ flutter:
 
   assets:
     - assets/payments/
+    - assets/images/
     - assets/fonts/ICONLY_LICENSE
 
   fonts:
@@ -107,13 +108,13 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
 
-# App launcher icon: yellow "D" (source images in assets/icon/).
+# App launcher icon: the bag mark on white (source images in assets/icon/).
 # Regenerate after changing them: dart run flutter_launcher_icons
 flutter_launcher_icons:
   android: true
   ios: false
   image_path: "assets/icon/icon.png"
-  adaptive_icon_background: "#FFC107"
+  adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icon/icon_foreground.png"
   adaptive_icon_monochrome: "assets/icon/icon_monochrome.png"
   min_sdk_android: 21

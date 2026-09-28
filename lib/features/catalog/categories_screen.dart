@@ -70,8 +70,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                     CircleIconButton(
                       icon: IconlyLight.filter,
                       size: 52,
-                      color: _filter.isActive ? AppColors.ink : AppColors.primary,
-                      iconColor: _filter.isActive ? AppColors.primary : AppColors.black,
+                      // Violet normally, orange while a filter is applied.
+                      color: _filter.isActive ? AppColors.accentOrange : AppColors.primary,
+                      iconColor: AppColors.onPrimary,
                       onTap: () async {
                         final f = await showFilterSheet(context, _filter);
                         if (f != null) setState(() => _filter = f);
@@ -129,6 +130,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                 }
                 return ProductSliverGrid(
                   products,
+                  heroScope: 'categories',
                   animateKey: '${_categoryId ?? 'all'}-${_filter.stock.name}-${_filter.sort.name}',
                   slideFrom: _direction * 60,
                 );
