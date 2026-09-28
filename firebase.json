@@ -19,5 +19,10 @@
   "hosting": {
     "public": "hosting",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  },
+  "firestore": {
+    "database": "(default)",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }

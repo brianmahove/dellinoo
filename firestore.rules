@@ -1,0 +1,18 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Catalogue is public to read (no login needed to browse). Writes go
+    // through the admin panel/Cloud Functions later (roadmap item 4) — for
+    // now nothing writes from the client, so deny it outright.
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /delivery_areas/{areaId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
