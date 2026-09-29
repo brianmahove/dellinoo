@@ -9,8 +9,13 @@ abstract class OrderRepository {
   Future<List<Order>> fetchOrders(String uid);
 
   /// Places an order for [uid] and returns it (with its generated id).
+  /// [customerName] is the signed-in account's own name (from [AppUser.name],
+  /// not the delivery recipient's name in [address], which can be someone
+  /// else) — stored on the order doc for the admin panel to show who
+  /// actually placed it; the customer app itself never needs it back.
   Future<Order> placeOrder({
     required String uid,
+    String? customerName,
     required List<CartItem> items,
     required Address address,
     required DeliveryArea area,
@@ -27,6 +32,7 @@ class MockOrderRepository implements OrderRepository {
   @override
   Future<Order> placeOrder({
     required String uid,
+    String? customerName,
     required List<CartItem> items,
     required Address address,
     required DeliveryArea area,

@@ -302,11 +302,18 @@ class OrdersNotifier extends Notifier<List<Order>> {
     required DeliveryArea area,
     required PaymentMethod payment,
   }) async {
-    final uid = ref.read(authProvider)?.uid;
-    if (uid == null) throw StateError('Must be signed in to place an order.');
+    final user = ref.read(authProvider);
+    if (user == null) throw StateError('Must be signed in to place an order.');
     final order = await ref
         .read(orderRepositoryProvider)
-        .placeOrder(uid: uid, items: items, address: address, area: area, payment: payment);
+        .placeOrder(
+          uid: user.uid,
+          customerName: user.name,
+          items: items,
+          address: address,
+          area: area,
+          payment: payment,
+        );
     state = [order, ...state];
     _logSafely(
       () => FirebaseAnalytics.instance.logPurchase(

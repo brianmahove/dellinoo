@@ -106,7 +106,10 @@ class _OrderTile extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                '${d['displayId'] ?? doc.id}  ·  ${address?['fullName'] ?? 'Unknown'}',
+                // Account name (who's actually signed in and ordering), not the
+                // delivery address's recipient name — see "Deliver to" below,
+                // which can be someone else (ordering as a gift, etc.).
+                '${d['displayId'] ?? doc.id}  ·  ${d['customerName'] ?? address?['fullName'] ?? 'Unknown'}',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
@@ -136,7 +139,9 @@ class _OrderTile extends StatelessWidget {
                     child: Text('${i['quantity']}× ${i['name']}  (\$${i['price']})'),
                   ),
                 Divider(color: AppColors.line),
-                Text('Deliver to: ${address?['street']}, ${address?['city']} · ${address?['phone']}'),
+                Text(
+                  'Deliver to: ${address?['fullName']} · ${address?['street']}, ${address?['city']} · ${address?['phone']}',
+                ),
                 Text('Payment: ${d['payment']}'),
                 const SizedBox(height: 12),
                 Text(

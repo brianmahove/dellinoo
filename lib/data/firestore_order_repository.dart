@@ -35,6 +35,7 @@ class FirestoreOrderRepository implements OrderRepository {
   @override
   Future<Order> placeOrder({
     required String uid,
+    String? customerName,
     required List<CartItem> items,
     required Address address,
     required DeliveryArea area,
@@ -53,7 +54,16 @@ class FirestoreOrderRepository implements OrderRepository {
       tx.set(counterRef, {'next': next + 1}, SetOptions(merge: true));
       tx.set(
         orderRef,
-        _orderToMap(displayId: id, uid: uid, items: items, address: address, area: area, payment: payment, now: now),
+        _orderToMap(
+          displayId: id,
+          uid: uid,
+          customerName: customerName,
+          items: items,
+          address: address,
+          area: area,
+          payment: payment,
+          now: now,
+        ),
       );
       return id;
     });
@@ -71,6 +81,7 @@ class FirestoreOrderRepository implements OrderRepository {
   Map<String, dynamic> _orderToMap({
     required String displayId,
     required String uid,
+    String? customerName,
     required List<CartItem> items,
     required Address address,
     required DeliveryArea area,
@@ -79,6 +90,7 @@ class FirestoreOrderRepository implements OrderRepository {
   }) {
     return {
       'userId': uid,
+      'customerName': customerName,
       'displayId': displayId,
       'createdAt': Timestamp.fromDate(now),
       'items': [
