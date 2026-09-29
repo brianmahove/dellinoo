@@ -2,27 +2,44 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Catalogue is public to read (no login needed to browse). Writes go
-    // through the admin panel/Cloud Functions later (roadmap item 4) — for
-    // now nothing writes from the client, so deny it outright.
+    // The admin panel (lib/features throughout admin/, a separate app) is the
+    // only client allowed to write products/delivery_areas/order status.
+    // Membership is an allowlist keyed by email — `admins/{email}` existing
+    // means that address is an admin — so it works even before that person
+    // has ever signed into any Dellinoo app (no uid needed yet). Managed by
+    // hand/IAM for now (see CLAUDE.md); the admin panel itself never writes
+    // to this collection.
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
+
+    match /admins/{email} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Catalogue is public to read (no login needed to browse); only admins write.
     match /products/{productId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
 
     match /delivery_areas/{areaId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
 
     // Orders belong to the signed-in user who placed them (see
     // firestore_order_repository.dart). No guest orders — checkout requires
-    // sign-in (see router.dart). Status changes (processing, shipped, etc.)
-    // are admin/Cloud-Functions-only, not yet built — clients never update.
+    // sign-in (see router.dart). Admins can read every order and update
+    // status (processing, shipped, etc.); customers can only create/read
+    // their own and never change status themselves.
     match /orders/{orderId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if false;
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
     // Generates the human-friendly "DL#####" order numbers. Any signed-in

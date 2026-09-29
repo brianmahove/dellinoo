@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "mobile-billing-system-d2bfb"
+  },
+  "targets": {
+    "mobile-billing-system-d2bfb": {
+      "hosting": {
+        "marketing": [
+          "mobile-billing-system-d2bfb"
+        ],
+        "admin": [
+          "dellinoo-admin"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

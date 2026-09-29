@@ -16,10 +16,18 @@
       }
     }
   },
-  "hosting": {
-    "public": "hosting",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
-  },
+  "hosting": [
+    {
+      "target": "marketing",
+      "public": "hosting",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+    },
+    {
+      "target": "admin",
+      "public": "admin/build/web",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+    }
+  ],
   "firestore": {
     "database": "(default)",
     "rules": "firestore.rules",
