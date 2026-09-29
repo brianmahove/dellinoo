@@ -2,14 +2,18 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'account_screen.dart';
 import 'admins_screen.dart';
 import 'coupons_screen.dart';
+import 'customers_screen.dart';
 import 'dashboard_screen.dart';
 import 'requests_screen.dart';
 import 'delivery_areas_screen.dart';
 import 'orders_screen.dart';
 import 'products_screen.dart';
 import 'theme.dart';
+import 'user_avatar.dart';
+import 'iconly.dart';
 
 /// Below this width the shell uses a bottom nav bar (mobile web); at or
 /// above it, a sidebar (desktop web) — matches Material's own "compact vs.
@@ -25,23 +29,29 @@ class _Destination {
 }
 
 const _destinations = [
-  _Destination(Icons.dashboard_outlined, Icons.dashboard, 'Dashboard'),
-  _Destination(Icons.inventory_2_outlined, Icons.inventory_2, 'Products'),
-  _Destination(Icons.receipt_long_outlined, Icons.receipt_long, 'Orders'),
-  _Destination(Icons.local_shipping_outlined, Icons.local_shipping, 'Delivery areas'),
-  _Destination(Icons.sell_outlined, Icons.sell, 'Coupons'),
-  _Destination(Icons.travel_explore_outlined, Icons.travel_explore, 'Requests'),
-  _Destination(Icons.admin_panel_settings_outlined, Icons.admin_panel_settings, 'Admins'),
+  _Destination(IconlyLight.category, IconlyBold.category, 'Dashboard'),
+  _Destination(IconlyLight.bag, IconlyBold.bag, 'Products'),
+  _Destination(IconlyLight.paper, IconlyBold.paper, 'Orders'),
+  _Destination(IconlyLight.user_1, IconlyBold.user_3, 'Customers'),
+  _Destination(IconlyLight.location, IconlyBold.location, 'Delivery areas'),
+  _Destination(IconlyLight.discount, IconlyBold.discount, 'Coupons'),
+  _Destination(IconlyLight.discovery, IconlyBold.discovery, 'Requests'),
+  _Destination(IconlyLight.shield_done, IconlyBold.shield_done, 'Admins'),
 ];
 const _screens = [
   DashboardScreen(),
   ProductsScreen(),
   OrdersScreen(),
+  CustomersScreen(),
   DeliveryAreasScreen(),
   CouponsScreen(),
   RequestsScreen(),
   AdminsScreen(),
+  AccountScreen(), // not in the nav; opened from the avatar
 ];
+
+/// Index of [AccountScreen] in [_screens] (one past the nav destinations).
+const _accountIndex = 8;
 
 /// Signed-in shell: checks the `admins/{email}` allowlist (mirrors
 /// firestore.rules' `isAdmin()`) before showing any admin screen — this is a
@@ -59,13 +69,34 @@ class AdminShell extends StatefulWidget {
 class _AdminShellState extends State<AdminShell> {
   int _index = 0;
 
+  /// Fetched once. Creating this future inside build() restarted it on every
+  /// setState (each tab click), flashing the spinner and discarding the pages.
+  late final Future<DocumentSnapshot<Map<String, dynamic>>>? _adminCheck = widget.user.email == null
+      ? null
+      : FirebaseFirestore.instance.collection('admins').doc(widget.user.email).get();
+
+  /// Tabs opened so far. Each is built on first visit and then kept alive in an
+  /// IndexedStack, so switching tabs doesn't rebuild the screen or reload its
+  /// Firestore stream (which is what made pages flash back to a spinner).
+  final _visited = <int>{0};
+
+  Widget _body() {
+    _visited.add(_index);
+    return IndexedStack(
+      index: _index,
+      children: [
+        for (var i = 0; i < _screens.length; i++) _visited.contains(i) ? _screens[i] : const SizedBox.shrink(),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final email = widget.user.email;
     if (email == null) return _denied('This account has no email address.');
 
     return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      future: FirebaseFirestore.instance.collection('admins').doc(email).get(),
+      future: _adminCheck,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -89,7 +120,12 @@ class _AdminShellState extends State<AdminShell> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            _TopNav(index: _index, onSelect: (i) => setState(() => _index = i), user: widget.user),
+            _TopNav(
+              index: _index,
+              onSelect: (i) => setState(() => _index = i),
+              onAccount: () => setState(() => _index = _accountIndex),
+              user: widget.user,
+            ),
             const SizedBox(height: 16),
             Expanded(
               child: Container(
@@ -101,7 +137,7 @@ class _AdminShellState extends State<AdminShell> {
                   ],
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: _screens[_index],
+                child: _body(),
               ),
             ),
           ],
@@ -122,13 +158,15 @@ class _AdminShellState extends State<AdminShell> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Sign out',
-            onPressed: () => FirebaseAuth.instance.signOut(),
-            icon: const Icon(Icons.logout),
+            tooltip: 'Account',
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: (_) => const AccountScreen(showBack: true))),
+            icon: const Icon(IconlyLight.profile),
           ),
         ],
       ),
-      body: _screens[_index],
+      body: _body(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
@@ -152,7 +190,7 @@ class _AdminShellState extends State<AdminShell> {
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(color: AppColors.dangerSoft, shape: BoxShape.circle),
-                child: const Icon(Icons.block, size: 30, color: AppColors.danger),
+                child: const Icon(IconlyLight.danger, size: 30, color: AppColors.danger),
               ),
               const SizedBox(height: 16),
               const Text('Access denied', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
@@ -175,10 +213,11 @@ class _AdminShellState extends State<AdminShell> {
 /// Desktop-web top bar: logo, horizontal nav links, avatar menu — replaces
 /// the old NavigationRail sidebar.
 class _TopNav extends StatelessWidget {
-  const _TopNav({required this.index, required this.onSelect, required this.user});
+  const _TopNav({required this.index, required this.onSelect, required this.onAccount, required this.user});
 
   final int index;
   final ValueChanged<int> onSelect;
+  final VoidCallback onAccount;
   final User user;
 
   @override
@@ -189,13 +228,11 @@ class _TopNav extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 8)),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 8))],
       ),
       child: Row(
         children: [
-          Image.asset('assets/images/logo_full.png',height: 28),
+          Image.asset('assets/images/logo_full.png', height: 28),
           const SizedBox(width: 10),
           Expanded(
             child: Row(
@@ -208,7 +245,7 @@ class _TopNav extends StatelessWidget {
               ],
             ),
           ),
-          _UserMenu(user: user),
+          _UserMenu(user: user, selected: index == _accountIndex, onTap: onAccount),
         ],
       ),
     );
@@ -248,54 +285,28 @@ class _NavLink extends StatelessWidget {
   }
 }
 
+/// The avatar in the top bar; opens the Account page.
 class _UserMenu extends StatelessWidget {
-  const _UserMenu({required this.user});
+  const _UserMenu({required this.user, required this.selected, required this.onTap});
 
   final User user;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final photo = user.photoURL;
-    final initial = (user.email ?? user.displayName ?? '?').substring(0, 1).toUpperCase();
-    return PopupMenuButton<void>(
-      tooltip: user.email ?? '',
-      offset: const Offset(0, 46),
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          enabled: false,
-          child: Text(
-            user.email ?? '',
-            style: TextStyle(color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w600),
+    return Tooltip(
+      message: 'Account',
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: selected ? AppColors.primary : AppColors.line, width: 1.5),
           ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          onTap: () => FirebaseAuth.instance.signOut(),
-          child: Row(
-            children: [
-              Icon(Icons.logout, size: 18, color: AppColors.ink),
-              const SizedBox(width: 10),
-              const Text('Sign out'),
-            ],
-          ),
-        ),
-      ],
-      child: Container(
-        padding: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.line, width: 1.5),
-        ),
-        child: CircleAvatar(
-          radius: 17,
-          backgroundColor: AppColors.primarySoft,
-          backgroundImage: photo != null ? NetworkImage(photo) : null,
-          child: photo == null
-              ? Text(
-                  initial,
-                  style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w800),
-                )
-              : null,
+          child: UserAvatar(user: user, radius: 17),
         ),
       ),
     );

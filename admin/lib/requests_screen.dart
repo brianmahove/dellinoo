@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
+import 'iconly.dart';
 
 /// "Request an item" submissions from the customer app (`item_requests`):
 /// a link/description the customer wants sourced. The admin replies with a
@@ -17,9 +18,11 @@ class RequestsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Item requests'), automaticallyImplyLeading: false),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('item_requests').orderBy('createdAt', descending: true).snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('item_requests')
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
@@ -29,7 +32,7 @@ class RequestsScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.travel_explore_outlined, size: 40, color: AppColors.muted),
+                  Icon(IconlyLight.discovery, size: 40, color: AppColors.muted),
                   const SizedBox(height: 10),
                   Text('No requests yet', style: TextStyle(color: AppColors.muted)),
                 ],
@@ -119,13 +122,16 @@ class _RequestCardState extends State<_RequestCard> {
               ],
             ),
             if (created != null)
-              Text(created.toLocal().toString().substring(0, 16), style: TextStyle(color: AppColors.muted, fontSize: 12)),
+              Text(
+                created.toLocal().toString().substring(0, 16),
+                style: TextStyle(color: AppColors.muted, fontSize: 12),
+              ),
             const SizedBox(height: 10),
-            SelectableText('${d['link'] ?? ''}', style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600)),
-            if ((d['note'] as String?)?.isNotEmpty ?? false) ...[
-              const SizedBox(height: 6),
-              Text(d['note'] as String),
-            ],
+            SelectableText(
+              '${d['link'] ?? ''}',
+              style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600),
+            ),
+            if ((d['note'] as String?)?.isNotEmpty ?? false) ...[const SizedBox(height: 6), Text(d['note'] as String)],
             if ((d['customerPhone'] as String?)?.isNotEmpty ?? false) ...[
               const SizedBox(height: 6),
               Text('Phone: ${d['customerPhone']}', style: TextStyle(color: AppColors.muted)),
@@ -148,7 +154,10 @@ class _RequestCardState extends State<_RequestCard> {
                   width: 320,
                   child: TextField(
                     controller: _note,
-                    decoration: const InputDecoration(labelText: 'Note to customer (delivery time, etc.)', isDense: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Note to customer (delivery time, etc.)',
+                      isDense: true,
+                    ),
                   ),
                 ),
                 FilledButton(

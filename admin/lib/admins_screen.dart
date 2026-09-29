@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import 'glass_dialog.dart';
 import 'theme.dart';
+import 'account_screen.dart';
+import 'iconly.dart';
 
 /// Hardcoded protected admin — this account manages the others, so no other
 /// admin (however it's signed in) should be able to remove it, only itself.
@@ -21,10 +23,9 @@ class AdminsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final myEmail = FirebaseAuth.instance.currentUser?.email;
     return Scaffold(
-      appBar: AppBar(title: const Text('Admins'), automaticallyImplyLeading: false),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showGlassDialog(context: context, builder: (context) => const _AdminForm()),
-        icon: const Icon(Icons.add),
+        icon: const Icon(IconlyLight.plus),
         label: const Text('Add admin'),
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -38,7 +39,7 @@ class AdminsScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.admin_panel_settings_outlined, size: 40, color: AppColors.muted),
+                  Icon(IconlyLight.shield_done, size: 40, color: AppColors.muted),
                   const SizedBox(height: 10),
                   Text('No admins yet', style: TextStyle(color: AppColors.muted)),
                 ],
@@ -62,17 +63,22 @@ class AdminsScreen extends StatelessWidget {
                       contentPadding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
                       leading: CircleAvatar(
                         backgroundColor: AppColors.primarySoft,
-                        child: Icon(Icons.admin_panel_settings_outlined, color: AppColors.accent, size: 20),
+                        child: Icon(IconlyLight.shield_done, color: AppColors.accent, size: 20),
                       ),
+                      onTap: isMe
+                          ? () => Navigator.of(
+                              context,
+                            ).push(MaterialPageRoute<void>(builder: (_) => const AccountScreen(showBack: true)))
+                          : null,
                       title: Text(doc.id, style: const TextStyle(fontWeight: FontWeight.w700)),
                       subtitle: isMe
-                          ? Text('You', style: TextStyle(color: AppColors.muted))
+                          ? Text('You · tap to manage your account', style: TextStyle(color: AppColors.muted))
                           : isProtected
                           ? Text('Protected', style: TextStyle(color: AppColors.muted))
                           : null,
                       trailing: IconButton(
-                        icon: Icon(isProtected ? Icons.lock_outline : Icons.delete_outline),
-                        
+                        icon: Icon(isProtected ? IconlyLight.lock : IconlyLight.delete),
+
                         onPressed: !canDelete
                             ? null
                             : () async {
@@ -160,6 +166,7 @@ class _AdminFormState extends State<_AdminForm> {
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            spacing: 14,
             children: [
               TextFormField(
                 controller: _email,

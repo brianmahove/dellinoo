@@ -21,7 +21,8 @@ class _GlassDialogRoute<T> extends DialogRoute<T> {
       children: [
         AnimatedBuilder(
           animation: animation!,
-          builder: (_, _) => BackdropFilter(filter: _blur(14 * animation!.value + 0.01), child: const SizedBox.expand()),
+          builder: (_, _) =>
+              BackdropFilter(filter: _blur(14 * animation!.value + 0.01), child: const SizedBox.expand()),
         ),
         super.buildModalBarrier(),
       ],

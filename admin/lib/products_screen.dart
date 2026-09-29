@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'glass_dialog.dart';
 import 'theme.dart';
+import 'iconly.dart';
 
 /// The same 10 fixed category ids the customer app uses (see mockCategories
 /// in the main app's lib/data/mock_data.dart) — categories aren't their own
@@ -62,10 +63,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Products'), automaticallyImplyLeading: false),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openForm(),
-        icon: const Icon(Icons.add),
+        icon: const Icon(IconlyLight.plus),
         label: const Text('Add product'),
       ),
       body: SafeArea(
@@ -102,7 +102,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.inventory_2_outlined, size: 40, color: AppColors.muted),
+                            Icon(IconlyLight.bag, size: 40, color: AppColors.muted),
                             const SizedBox(height: 10),
                             Text('No products found', style: TextStyle(color: AppColors.muted)),
                           ],
@@ -135,7 +135,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 }
 
-class _FilterRow extends StatelessWidget {
+class _FilterRow extends StatefulWidget {
   const _FilterRow({
     required this.search,
     required this.onSearchChanged,
@@ -153,34 +153,45 @@ class _FilterRow extends StatelessWidget {
   final ValueChanged<String> onStockFilterChanged;
 
   @override
+  State<_FilterRow> createState() => _FilterRowState();
+}
+
+class _FilterRowState extends State<_FilterRow> {
+  late bool _searching = widget.search.text.isNotEmpty;
+
+  void _toggle() {
+    setState(() => _searching = !_searching);
+    if (!_searching && widget.search.text.isNotEmpty) {
+      widget.search.clear();
+      widget.onSearchChanged();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 280,
-          height: 44,
-          child: TextField(
-            controller: search,
-            onChanged: (_) => onSearchChanged(),
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: 'Search products...',
-              prefixIcon: Icon(Icons.search, size: 20, color: AppColors.muted),
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
-            ),
+    return _CategoryRow(
+      selected: widget.category,
+      onSelect: widget.onCategorySelect,
+      stockFilter: widget.stockFilter,
+      onStockFilterChanged: widget.onStockFilterChanged,
+      searching: _searching,
+      onToggleSearch: _toggle,
+      searchField: SizedBox(
+        width: 240,
+        height: 38,
+        child: TextField(
+          controller: widget.search,
+          autofocus: true,
+          onChanged: (_) => widget.onSearchChanged(),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'Search products...',
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(19), borderSide: BorderSide.none),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(19), borderSide: BorderSide.none),
           ),
         ),
-        const SizedBox(height: 14),
-        _CategoryRow(
-          selected: category,
-          onSelect: onCategorySelect,
-          stockFilter: stockFilter,
-          onStockFilterChanged: onStockFilterChanged,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -191,8 +202,14 @@ class _CategoryRow extends StatelessWidget {
     required this.onSelect,
     required this.stockFilter,
     required this.onStockFilterChanged,
+    required this.searching,
+    required this.onToggleSearch,
+    required this.searchField,
   });
 
+  final bool searching;
+  final VoidCallback onToggleSearch;
+  final Widget searchField;
   final String selected;
   final ValueChanged<String> onSelect;
   final String stockFilter;
@@ -217,6 +234,29 @@ class _CategoryRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
+        if (searching) ...[searchField, const SizedBox(width: 8)],
+        Tooltip(
+          message: searching ? 'Close search' : 'Search products',
+          child: InkWell(
+            onTap: onToggleSearch,
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: searching ? AppColors.primarySoft : null,
+                border: searching ? null : Border.all(color: AppColors.line),
+              ),
+              child: Icon(
+                searching ? Icons.close : IconlyLight.search,
+                size: 18,
+                color: searching ? AppColors.primary : AppColors.muted,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
         DropdownButtonHideUnderline(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -228,7 +268,7 @@ class _CategoryRow extends StatelessWidget {
             child: DropdownButton<String>(
               value: stockFilter,
               isDense: true,
-              icon: Icon(Icons.keyboard_arrow_down, size: 18, color: AppColors.muted),
+              icon: Icon(IconlyLight.arrow_down_2, size: 18, color: AppColors.muted),
               style: const TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600, fontSize: 13),
               items: [for (final e in _stockFilters.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
               onChanged: (v) => onStockFilterChanged(v!),
@@ -319,14 +359,14 @@ class _ProductCard extends StatelessWidget {
                       child: Image.network(
                         d['thumbnail'] as String? ?? '',
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Icon(Icons.image_not_supported_outlined, color: AppColors.muted),
+                        errorBuilder: (_, _, _) => Icon(IconlyLight.image, color: AppColors.muted),
                       ),
                     ),
                     Positioned(
                       top: 8,
                       right: 8,
                       child: _RoundIconButton(
-                        icon: isNew ? Icons.favorite : Icons.favorite_border,
+                        icon: isNew ? IconlyBold.heart : IconlyLight.heart,
                         iconColor: isNew ? AppColors.accentOrange : AppColors.ink,
                         tooltip: 'Toggle "New" badge',
                         onTap: () => doc.reference.update({'isNew': !isNew}),
@@ -507,8 +547,10 @@ class _ProductFormState extends State<_ProductForm> {
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
+            // Gap between fields so labels/helper text don't collide.
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              spacing: 14,
               children: [
                 TextFormField(
                   controller: _name,
@@ -539,7 +581,7 @@ class _ProductFormState extends State<_ProductForm> {
                     Expanded(
                       child: TextFormField(
                         controller: _oldPrice,
-                        decoration: const InputDecoration(labelText: 'Old price (optional, for sale badge)'),
+                        decoration: const InputDecoration(labelText: 'Old price (optional)'),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         validator: (v) =>
                             v!.trim().isEmpty || double.tryParse(v.trim()) != null ? null : 'Must be a number',
@@ -600,7 +642,9 @@ class _ProductFormState extends State<_ProductForm> {
                             initialTime: const TimeOfDay(hour: 23, minute: 59),
                           );
                           if (time == null) return;
-                          setState(() => _saleEndsAt = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+                          setState(
+                            () => _saleEndsAt = DateTime(date.year, date.month, date.day, time.hour, time.minute),
+                          );
                         },
                         child: Text(_saleEndsAt == null ? 'Set end' : 'Change'),
                       ),

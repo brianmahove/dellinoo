@@ -151,23 +151,24 @@ class OrderDetailScreen extends ConsumerWidget {
           if (order.status == OrderStatus.placed)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-              child: FilledButton.icon(
+              child: GradientButton(
                 onPressed: () => retryPayment(
                   context,
                   orderId: order.docId,
                   initialMethod: order.payment,
                   initialPhone: order.address.phone,
                 ),
-                icon: const Icon(IconlyLight.wallet),
-                label: const Text('Complete payment'),
+                icon: IconlyLight.wallet,
+                child: const Text('Complete payment'),
               ),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-            child: FilledButton.icon(
+            child: GradientButton(
+              colors: AppColors.orangeGradient,
               onPressed: () => _orderAgain(context, ref, order),
-              icon: const Icon(IconlyBold.buy),
-              label: const Text('Order again'),
+              icon: IconlyBold.buy,
+              child: const Text('Order again'),
             ),
           ),
           Padding(

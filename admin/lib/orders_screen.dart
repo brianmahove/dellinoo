@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import 'glass_dialog.dart';
 import 'theme.dart';
+import 'iconly.dart';
 
 /// Below this width the split list/detail layout doesn't have room, so
 /// Orders falls back to the single-column expandable list (matches the
@@ -45,14 +46,19 @@ String _statusLabel(String s) => switch (s) {
 String _fmtTimestamp(Timestamp? t) => t == null ? '' : DateFormat.yMMMd().add_jm().format(t.toDate());
 
 Future<void> _advanceStatus(BuildContext context, QueryDocumentSnapshot<Map<String, dynamic>> doc, String current) {
-  return showGlassDialog(context: context, builder: (context) => _StatusDialog(doc: doc, current: current));
+  return showGlassDialog(
+    context: context,
+    builder: (context) => _StatusDialog(doc: doc, current: current),
+  );
 }
 
 int _itemCount(List<Map<String, dynamic>> items) =>
     items.fold<int>(0, (s, i) => s + ((i['quantity'] as num?)?.toInt() ?? 0));
 
-double _subtotal(List<Map<String, dynamic>> items) =>
-    items.fold<double>(0, (s, i) => s + ((i['price'] as num?)?.toDouble() ?? 0) * ((i['quantity'] as num?)?.toInt() ?? 0));
+double _subtotal(List<Map<String, dynamic>> items) => items.fold<double>(
+  0,
+  (s, i) => s + ((i['price'] as num?)?.toDouble() ?? 0) * ((i['quantity'] as num?)?.toInt() ?? 0),
+);
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -67,7 +73,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Orders'), automaticallyImplyLeading: false),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance.collection('orders').orderBy('createdAt', descending: true).snapshots(),
         builder: (context, snapshot) {
@@ -79,7 +84,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.receipt_long_outlined, size: 40, color: AppColors.muted),
+                  Icon(IconlyLight.paper, size: 40, color: AppColors.muted),
                   const SizedBox(height: 10),
                   Text('No orders yet', style: TextStyle(color: AppColors.muted)),
                 ],
@@ -113,23 +118,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
               return ColoredBox(
                 color: AppColors.tint,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        flex: 5,
-                        child: _OrderListCard(
-                          docs: docs,
-                          selectedId: selected.id,
-                          onSelect: (id) => setState(() => _selectedId = id),
-                        ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: _OrderListCard(
+                        docs: docs,
+                        selectedId: selected.id,
+                        onSelect: (id) => setState(() => _selectedId = id),
                       ),
-                      const SizedBox(width: 20),
-                      Expanded(flex: 4, child: _OrderDetailCard(doc: selected)),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(flex: 4, child: _OrderDetailCard(doc: selected)),
+                  ],
                 ),
               );
             },
@@ -155,9 +157,7 @@ class _OrderListCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 8)),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 8))],
       ),
       clipBehavior: Clip.antiAlias,
       child: ListView.separated(
@@ -256,9 +256,7 @@ class _OrderDetailCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 8)),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 8))],
       ),
       clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
@@ -279,12 +277,12 @@ class _OrderDetailCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            Text(
-              '${d['customerName'] ?? address?['fullName'] ?? 'Unknown'}',
-              style: TextStyle(color: AppColors.muted),
-            ),
+            Text('${d['customerName'] ?? address?['fullName'] ?? 'Unknown'}', style: TextStyle(color: AppColors.muted)),
             const SizedBox(height: 20),
-            Text('Items', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.muted, fontSize: 12.5)),
+            Text(
+              'Items',
+              style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.muted, fontSize: 12.5),
+            ),
             const SizedBox(height: 6),
             for (final i in items)
               Padding(
@@ -300,7 +298,10 @@ class _OrderDetailCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text('Total: \$${(subtotal + fee).toStringAsFixed(2)}'),
             const SizedBox(height: 20),
-            Text('History', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.muted, fontSize: 12.5)),
+            Text(
+              'History',
+              style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.muted, fontSize: 12.5),
+            ),
             const SizedBox(height: 6),
             for (final h in history)
               Padding(
@@ -312,7 +313,7 @@ class _OrderDetailCard extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: FilledButton.icon(
                 onPressed: () => _advanceStatus(context, doc, status),
-                icon: const Icon(Icons.arrow_forward, size: 18),
+                icon: const Icon(IconlyLight.arrow_right, size: 18),
                 label: const Text('Update status'),
               ),
             ),
@@ -402,7 +403,7 @@ class _OrderTile extends StatelessWidget {
                   alignment: Alignment.centerRight,
                   child: FilledButton.icon(
                     onPressed: () => _advanceStatus(context, doc, status),
-                    icon: const Icon(Icons.arrow_forward, size: 18),
+                    icon: const Icon(IconlyLight.arrow_right, size: 18),
                     label: const Text('Update status'),
                   ),
                 ),
@@ -454,6 +455,7 @@ class _StatusDialogState extends State<_StatusDialog> {
         width: 380,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          spacing: 14,
           children: [
             DropdownButtonFormField<String>(
               initialValue: _status,
@@ -461,7 +463,6 @@ class _StatusDialogState extends State<_StatusDialog> {
               items: [for (final s in _statuses) DropdownMenuItem(value: s, child: Text(_statusLabel(s)))],
               onChanged: (v) => setState(() => _status = v!),
             ),
-            const SizedBox(height: 10),
             TextField(
               controller: _note,
               decoration: const InputDecoration(labelText: 'Note (optional)', hintText: 'e.g. Driver: Farai · 077…'),

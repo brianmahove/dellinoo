@@ -215,17 +215,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           // OneMoney is hidden until we confirm with Paynow whether/how they
           // support it — it wasn't listed as an option on the merchant's
           // integration setup page (Sep 2026).
-          for (final m in PaymentMethod.values)
-            if (m != PaymentMethod.onemoney)
-              SelectTile(
-                selected: _payment == m,
-                onTap: () => setState(() => _payment = m),
-                leading: PaymentLogo(m),
-                title: m.label,
-                subtitle: m.subtitle,
-                // Card also takes Visa and Mastercard, shown next to the ZimSwitch logo.
-                trailing: m == PaymentMethod.card ? const CardBrandsChip() : null,
-              ),
+          for (final m in PaymentMethod.selectableValues)
+            SelectTile(
+              selected: _payment == m,
+              onTap: () => setState(() => _payment = m),
+              leading: PaymentLogo(m),
+              title: m.label,
+              subtitle: m.subtitle,
+              // Card also takes Visa and Mastercard, shown next to the ZimSwitch logo.
+              trailing: m == PaymentMethod.card ? const CardBrandsChip() : null,
+            ),
           if (_payment.needsPhone) ...[
             const SizedBox(height: 8),
             TextField(

@@ -62,6 +62,7 @@ class CircleIconButton extends StatelessWidget {
     this.color,
     this.iconColor,
     this.glass = false,
+    this.square = false,
   });
 
   final IconData icon;
@@ -74,13 +75,19 @@ class CircleIconButton extends StatelessWidget {
   /// Frosted instead of solid — for buttons that float over photos.
   final bool glass;
 
+  /// Soft rounded square instead of a circle (used for back buttons).
+  final bool square;
+
   @override
   Widget build(BuildContext context) {
+    final ShapeBorder shape = square
+        ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(size * 0.32))
+        : const CircleBorder();
     final button = Material(
       color: glass ? Colors.transparent : (color ?? AppColors.surface),
-      shape: const CircleBorder(),
+      shape: shape,
       child: InkWell(
-        customBorder: const CircleBorder(),
+        customBorder: shape,
         onTap: onTap,
         child: SizedBox(
           width: size,
@@ -105,7 +112,7 @@ class CircleIconButton extends StatelessWidget {
       ),
     );
     if (!glass) return button;
-    return GlassBox(borderRadius: BorderRadius.circular(size / 2), tint: AppColors.glass(0.55), child: button);
+    return GlassBox(borderRadius: BorderRadius.circular(square ? size * 0.32 : size / 2), tint: AppColors.glass(0.55), child: button);
   }
 }
 
@@ -118,6 +125,7 @@ class BackCircleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => CircleIconButton(
     icon: IconlyLight.arrow_left_2,
+    square: true,
     onTap: onTap ?? () => context.canPop() ? context.pop() : context.go('/home'),
   );
 }

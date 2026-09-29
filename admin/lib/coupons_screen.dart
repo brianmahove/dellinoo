@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'glass_dialog.dart';
 import 'theme.dart';
+import 'iconly.dart';
 
 /// Promo codes (`coupons/{CODE}`). The doc id IS the code (uppercase). The
 /// payments Worker re-reads these docs to work out what to charge, so
@@ -13,10 +14,9 @@ class CouponsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Coupons'), automaticallyImplyLeading: false),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showGlassDialog(context: context, builder: (context) => const _CouponForm()),
-        icon: const Icon(Icons.add),
+        icon: const Icon(IconlyLight.plus),
         label: const Text('Add coupon'),
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -30,7 +30,7 @@ class CouponsScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.sell_outlined, size: 40, color: AppColors.muted),
+                  Icon(IconlyLight.discount, size: 40, color: AppColors.muted),
                   const SizedBox(height: 10),
                   Text('No coupons yet', style: TextStyle(color: AppColors.muted)),
                 ],
@@ -52,7 +52,9 @@ class CouponsScreen extends StatelessWidget {
                   final expires = (d['expiresAt'] as Timestamp?)?.toDate();
                   final active = d['active'] as bool? ?? false;
                   final bits = [
-                    percent != null ? '${percent.toStringAsFixed(0)}% off' : '\$${(amount ?? 0).toStringAsFixed(2)} off',
+                    percent != null
+                        ? '${percent.toStringAsFixed(0)}% off'
+                        : '\$${(amount ?? 0).toStringAsFixed(2)} off',
                     if (d['minSubtotal'] != null) 'min \$${d['minSubtotal']}',
                     if (d['firstOrderOnly'] == true) 'first order only',
                     if (expires != null) 'expires ${expires.toLocal().toString().substring(0, 10)}',
@@ -62,7 +64,7 @@ class CouponsScreen extends StatelessWidget {
                       contentPadding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
                       leading: CircleAvatar(
                         backgroundColor: AppColors.primarySoft,
-                        child: Icon(Icons.sell_outlined, color: AppColors.accent, size: 20),
+                        child: Icon(IconlyLight.discount, color: AppColors.accent, size: 20),
                       ),
                       title: Text(doc.id, style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                       subtitle: Text(bits.join(' · '), style: TextStyle(color: AppColors.muted)),
@@ -72,21 +74,29 @@ class CouponsScreen extends StatelessWidget {
                           Switch(value: active, onChanged: (v) => doc.reference.update({'active': v})),
                           IconButton(
                             tooltip: 'Edit',
-                            icon: const Icon(Icons.edit_outlined),
-                            onPressed: () =>
-                                showGlassDialog(context: context, builder: (context) => _CouponForm(doc: doc)),
+                            icon: const Icon(IconlyLight.edit),
+                            onPressed: () => showGlassDialog(
+                              context: context,
+                              builder: (context) => _CouponForm(doc: doc),
+                            ),
                           ),
                           IconButton(
                             tooltip: 'Delete',
-                            icon: const Icon(Icons.delete_outline),
+                            icon: const Icon(IconlyLight.delete),
                             onPressed: () async {
                               final ok = await showGlassDialog<bool>(
                                 context: context,
                                 builder: (context) => GlassAlertDialog(
                                   title: Text('Delete ${doc.id}?'),
                                   actions: [
-                                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                                    FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      child: const Text('Delete'),
+                                    ),
                                   ],
                                 ),
                               );
@@ -121,9 +131,7 @@ class _CouponFormState extends State<_CouponForm> {
   Map<String, dynamic>? get _d => widget.doc?.data();
   late final _code = TextEditingController(text: widget.doc?.id ?? '');
   late bool _isPercent = _d == null || _d!['percentOff'] != null;
-  late final _value = TextEditingController(
-    text: ((_d?['percentOff'] ?? _d?['amountOff']) as num?)?.toString() ?? '',
-  );
+  late final _value = TextEditingController(text: ((_d?['percentOff'] ?? _d?['amountOff']) as num?)?.toString() ?? '');
   late final _min = TextEditingController(text: (_d?['minSubtotal'] as num?)?.toString() ?? '');
   late DateTime? _expires = (_d?['expiresAt'] as Timestamp?)?.toDate();
   late bool _firstOnly = _d?['firstOrderOnly'] as bool? ?? false;
@@ -165,6 +173,7 @@ class _CouponFormState extends State<_CouponForm> {
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              spacing: 14,
               children: [
                 TextFormField(
                   controller: _code,

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
+import 'iconly.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -98,13 +99,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline)),
+                    decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(IconlyLight.message)),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _password,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Password', prefixIcon: Icon(Icons.lock_outline)),
+                    decoration: const InputDecoration(labelText: 'Password', prefixIcon: Icon(IconlyLight.lock)),
                     onSubmitted: (_) => _busy ? null : _signInWithPassword(),
                   ),
                   const SizedBox(height: 16),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'glass_dialog.dart';
 import 'theme.dart';
+import 'iconly.dart';
 
 class DeliveryAreasScreen extends StatelessWidget {
   const DeliveryAreasScreen({super.key});
@@ -10,10 +11,9 @@ class DeliveryAreasScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Delivery areas'), automaticallyImplyLeading: false),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showGlassDialog(context: context, builder: (context) => const _AreaForm()),
-        icon: const Icon(Icons.add),
+        icon: const Icon(IconlyLight.plus),
         label: const Text('Add area'),
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -27,7 +27,7 @@ class DeliveryAreasScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.local_shipping_outlined, size: 40, color: AppColors.muted),
+                  Icon(IconlyLight.location, size: 40, color: AppColors.muted),
                   const SizedBox(height: 10),
                   Text('No delivery areas yet', style: TextStyle(color: AppColors.muted)),
                 ],
@@ -50,7 +50,7 @@ class DeliveryAreasScreen extends StatelessWidget {
                       contentPadding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
                       leading: CircleAvatar(
                         backgroundColor: AppColors.primarySoft,
-                        child: Icon(Icons.local_shipping_outlined, color: AppColors.accent, size: 20),
+                        child: Icon(IconlyLight.location, color: AppColors.accent, size: 20),
                       ),
                       title: Text(d['name'] as String? ?? '', style: const TextStyle(fontWeight: FontWeight.w700)),
                       subtitle: Text('${d['eta']}', style: TextStyle(color: AppColors.muted)),
@@ -66,14 +66,14 @@ class DeliveryAreasScreen extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           IconButton(
-                            icon: const Icon(Icons.edit_outlined),
+                            icon: const Icon(IconlyLight.edit),
                             onPressed: () => showGlassDialog(
                               context: context,
                               builder: (context) => _AreaForm(doc: doc),
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.delete_outline),
+                            icon: const Icon(IconlyLight.delete),
                             onPressed: () async {
                               final ok = await showGlassDialog<bool>(
                                 context: context,
@@ -164,6 +164,7 @@ class _AreaFormState extends State<_AreaForm> {
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            spacing: 14,
             children: [
               TextFormField(
                 controller: _name,

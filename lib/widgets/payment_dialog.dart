@@ -59,7 +59,9 @@ class _PaymentMethodPicker extends StatefulWidget {
 }
 
 class _PaymentMethodPickerState extends State<_PaymentMethodPicker> {
-  late PaymentMethod _method = widget.initialMethod;
+  late PaymentMethod _method = widget.initialMethod.selectable
+      ? widget.initialMethod
+      : PaymentMethod.selectableValues.first;
   late final _phone = TextEditingController(text: widget.initialPhone);
 
   @override
@@ -79,16 +81,15 @@ class _PaymentMethodPickerState extends State<_PaymentMethodPicker> {
           const Text('Pay with', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           // OneMoney stays hidden here too — see checkout_screen.dart.
-          for (final m in PaymentMethod.values)
-            if (m != PaymentMethod.onemoney)
-              SelectTile(
-                selected: _method == m,
-                onTap: () => setState(() => _method = m),
-                leading: PaymentLogo(m),
-                title: m.label,
-                subtitle: m.subtitle,
-                trailing: m == PaymentMethod.card ? const CardBrandsChip() : null,
-              ),
+          for (final m in PaymentMethod.selectableValues)
+            SelectTile(
+              selected: _method == m,
+              onTap: () => setState(() => _method = m),
+              leading: PaymentLogo(m),
+              title: m.label,
+              subtitle: m.subtitle,
+              trailing: m == PaymentMethod.card ? const CardBrandsChip() : null,
+            ),
           if (_method.needsPhone) ...[
             const SizedBox(height: 8),
             TextField(
@@ -264,6 +265,10 @@ class _PaymentWaitDialogState extends ConsumerState<PaymentWaitDialog> {
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.muted, height: 1.4),
           ),
+          if (_showInnbucksCode) ...[
+            const SizedBox(height: 14),
+            _InnbucksCode(code: _authorizationCode!, expires: _authorizationExpires),
+          ],
           if (!_paid) ...[
             const SizedBox(height: 12),
             TextButton(
@@ -276,17 +281,75 @@ class _PaymentWaitDialogState extends ConsumerState<PaymentWaitDialog> {
     );
   }
 
+  bool get _showInnbucksCode =>
+      widget.method == PaymentMethod.innbucks &&
+      _waiting &&
+      !_paid &&
+      _errorMessage == null &&
+      _authorizationCode != null;
+
   String _waitingMessage() {
     if (!_waiting) return 'Starting your payment…';
-    if (widget.method == PaymentMethod.innbucks && _authorizationCode != null) {
-      return 'Open the InnBucks app and enter code ${_authorizationCode!}'
-          '${_authorizationExpires != null ? ' (expires ${_authorizationExpires!})' : ''}.';
-    }
+    if (_showInnbucksCode) return 'Open the InnBucks app and enter this code to approve the payment.';
     return switch (widget.method) {
       PaymentMethod.ecocash || PaymentMethod.onemoney =>
         'Check your phone (${widget.phone}) and enter your ${widget.method.label} PIN to approve the payment.',
       PaymentMethod.innbucks => 'Generating your InnBucks payment code…',
       PaymentMethod.card => 'Complete your payment in the browser, then come back here.',
     };
+  }
+}
+
+/// The InnBucks authorization code, big and copyable.
+class _InnbucksCode extends StatelessWidget {
+  const _InnbucksCode({required this.code, this.expires});
+
+  final String code;
+  final String? expires;
+
+  @override
+  Widget build(BuildContext context) {
+    // Groups of 3 read more easily ("123 456 789").
+    final spaced = code.replaceAllMapped(RegExp(r'(\d{3})(?=\d)'), (m) => '${m[1]} ');
+    return Column(
+      children: [
+        Material(
+          color: AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: code));
+              showGlassToast(context, 'Code copied');
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      spaced,
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(Icons.copy_rounded, size: 20, color: AppColors.primary),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (expires != null) ...[
+          const SizedBox(height: 8),
+          Text('Expires $expires', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+        ],
+      ],
+    );
   }
 }

@@ -64,6 +64,16 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/fonts/ICONLY_LICENSE
+
+  # Same Iconly icon font as the customer app (vendored copy of its assets/fonts).
+  fonts:
+    - family: IconlyLight
+      fonts:
+        - asset: assets/fonts/IconlyLight.ttf
+    - family: IconlyBold
+      fonts:
+        - asset: assets/fonts/IconlyBold.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

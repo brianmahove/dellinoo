@@ -111,6 +111,20 @@ enum PaymentMethod {
 
   /// Brand logo shown on a white tile (stays white in dark mode so logos read).
   final String logo;
+
+  /// Methods offered in the checkout / retry pickers. OneMoney isn't supported
+  /// by the Paynow integration, and Card is inactive on the merchant account
+  /// (pending Paynow approval) — flip [cardEnabled] once it's live.
+  static const cardEnabled = true;
+  bool get selectable => switch (this) {
+    PaymentMethod.onemoney => false,
+    PaymentMethod.card => cardEnabled,
+    _ => true,
+  };
+  static List<PaymentMethod> get selectableValues => [
+    for (final m in values)
+      if (m.selectable) m,
+  ];
 }
 
 enum OrderStatus {
