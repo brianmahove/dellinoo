@@ -3,7 +3,7 @@
 Flutter e-commerce app for a client who **buys goods in China and sells them to customers in Zimbabwe**. Think "a simpler SHEIN": clothes (men, women, kids), shoes, handbags, phones, watches, laptops, games, electronics.
 
 - **Platform:** Android first (package `com.dellinoo.app`). iOS later.
-- **Status:** customer UI complete; Firebase backend is real and live — auth (email/password, Google, Facebook), catalogue and orders all run on Firestore, not mocks. Paynow payments are deployed and confirmed working end-to-end in Paynow's test mode (EcoCash; see Roadmap item 3 for what's still open — Card/InnBucks untested, not yet switched to Live); the admin panel has a working v1 (see Roadmap).
+- **Status:** customer UI complete; Firebase backend is real and live — auth (email/password, Google, Facebook), catalogue and orders all run on Firestore, not mocks. Paynow payments are deployed and confirmed working end-to-end in Paynow's test mode (EcoCash; see Roadmap item 3 for what's still open — Card/InnBucks untested; Live requested from Paynow Sep 2026, awaiting their activation); the admin panel has a working v1 (see Roadmap).
 - **Timeline agreed with client (Sep 2026):** UI shown Sat 27 Sep → backend the following week.
 - **Backend:** Firebase, project `mobile-billing-system-d2bfb` (existing project, reused), on the free **Spark** plan (no Cloud Functions — see `payments/` below).
 - **Admin panel:** separate Flutter web app, `admin/` (own `pubspec.yaml`, not part of the `dellinoo` package) — live at **https://dellinoo-admin.web.app**. See Roadmap item 4.
@@ -116,6 +116,17 @@ Resolved: `kWhatsAppNumber` (`lib/core/contact.dart`) is now the client's real W
 Resolved: the logo is now the client's real bag-and-smile mark (`assets/images/logo_*.png`, `lib/widgets/brand.dart`), and the launcher icon / native launch screen (`assets/icon/`, `res/drawable*/launch_background.xml`, `values-v31`) were updated to match in the violet/orange rebrand. Regenerate the launcher icon with `dart run flutter_launcher_icons` if `assets/icon/` changes again.
 The launcher icon's source images (`assets/icon/icon.png`/`icon_foreground.png`/`icon_monochrome.png`) were rescaled Sep 2026 — the mark used to occupy only ~55% of the 1024×1024 canvas (a lot of dead white space around it on the home screen), now ~80%, centred on the same auto-detected bounding box for all three source images so the adaptive layers stay aligned. No image-editing tool was available in this environment (no ImageMagick/PIL/ffmpeg), so this went through a throwaway Node/Jimp script in the scratchpad, not a repo-tracked tool — if the mark changes again, redo it by eye in real design software rather than hunting for that script.
 
+## Next steps (as of 29 Sep 2026, ~80% complete)
+
+In priority order:
+1. **Deploy coupons:** `wrangler deploy` in `payments/` *first*, then `firebase deploy --only firestore:rules`. Until then the old Worker charges the undiscounted amount.
+2. **Real emulator checkout** as a signed-in user, to exercise the `orders`/`meta/orderCounter` Firestore rules (only ever tested via IAM scripts, which bypass rules).
+3. **Paynow goes Live** (requested, awaiting Paynow) → one small real EcoCash payment → verify InnBucks; Card needs Paynow's separate approval.
+4. **Client sign-off** on the Placeholders above (warranty/returns, size charts, delivery fees/areas/times, ETAs, privacy/data-deletion wording).
+5. **Blocked on Blaze plan:** Storage (photo uploads), push notifications (Cloud Function). Decide with the client whether to upgrade.
+6. **Play Store:** real listing, screenshots, Facebook App Review (app still in dev mode).
+7. Later: deposit-then-balance for China orders (after Live), referral redemption, visual search, Apple Sign-In/iOS.
+
 ## Roadmap
 
 **Needed to launch**
@@ -145,7 +156,7 @@ The launcher icon's source images (`assets/icon/icon.png`/`icon_foreground.png`/
      - **OneMoney isn't available** — not listed as a selectable payment method on the Paynow merchant integration's setup page at all, so it's hidden from the checkout/retry payment-method pickers (filtered out of `PaymentMethod.values`) until confirmed with Paynow support whether/how it's supported. The enum value itself is untouched.
      - **Card is inactive** on the Paynow merchant account ("Visa/Mastercard USD (inactive)" on the integration's payment-methods list) — needs a separate Paynow-side approval; untested until then.
      - **InnBucks untested** — code path exists (same Express Checkout flow as EcoCash, returns an `authorizationcode` instead of needing a phone) but hasn't been exercised end-to-end yet.
-     - **Still in Paynow test mode** — every new Integration ID starts in test mode automatically; fixed test numbers simulate outcomes (`0771111111` success, `0772222222` delayed success, `0773333333` cancelled, `0774444444` insufficient balance — see `payments/README.md`). Going live is a manual "Set Live" request to Paynow support, to be done once InnBucks/Card are also confirmed working in test mode; do one small real payment after that before considering this fully done.
+     - **Paynow Live requested, awaiting activation (Sep 2026)** — the "Set Live" request has been submitted to Paynow; until they turn it on the integration is still in test mode, where fixed test numbers simulate outcomes (`0771111111` success, `0772222222` delayed success, `0773333333` cancelled, `0774444444` insufficient balance — see `payments/README.md`). The client has been told to test EcoCash with `0771111111` (no real money moves). Once Paynow confirms Live: test numbers stop working, so do one small real EcoCash payment and confirm the order flips to `paid` before considering this fully done. InnBucks/Card were *not* confirmed in test mode first — verify them after going Live (Card also still needs Paynow's separate approval).
      - The Worker's paid-idempotency guard (skip if `history` already has `paid`) is a check-then-append, not a real Firestore transaction — an acceptable, documented gap for MVP (see `payments/src/firestore.ts`), not a full guard against two truly simultaneous webhook deliveries.
 4. Admin panel: separate Flutter web app in this repo (Firebase Hosting), covering products/photos, stock type, order status updates, delivery areas & fees.
    - **v1 done (Sep 2026):** `admin/` is its own Flutter project (own `pubspec.yaml`, not part of the `dellinoo` package — `flutter analyze`/`test`/`build` in the repo root never touch it) with `firebase_core`/`cloud_firestore`/`firebase_auth`, deployed at **https://dellinoo-admin.web.app** (a second Firebase Hosting site, target `admin` — the marketing/privacy pages stay on the default site, target `marketing`; both deploy via `firebase deploy --only hosting` from the repo root, or `--only hosting:admin` / `hosting:marketing` for just one). `cd admin && flutter build web --release` before deploying — Hosting serves the built `admin/build/web`, not live-reloaded.
