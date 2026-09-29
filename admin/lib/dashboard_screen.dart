@@ -170,14 +170,16 @@ class _DashboardBody extends StatelessWidget {
 
     final stageCounts = {for (final s in _pipeline) s: paid.where((o) => o.status == s).length};
 
+    final compact = MediaQuery.sizeOf(context).width < 600;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(compact ? 14 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _FlowGrid(
-            minItemWidth: 200,
-            spacing: 16,
+            // Two columns on a phone instead of six stacked tiles.
+            minItemWidth: compact ? 150 : 200,
+            spacing: compact ? 12 : 16,
             children: [
               _StatTile(
                 icon: IconlyLight.wallet,
@@ -226,15 +228,15 @@ class _DashboardBody extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: compact ? 14 : 20),
           _Card(
             title: 'Revenue, last 14 days',
-            child: _BarChart(days: days, values: byDay),
+            child: _BarChart(days: days, values: byDay, compact: compact),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: compact ? 14 : 20),
           _FlowGrid(
             minItemWidth: 380,
-            spacing: 20,
+            spacing: compact ? 14 : 20,
             children: [
               _Card(
                 title: 'Orders by stage',
@@ -538,10 +540,11 @@ class _SplitBar extends StatelessWidget {
 }
 
 class _BarChart extends StatelessWidget {
-  const _BarChart({required this.days, required this.values});
+  const _BarChart({required this.days, required this.values, this.compact = false});
 
   final List<DateTime> days;
   final List<double> values;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -555,13 +558,14 @@ class _BarChart extends StatelessWidget {
           for (var i = 0; i < days.length; i++)
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
+                padding: EdgeInsets.symmetric(horizontal: compact ? 1.5 : 3),
                 child: Tooltip(
                   message: '${DateFormat.MMMd().format(days[i])}: ${_money.format(values[i])}',
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      if (values[i] > 0)
+                      // 14 value labels don't fit a phone; the tooltip still has them.
+                      if (values[i] > 0 && !compact)
                         Text(_moneyShort.format(values[i]), style: TextStyle(color: AppColors.muted, fontSize: 10)),
                       const SizedBox(height: 3),
                       Container(
@@ -572,7 +576,11 @@ class _BarChart extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(DateFormat.d().format(days[i]), style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                      Text(
+                        // On a phone only every other day gets a label.
+                        compact && i.isOdd ? '' : DateFormat.d().format(days[i]),
+                        style: TextStyle(color: AppColors.muted, fontSize: 11),
+                      ),
                     ],
                   ),
                 ),

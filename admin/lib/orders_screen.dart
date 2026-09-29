@@ -46,7 +46,7 @@ String _statusLabel(String s) => switch (s) {
 String _fmtTimestamp(Timestamp? t) => t == null ? '' : DateFormat.yMMMd().add_jm().format(t.toDate());
 
 Future<void> _advanceStatus(BuildContext context, QueryDocumentSnapshot<Map<String, dynamic>> doc, String current) {
-  return showGlassDialog(
+  return showFormPage(
     context: context,
     builder: (context) => _StatusDialog(doc: doc, current: current),
   );

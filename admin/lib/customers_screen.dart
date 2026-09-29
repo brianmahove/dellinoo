@@ -100,6 +100,24 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 },
               );
 
+          final narrow = MediaQuery.sizeOf(context).width < 600;
+          final search = TextField(
+            onChanged: (v) => setState(() => _query = v),
+            decoration: const InputDecoration(
+              hintText: 'Search name, email or phone',
+              prefixIcon: Icon(IconlyLight.search),
+            ),
+          );
+          final sort = SegmentedButton<_Sort>(
+            showSelectedIcon: false,
+            selected: {_sort},
+            onSelectionChanged: (s) => setState(() => _sort = s.first),
+            segments: const [
+              ButtonSegment(value: _Sort.spent, label: Text('Top spend')),
+              ButtonSegment(value: _Sort.orders, label: Text('Orders')),
+              ButtonSegment(value: _Sort.recent, label: Text('Recent')),
+            ],
+          );
           final now = DateTime.now();
           final newThisMonth = all
               .where((c) => c.firstOrder != null && c.firstOrder!.year == now.year && c.firstOrder!.month == now.month)
@@ -112,40 +130,40 @@ class _CustomersScreenState extends State<CustomersScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _Chip(IconlyLight.user_1, '${all.length} customers'),
-                      _Chip(IconlyLight.add_user, '$newThisMonth new this month'),
-                      _Chip(IconlyLight.swap, '$repeat repeat buyers'),
-                    ],
-                  ),
+                  // One line on a phone: short labels, chips share the row equally.
+                  if (narrow)
+                    Row(
+                      children: [
+                        Expanded(child: _Chip(IconlyLight.user_1, '${all.length}', 'total', compact: true)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _Chip(IconlyLight.add_user, '$newThisMonth', 'new', compact: true)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _Chip(IconlyLight.swap, '$repeat', 'repeat', compact: true)),
+                      ],
+                    )
+                  else
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        _Chip(IconlyLight.user_1, '${all.length}', all.length == 1 ? 'customer' : 'customers'),
+                        _Chip(IconlyLight.add_user, '$newThisMonth', 'new this month'),
+                        _Chip(IconlyLight.swap, '$repeat', repeat == 1 ? 'repeat buyer' : 'repeat buyers'),
+                      ],
+                    ),
                   const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          onChanged: (v) => setState(() => _query = v),
-                          decoration: const InputDecoration(
-                            hintText: 'Search name, email or phone',
-                            prefixIcon: Icon(IconlyLight.search),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      SegmentedButton<_Sort>(
-                        showSelectedIcon: false,
-                        selected: {_sort},
-                        onSelectionChanged: (s) => setState(() => _sort = s.first),
-                        segments: const [
-                          ButtonSegment(value: _Sort.spent, label: Text('Top spend')),
-                          ButtonSegment(value: _Sort.orders, label: Text('Orders')),
-                          ButtonSegment(value: _Sort.recent, label: Text('Recent')),
-                        ],
-                      ),
-                    ],
-                  ),
+                  if (narrow) ...[
+                    search,
+                    const SizedBox(height: 10),
+                    SizedBox(width: double.infinity, child: sort),
+                  ] else
+                    Row(
+                      children: [
+                        Expanded(child: search),
+                        const SizedBox(width: 12),
+                        sort,
+                      ],
+                    ),
                   const SizedBox(height: 14),
                   if (customers.isEmpty)
                     Padding(
@@ -170,26 +188,32 @@ class _CustomersScreenState extends State<CustomersScreen> {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip(this.icon, this.text);
+  const _Chip(this.icon, this.count, this.label, {this.compact = false});
 
   final IconData icon;
-  final String text;
+  final String count;
+  final String label;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 14, vertical: compact ? 7 : 8),
       decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(20)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: AppColors.primary),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: AppColors.primary),
-          ),
-        ],
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: compact ? 14 : 16, color: AppColors.primary),
+            const SizedBox(width: 5),
+            Text(
+              '$count $label',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: compact ? 12 : 12.5, color: AppColors.primary),
+            ),
+          ],
+        ),
       ),
     );
   }

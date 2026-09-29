@@ -22,6 +22,17 @@ class AdminApp extends StatelessWidget {
       title: 'Dellinoo Admin',
       debugShowCheckedModeBanner: false,
       theme: buildAdminTheme(),
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        if (mq.size.width >= 600) return child!;
+        return MediaQuery(
+          data: mq.copyWith(textScaler: const TextScaler.linear(0.9)),
+          child: Theme(
+            data: Theme.of(context).copyWith(visualDensity: VisualDensity.compact),
+            child: child!,
+          ),
+        );
+      },
       home: const _AuthGate(),
     );
   }

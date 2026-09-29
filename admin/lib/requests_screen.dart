@@ -151,7 +151,7 @@ class _RequestCardState extends State<_RequestCard> {
                   ),
                 ),
                 SizedBox(
-                  width: 320,
+                  width: (MediaQuery.sizeOf(context).width - 64).clamp(200.0, 320.0),
                   child: TextField(
                     controller: _note,
                     decoration: const InputDecoration(

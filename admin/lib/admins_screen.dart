@@ -24,7 +24,7 @@ class AdminsScreen extends StatelessWidget {
     final myEmail = FirebaseAuth.instance.currentUser?.email;
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showGlassDialog(context: context, builder: (context) => const _AdminForm()),
+        onPressed: () => showFormPage(context: context, builder: (context) => const _AdminForm()),
         icon: const Icon(IconlyLight.plus),
         label: const Text('Add admin'),
       ),

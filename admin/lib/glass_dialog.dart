@@ -42,6 +42,14 @@ Future<T?> showGlassDialog<T>({required BuildContext context, required WidgetBui
   );
 }
 
+/// Opens a form: a frosted dialog on desktop, a full page on a phone (where a
+/// dialog is too cramped for a long form). [GlassAlertDialog] draws itself as a
+/// page automatically when it finds it is in a page route.
+Future<T?> showFormPage<T>({required BuildContext context, required WidgetBuilder builder}) {
+  if (MediaQuery.sizeOf(context).width >= 600) return showGlassDialog<T>(context: context, builder: builder);
+  return Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<T>(builder: builder));
+}
+
 /// Frosted replacement for [AlertDialog] (`title` / `content` / `actions`).
 class GlassAlertDialog extends StatelessWidget {
   const GlassAlertDialog({super.key, this.title, this.content, this.actions = const []});
@@ -50,8 +58,34 @@ class GlassAlertDialog extends StatelessWidget {
   final Widget? content;
   final List<Widget> actions;
 
+  /// Page layout: app bar with the title, scrolling content, actions pinned at the bottom.
+  Widget _page(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: title),
+      body: SafeArea(
+        child: SingleChildScrollView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), child: content),
+      ),
+      bottomNavigationBar: actions.isEmpty
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < actions.length; i++) ...[
+                      if (i != 0) const SizedBox(width: 12),
+                      Expanded(child: actions[i]),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (ModalRoute.of(context) is PageRoute) return _page(context);
     final text = Theme.of(context).textTheme;
     final radius = BorderRadius.circular(26);
     return AnimatedPadding(

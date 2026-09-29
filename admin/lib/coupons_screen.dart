@@ -15,7 +15,7 @@ class CouponsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showGlassDialog(context: context, builder: (context) => const _CouponForm()),
+        onPressed: () => showFormPage(context: context, builder: (context) => const _CouponForm()),
         icon: const Icon(IconlyLight.plus),
         label: const Text('Add coupon'),
       ),
@@ -73,14 +73,16 @@ class CouponsScreen extends StatelessWidget {
                         children: [
                           Switch(value: active, onChanged: (v) => doc.reference.update({'active': v})),
                           IconButton(
+                            visualDensity: VisualDensity.compact,
                             tooltip: 'Edit',
                             icon: const Icon(IconlyLight.edit),
-                            onPressed: () => showGlassDialog(
+                            onPressed: () => showFormPage(
                               context: context,
                               builder: (context) => _CouponForm(doc: doc),
                             ),
                           ),
                           IconButton(
+                            visualDensity: VisualDensity.compact,
                             tooltip: 'Delete',
                             icon: const Icon(IconlyLight.delete),
                             onPressed: () async {
@@ -234,6 +236,7 @@ class _CouponFormState extends State<_CouponForm> {
                     ),
                     if (_expires != null)
                       IconButton(
+                        visualDensity: VisualDensity.compact,
                         onPressed: () => setState(() => _expires = null),
                         icon: const Icon(Icons.close, size: 18),
                       ),

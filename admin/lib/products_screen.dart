@@ -54,7 +54,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _openForm({QueryDocumentSnapshot<Map<String, dynamic>>? doc}) {
-    return showGlassDialog(
+    return showFormPage(
       context: context,
       builder: (context) => _ProductForm(doc: doc),
     );
@@ -62,15 +62,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 600;
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(),
-        icon: const Icon(IconlyLight.plus),
-        label: const Text('Add product'),
-      ),
+      floatingActionButton: compact
+          ? FloatingActionButton.small(
+              tooltip: 'Add product',
+              onPressed: () => _openForm(),
+              child: const Icon(IconlyLight.plus),
+            )
+          : FloatingActionButton.extended(
+              onPressed: () => _openForm(),
+              icon: const Icon(IconlyLight.plus),
+              label: const Text('Add product'),
+            ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+          padding: EdgeInsets.fromLTRB(compact ? 14 : 24, 12, compact ? 14 : 24, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -111,11 +118,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     }
                     return GridView.builder(
                       padding: const EdgeInsets.only(bottom: 96),
-                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                         maxCrossAxisExtent: 240,
-                        mainAxisExtent: 300,
-                        crossAxisSpacing: 18,
-                        mainAxisSpacing: 18,
+                        mainAxisExtent: compact ? 250 : 300,
+                        crossAxisSpacing: compact ? 10 : 18,
+                        mainAxisSpacing: compact ? 10 : 18,
                       ),
                       itemCount: docs.length,
                       itemBuilder: (context, i) => _ProductCard(
@@ -177,11 +184,12 @@ class _FilterRowState extends State<_FilterRow> {
       searching: _searching,
       onToggleSearch: _toggle,
       searchField: SizedBox(
-        width: 240,
         height: 38,
         child: TextField(
           controller: widget.search,
-          autofocus: true,
+          // Focus on open only where the field appears on demand (desktop); on a phone it's always
+          // there, and grabbing focus would pop the keyboard whenever you open the page.
+          autofocus: MediaQuery.sizeOf(context).width >= 720,
           onChanged: (_) => widget.onSearchChanged(),
           decoration: InputDecoration(
             isDense: true,
@@ -217,24 +225,54 @@ class _CategoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final narrow = MediaQuery.sizeOf(context).width < 720;
+    final pills = SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _CategoryPill(label: 'All Products', selected: selected == 'all', onTap: () => onSelect('all')),
+          for (final c in _categoryIds) ...[
+            const SizedBox(width: 10),
+            _CategoryPill(label: _categoryLabels[c]!, selected: selected == c, onTap: () => onSelect(c)),
+          ],
+        ],
+      ),
+    );
+    final controls = _controls(toggle: !narrow);
+    if (!narrow) {
+      // Desktop: pills and controls share one row.
+      return Row(
+        children: [
+          Expanded(child: pills),
+          const SizedBox(width: 12),
+          if (searching) SizedBox(width: 240, child: searchField),
+          ...controls,
+        ],
+      );
+    }
+    // Phone: pills get their own scrolling row; below it the search field is always
+    // shown and takes all the free width next to the stock filter (no toggle icon).
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _CategoryPill(label: 'All Products', selected: selected == 'all', onTap: () => onSelect('all')),
-                for (final c in _categoryIds) ...[
-                  const SizedBox(width: 10),
-                  _CategoryPill(label: _categoryLabels[c]!, selected: selected == c, onTap: () => onSelect(c)),
-                ],
-              ],
-            ),
-          ),
+        pills,
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: searchField),
+            const SizedBox(width: 10),
+            ...controls,
+          ],
         ),
-        const SizedBox(width: 12),
-        if (searching) ...[searchField, const SizedBox(width: 8)],
+      ],
+    );
+  }
+
+  /// The search toggle and stock-status filter.
+  List<Widget> _controls({required bool toggle}) {
+    return [
+      if (toggle) ...[
+        if (searching) const SizedBox(width: 8),
         Tooltip(
           message: searching ? 'Close search' : 'Search products',
           child: InkWell(
@@ -257,26 +295,26 @@ class _CategoryRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        DropdownButtonHideUnderline(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            height: 38,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(19),
-              border: Border.all(color: AppColors.line),
-            ),
-            child: DropdownButton<String>(
-              value: stockFilter,
-              isDense: true,
-              icon: Icon(IconlyLight.arrow_down_2, size: 18, color: AppColors.muted),
-              style: const TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600, fontSize: 13),
-              items: [for (final e in _stockFilters.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
-              onChanged: (v) => onStockFilterChanged(v!),
-            ),
+      ],
+      DropdownButtonHideUnderline(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          height: 38,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(19),
+            border: Border.all(color: AppColors.line),
+          ),
+          child: DropdownButton<String>(
+            value: stockFilter,
+            isDense: true,
+            icon: Icon(IconlyLight.arrow_down_2, size: 18, color: AppColors.muted),
+            style: const TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600, fontSize: 13),
+            items: [for (final e in _stockFilters.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+            onChanged: (v) => onStockFilterChanged(v!),
           ),
         ),
-      ],
-    );
+      ),
+    ];
   }
 }
 
@@ -289,6 +327,7 @@ class _CategoryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 600;
     return Material(
       color: selected ? AppColors.ink : Colors.transparent,
       shape: StadiumBorder(side: selected ? BorderSide.none : BorderSide(color: AppColors.line)),
@@ -296,7 +335,7 @@ class _CategoryPill extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+          padding: EdgeInsets.symmetric(horizontal: compact ? 13 : 18, vertical: compact ? 7 : 9),
           child: Text(
             label,
             style: TextStyle(
@@ -454,7 +493,7 @@ class _RoundIconButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(7),
+          padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 5 : 7),
           child: Icon(icon, size: 15, color: iconColor ?? AppColors.ink),
         ),
       ),

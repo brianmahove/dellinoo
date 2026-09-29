@@ -21,6 +21,9 @@ import 'iconly.dart';
 const _wideBreakpoint = 720.0;
 const _topNavHeight = 72.0;
 
+/// Destinations that get their own bottom-bar tab on mobile; the rest go under "More".
+const _mobileTabs = 4;
+
 class _Destination {
   const _Destination(this.icon, this.selectedIcon, this.label);
   final IconData icon;
@@ -48,10 +51,14 @@ const _screens = [
   RequestsScreen(),
   AdminsScreen(),
   AccountScreen(), // not in the nav; opened from the avatar
+  SizedBox.shrink(), // placeholder for the mobile "More" page, built in _body()
 ];
 
 /// Index of [AccountScreen] in [_screens] (one past the nav destinations).
 const _accountIndex = 8;
+
+/// Index of the mobile-only "More" page (a menu of the destinations without a bottom-bar tab).
+const _moreIndex = 9;
 
 /// Signed-in shell: checks the `admins/{email}` allowlist (mirrors
 /// firestore.rules' `isAdmin()`) before showing any admin screen — this is a
@@ -85,7 +92,18 @@ class _AdminShellState extends State<AdminShell> {
     return IndexedStack(
       index: _index,
       children: [
-        for (var i = 0; i < _screens.length; i++) _visited.contains(i) ? _screens[i] : const SizedBox.shrink(),
+        for (var i = 0; i < _screens.length; i++)
+          if (i == _moreIndex)
+            _MorePage(
+              onSelect: (i) => setState(() => _index = i),
+              onAccount: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute<void>(builder: (_) => const AccountScreen(showBack: true))),
+            )
+          else if (_visited.contains(i))
+            _screens[i]
+          else
+            const SizedBox.shrink(),
       ],
     );
   }
@@ -149,11 +167,29 @@ class _AdminShellState extends State<AdminShell> {
   Widget _narrowLayout(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        // From a page that lives under "More", the arrow goes back to that menu.
+        automaticallyImplyLeading: false,
+        leading: _index >= _mobileTabs && _index < _destinations.length
+            ? IconButton(
+                tooltip: 'Back',
+                onPressed: () => setState(() => _index = _moreIndex),
+                icon: const Icon(IconlyLight.arrow_left_2),
+              )
+            : null,
         title: Row(
           children: [
-            Image.asset('assets/images/logo_icon.png', width: 28, height: 28),
-            const SizedBox(width: 10),
-            const Text('Dellinoo Admin'),
+            if (_index < _mobileTabs || _index >= _destinations.length) ...[
+              Image.asset('assets/images/logo_icon.png', width: 28, height: 28),
+              const SizedBox(width: 10),
+            ],
+            // No per-screen titles any more, so the bar says where you are.
+            Text(
+              _index == _moreIndex
+                  ? 'More'
+                  : _index < _destinations.length
+                  ? _destinations[_index].label
+                  : 'Account',
+            ),
           ],
         ),
         actions: [
@@ -168,11 +204,17 @@ class _AdminShellState extends State<AdminShell> {
       ),
       body: _body(),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        // Eight labels don't fit a phone: the first few get a tab, the rest live under "More".
+        selectedIndex: _index < _mobileTabs ? _index : _mobileTabs,
+        onDestinationSelected: (i) => setState(() => _index = i == _mobileTabs ? _moreIndex : i),
         destinations: [
-          for (final d in _destinations)
+          for (final d in _destinations.take(_mobileTabs))
             NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: d.label),
+          const NavigationDestination(
+            icon: Icon(IconlyLight.more_square),
+            selectedIcon: Icon(IconlyBold.more_square),
+            label: 'More',
+          ),
         ],
       ),
     );
@@ -307,6 +349,99 @@ class _UserMenu extends StatelessWidget {
             border: Border.all(color: selected ? AppColors.primary : AppColors.line, width: 1.5),
           ),
           child: UserAvatar(user: user, radius: 17),
+        ),
+      ),
+    );
+  }
+}
+
+/// Mobile "More" tab: a full page listing the destinations that don't fit in the
+/// bottom bar, plus the account and sign-out.
+class _MorePage extends StatelessWidget {
+  const _MorePage({required this.onSelect, required this.onAccount});
+
+  final ValueChanged<int> onSelect;
+  final VoidCallback onAccount;
+
+  static const _hints = {
+    'Delivery areas': 'Where you deliver and the fees',
+    'Coupons': 'Discount codes for checkout',
+    'Requests': 'Items customers asked you to source',
+    'Admins': 'Who can use this panel',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        for (var i = _mobileTabs; i < _destinations.length; i++) ...[
+          _MoreTile(
+            icon: _destinations[i].icon,
+            label: _destinations[i].label,
+            hint: _hints[_destinations[i].label],
+            onTap: () => onSelect(i),
+          ),
+          const SizedBox(height: 10),
+        ],
+        const SizedBox(height: 6),
+        _MoreTile(icon: IconlyLight.profile, label: 'My account', hint: 'Profile and password', onTap: onAccount),
+        const SizedBox(height: 10),
+        _MoreTile(
+          icon: IconlyLight.logout,
+          label: 'Sign out',
+          color: AppColors.danger,
+          onTap: () => FirebaseAuth.instance.signOut(),
+        ),
+      ],
+    );
+  }
+}
+
+class _MoreTile extends StatelessWidget {
+  const _MoreTile({required this.icon, required this.label, required this.onTap, this.hint, this.color});
+
+  final IconData icon;
+  final String label;
+  final String? hint;
+  final Color? color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = color ?? AppColors.primary;
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: tone.withValues(alpha: 0.12), shape: BoxShape.circle),
+                child: Icon(icon, size: 20, color: tone),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: color ?? AppColors.ink),
+                    ),
+                    if (hint != null) Text(hint!, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                  ],
+                ),
+              ),
+              if (color == null) Icon(IconlyLight.arrow_right_2, size: 18, color: AppColors.muted),
+            ],
+          ),
         ),
       ),
     );

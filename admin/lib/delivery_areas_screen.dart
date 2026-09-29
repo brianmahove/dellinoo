@@ -12,7 +12,7 @@ class DeliveryAreasScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showGlassDialog(context: context, builder: (context) => const _AreaForm()),
+        onPressed: () => showFormPage(context: context, builder: (context) => const _AreaForm()),
         icon: const Icon(IconlyLight.plus),
         label: const Text('Add area'),
       ),
@@ -66,13 +66,15 @@ class DeliveryAreasScreen extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           IconButton(
+                            visualDensity: VisualDensity.compact,
                             icon: const Icon(IconlyLight.edit),
-                            onPressed: () => showGlassDialog(
+                            onPressed: () => showFormPage(
                               context: context,
                               builder: (context) => _AreaForm(doc: doc),
                             ),
                           ),
                           IconButton(
+                            visualDensity: VisualDensity.compact,
                             icon: const Icon(IconlyLight.delete),
                             onPressed: () async {
                               final ok = await showGlassDialog<bool>(
