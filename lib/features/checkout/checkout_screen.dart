@@ -10,6 +10,7 @@ import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/motion.dart';
+import '../../widgets/payment_dialog.dart';
 import '../../widgets/payment_logos.dart';
 import '../../core/iconly.dart';
 
@@ -48,31 +49,32 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
     setState(() => _placing = true);
-    final paid = await showGlassDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _PaymentDialog(method: _payment, phone: _walletPhone.text),
-    );
-    if (!mounted) return;
-    if (paid != true) {
-      setState(() => _placing = false);
-      return;
-    }
 
+    Order order;
     try {
-      final order = await ref
+      order = await ref
           .read(ordersProvider.notifier)
           .place(items: ref.read(cartProvider), address: _currentAddress, area: _area!, payment: _payment);
-      if (!mounted) return;
-      ref.read(cartProvider.notifier).clear();
-      context.go('/order-success/${order.id}');
     } catch (_) {
-      if (!mounted) return;
-      // Payment already went through — don't lose the cart, let them retry.
-      showGlassToast(context, "Payment received, but we couldn't save your order. Please try again.");
-    } finally {
-      if (mounted) setState(() => _placing = false);
+      if (mounted) {
+        showGlassToast(context, "Couldn't place your order. Please try again.");
+        setState(() => _placing = false);
+      }
+      return;
     }
+    if (!mounted) return;
+    ref.read(cartProvider.notifier).clear();
+
+    // The order now exists (unpaid) in Firestore either way — payment
+    // outcome only decides whether it's already paid when we get to order
+    // detail, which offers "Complete payment" if not (see PaymentWaitDialog).
+    await showGlassDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PaymentWaitDialog(orderId: order.id, method: _payment, phone: _walletPhone.text),
+    );
+    if (!mounted) return;
+    context.go('/order-success/${order.id}');
   }
 
   static const _steps = ['Address', 'Delivery', 'Payment'];
@@ -190,16 +192,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       title: 'Payment method',
       child: Column(
         children: [
+          // OneMoney is hidden until we confirm with Paynow whether/how they
+          // support it — it wasn't listed as an option on the merchant's
+          // integration setup page (Sep 2026).
           for (final m in PaymentMethod.values)
-            _SelectTile(
-              selected: _payment == m,
-              onTap: () => setState(() => _payment = m),
-              leading: _PaymentLogo(m),
-              title: m.label,
-              subtitle: m.subtitle,
-              // Card also takes Visa and Mastercard, shown next to the ZimSwitch logo.
-              trailing: m == PaymentMethod.card ? const CardBrandsChip() : null,
-            ),
+            if (m != PaymentMethod.onemoney)
+              _SelectTile(
+                selected: _payment == m,
+                onTap: () => setState(() => _payment = m),
+                leading: _PaymentLogo(m),
+                title: m.label,
+                subtitle: m.subtitle,
+                // Card also takes Visa and Mastercard, shown next to the ZimSwitch logo.
+                trailing: m == PaymentMethod.card ? const CardBrandsChip() : null,
+              ),
           if (_payment.needsPhone) ...[
             const SizedBox(height: 8),
             TextField(
@@ -523,73 +529,6 @@ class _AmountRow extends StatelessWidget {
           amount == null
               ? Text(value, style: style)
               : AnimatedMoney(amount!, style: bold ? style.copyWith(color: AppColors.accent) : style),
-        ],
-      ),
-    );
-  }
-}
-
-/// Simulates the gateway handshake (e.g. EcoCash USSD prompt) until the
-/// real payment gateway is wired up.
-class _PaymentDialog extends StatefulWidget {
-  const _PaymentDialog({required this.method, required this.phone});
-
-  final PaymentMethod method;
-  final String phone;
-
-  @override
-  State<_PaymentDialog> createState() => _PaymentDialogState();
-}
-
-class _PaymentDialogState extends State<_PaymentDialog> {
-  bool _done = false;
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(const Duration(milliseconds: 2200), () {
-      if (!mounted) return;
-      setState(() => _done = true);
-      Future.delayed(const Duration(milliseconds: 700), () {
-        if (mounted) Navigator.of(context).pop(true);
-      });
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final message = switch (widget.method) {
-      PaymentMethod.ecocash || PaymentMethod.onemoney =>
-        'Check your phone (${widget.phone}) and enter your ${widget.method.label} PIN to approve the payment.',
-      PaymentMethod.innbucks => 'Generating your InnBucks payment code…',
-      PaymentMethod.card => 'Redirecting to secure card payment…',
-    };
-    return AlertDialog(
-      contentPadding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            height: 56,
-            child: _done
-                ? Icon(IconlyBold.tick_square, color: AppColors.inStock, size: 56)
-                : const Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _done ? 'Payment received' : 'Waiting for payment',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _done ? 'Thank you!' : message,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.muted, height: 1.4),
-          ),
-          if (!_done) ...[
-            const SizedBox(height: 12),
-            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-          ],
         ],
       ),
     );

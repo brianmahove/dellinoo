@@ -439,6 +439,7 @@ class OrdersNotifier extends Notifier<List<Order>> {
         .placeOrder(
           uid: user.uid,
           customerName: user.name,
+          customerEmail: user.email,
           items: items,
           address: address,
           area: area,

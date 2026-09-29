@@ -1,0 +1,6 @@
+export interface Env {
+  PAYNOW_INTEGRATION_ID: string;
+  FIREBASE_PROJECT_ID: string;
+  PAYNOW_INTEGRATION_KEY: string;
+  FIREBASE_SERVICE_ACCOUNT_JSON: string;
+}

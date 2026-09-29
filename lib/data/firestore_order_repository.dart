@@ -36,6 +36,7 @@ class FirestoreOrderRepository implements OrderRepository {
   Future<Order> placeOrder({
     required String uid,
     String? customerName,
+    String? customerEmail,
     required List<CartItem> items,
     required Address address,
     required DeliveryArea area,
@@ -58,6 +59,7 @@ class FirestoreOrderRepository implements OrderRepository {
           displayId: id,
           uid: uid,
           customerName: customerName,
+          customerEmail: customerEmail,
           items: items,
           address: address,
           area: area,
@@ -68,13 +70,16 @@ class FirestoreOrderRepository implements OrderRepository {
       return id;
     });
 
+    // Unpaid until the payments Worker confirms Paynow's webhook and appends
+    // a `paid` StatusEvent itself (see lib/widgets/payment_dialog.dart) —
+    // customers can't write order status themselves (firestore.rules).
     return Order(
       id: displayId,
       items: items,
       address: address,
       area: area,
       payment: payment,
-      history: [StatusEvent(OrderStatus.placed, now), StatusEvent(OrderStatus.paid, now)],
+      history: [StatusEvent(OrderStatus.placed, now)],
     );
   }
 
@@ -82,6 +87,7 @@ class FirestoreOrderRepository implements OrderRepository {
     required String displayId,
     required String uid,
     String? customerName,
+    String? customerEmail,
     required List<CartItem> items,
     required Address address,
     required DeliveryArea area,
@@ -91,6 +97,7 @@ class FirestoreOrderRepository implements OrderRepository {
     return {
       'userId': uid,
       'customerName': customerName,
+      'customerEmail': customerEmail ?? '',
       'displayId': displayId,
       'createdAt': Timestamp.fromDate(now),
       'items': [
@@ -110,7 +117,6 @@ class FirestoreOrderRepository implements OrderRepository {
       'payment': payment.name,
       'history': [
         {'status': OrderStatus.placed.name, 'at': Timestamp.fromDate(now)},
-        {'status': OrderStatus.paid.name, 'at': Timestamp.fromDate(now)},
       ],
     };
   }

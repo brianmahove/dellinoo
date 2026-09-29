@@ -1,0 +1,199 @@
+import type { Env } from './types';
+
+// Talks to Firestore over its plain REST API, authenticated as a Google
+// service account (not the `firebase-admin` SDK — it needs Node APIs the
+// Workers runtime doesn't have). A request signed this way is a privileged,
+// server-side identity: it bypasses ../firestore.rules entirely, the same
+// trust level the Admin SDK would have — this Worker is the ONLY thing
+// (besides the admin panel) allowed to write an order's status.
+
+interface ServiceAccount {
+  client_email: string;
+  private_key: string;
+}
+
+type FirestoreValue =
+  | { stringValue: string }
+  | { integerValue: string }
+  | { doubleValue: number }
+  | { booleanValue: boolean }
+  | { timestampValue: string }
+  | { nullValue: null }
+  | { mapValue: { fields?: Record<string, FirestoreValue> } }
+  | { arrayValue: { values?: FirestoreValue[] } };
+
+const FIRESTORE_BASE = 'https://firestore.googleapis.com/v1';
+
+function docPath(env: Env, orderId: string): string {
+  return `projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/orders/${orderId}`;
+}
+
+function base64Url(bytes: ArrayBuffer | string): string {
+  const arr = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : new Uint8Array(bytes);
+  let binary = '';
+  for (const b of arr) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const body = pem.replace(/-----BEGIN PRIVATE KEY-----/, '').replace(/-----END PRIVATE KEY-----/, '').replace(/\s+/g, '');
+  const binary = atob(body);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+// Reused across requests within the same Worker isolate to cut down on
+// token-endpoint round trips; harmless to lose on a cold start.
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+export async function getAccessToken(env: Env): Promise<string> {
+  if (cachedToken && cachedToken.expiresAt > Date.now() + 30_000) {
+    return cachedToken.token;
+  }
+  const serviceAccount = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON) as ServiceAccount;
+  const now = Math.floor(Date.now() / 1000);
+
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const claims = {
+    iss: serviceAccount.client_email,
+    scope: 'https://www.googleapis.com/auth/datastore',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+  };
+  const signingInput = `${base64Url(JSON.stringify(header))}.${base64Url(JSON.stringify(claims))}`;
+
+  const key = await crypto.subtle.importKey(
+    'pkcs8',
+    pemToArrayBuffer(serviceAccount.private_key),
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(signingInput));
+  const jwt = `${signingInput}.${base64Url(signature)}`;
+
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt,
+    }).toString(),
+  });
+  if (!res.ok) throw new Error(`Failed to get Google access token: ${res.status} ${await res.text()}`);
+  const json = (await res.json()) as { access_token: string; expires_in: number };
+  cachedToken = { token: json.access_token, expiresAt: Date.now() + json.expires_in * 1000 };
+  return json.access_token;
+}
+
+function fromFirestoreValue(value: FirestoreValue | undefined): unknown {
+  if (!value) return undefined;
+  if ('stringValue' in value) return value.stringValue;
+  if ('integerValue' in value) return Number(value.integerValue);
+  if ('doubleValue' in value) return value.doubleValue;
+  if ('booleanValue' in value) return value.booleanValue;
+  if ('timestampValue' in value) return value.timestampValue;
+  if ('nullValue' in value) return null;
+  if ('mapValue' in value) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value.mapValue.fields ?? {})) out[k] = fromFirestoreValue(v);
+    return out;
+  }
+  if ('arrayValue' in value) return (value.arrayValue.values ?? []).map(fromFirestoreValue);
+  return undefined;
+}
+
+export interface LoadedOrder {
+  userId: string;
+  displayId: string;
+  customerEmail: string;
+  payment: string;
+  address: { fullName: string; phone: string; street: string; city: string };
+  area: { id: string; name: string; fee: number; eta: string };
+  items: Array<{ price: number; quantity: number }>;
+  history: Array<{ status: string; at: string }>;
+}
+
+export async function getOrder(orderId: string, env: Env, token: string): Promise<LoadedOrder | null> {
+  const res = await fetch(`${FIRESTORE_BASE}/${docPath(env, orderId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Firestore getOrder failed: ${res.status} ${await res.text()}`);
+  const json = (await res.json()) as { fields?: Record<string, FirestoreValue> };
+  const fields = json.fields ?? {};
+  const get = (name: string) => fromFirestoreValue(fields[name]);
+  return {
+    userId: (get('userId') as string) ?? '',
+    displayId: (get('displayId') as string) ?? '',
+    customerEmail: (get('customerEmail') as string) ?? '',
+    payment: (get('payment') as string) ?? '',
+    address: (get('address') as LoadedOrder['address']) ?? { fullName: '', phone: '', street: '', city: '' },
+    area: (get('area') as LoadedOrder['area']) ?? { id: '', name: '', fee: 0, eta: '' },
+    items: (get('items') as LoadedOrder['items']) ?? [],
+    history: (get('history') as LoadedOrder['history']) ?? [],
+  };
+}
+
+export function computeAmount(order: LoadedOrder): string {
+  const subtotal = order.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  return (subtotal + (order.area.fee ?? 0)).toFixed(2);
+}
+
+// Sets a couple of plain fields (e.g. `paynowReference` right after
+// initiating) without touching anything else on the doc.
+export async function patchFields(orderId: string, env: Env, token: string, fields: Record<string, string>): Promise<void> {
+  const mask = Object.keys(fields).map((f) => `updateMask.fieldPaths=${encodeURIComponent(f)}`).join('&');
+  const firestoreFields: Record<string, FirestoreValue> = {};
+  for (const [k, v] of Object.entries(fields)) firestoreFields[k] = { stringValue: v };
+  const res = await fetch(`${FIRESTORE_BASE}/${docPath(env, orderId)}?${mask}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: firestoreFields }),
+  });
+  if (!res.ok) throw new Error(`Firestore patch failed: ${res.status} ${await res.text()}`);
+}
+
+// The only path by which an order moves to `paid` outside the admin panel.
+// Appends a `paid` StatusEvent (an array transform, since a plain PATCH
+// can't append) and stamps `paynowReference`/`paidAt` in the same commit.
+export async function appendPaidAndPatch(orderId: string, env: Env, token: string, paynowReference: string): Promise<void> {
+  const nowIso = new Date().toISOString();
+  const name = docPath(env, orderId);
+  const body = {
+    writes: [
+      {
+        transform: {
+          document: name,
+          fieldTransforms: [
+            {
+              fieldPath: 'history',
+              appendMissingElements: {
+                values: [{ mapValue: { fields: { status: { stringValue: 'paid' }, at: { timestampValue: nowIso } } } }],
+              },
+            },
+          ],
+        },
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name,
+          fields: {
+            paynowReference: { stringValue: paynowReference },
+            paidAt: { timestampValue: nowIso },
+          },
+        },
+        updateMask: { fieldPaths: ['paynowReference', 'paidAt'] },
+      },
+    ],
+  };
+  const res = await fetch(`${FIRESTORE_BASE}/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:commit`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Firestore commit failed: ${res.status} ${await res.text()}`);
+}

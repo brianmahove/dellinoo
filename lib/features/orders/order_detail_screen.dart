@@ -10,6 +10,7 @@ import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
+import '../../widgets/payment_dialog.dart';
 import 'orders_screen.dart';
 import '../../core/iconly.dart';
 
@@ -146,6 +147,20 @@ class OrderDetailScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (order.status == OrderStatus.placed)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+              child: FilledButton.icon(
+                onPressed: () => showGlassDialog<bool>(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) =>
+                      PaymentWaitDialog(orderId: order.id, method: order.payment, phone: order.address.phone),
+                ),
+                icon: const Icon(IconlyLight.wallet),
+                label: const Text('Complete payment'),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
             child: FilledButton.icon(

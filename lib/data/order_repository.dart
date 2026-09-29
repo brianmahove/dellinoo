@@ -13,9 +13,13 @@ abstract class OrderRepository {
   /// not the delivery recipient's name in [address], which can be someone
   /// else) — stored on the order doc for the admin panel to show who
   /// actually placed it; the customer app itself never needs it back.
+  /// [customerEmail] is stored on the order doc too, so the payments
+  /// Cloudflare Worker can use it as Paynow's `authemail` without a separate
+  /// profile lookup — the mock ignores it.
   Future<Order> placeOrder({
     required String uid,
     String? customerName,
+    String? customerEmail,
     required List<CartItem> items,
     required Address address,
     required DeliveryArea area,
@@ -33,6 +37,7 @@ class MockOrderRepository implements OrderRepository {
   Future<Order> placeOrder({
     required String uid,
     String? customerName,
+    String? customerEmail,
     required List<CartItem> items,
     required Address address,
     required DeliveryArea area,
