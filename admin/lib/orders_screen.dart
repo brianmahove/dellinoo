@@ -4,6 +4,11 @@ import 'package:intl/intl.dart';
 
 import 'theme.dart';
 
+/// Below this width the split list/detail layout doesn't have room, so
+/// Orders falls back to the single-column expandable list (matches the
+/// shell's own wide/narrow breakpoint reasoning).
+const _splitBreakpoint = 760.0;
+
 /// Matches OrderStatus in the main app's lib/data/models.dart — kept in sync
 /// by hand (see the note in shell.dart about not sharing code yet).
 const _statuses = [
@@ -36,8 +41,27 @@ String _statusLabel(String s) => switch (s) {
   _ => (AppColors.accent, AppColors.primarySoft),
 };
 
-class OrdersScreen extends StatelessWidget {
+String _fmtTimestamp(Timestamp? t) => t == null ? '' : DateFormat.yMMMd().add_jm().format(t.toDate());
+
+Future<void> _advanceStatus(BuildContext context, QueryDocumentSnapshot<Map<String, dynamic>> doc, String current) {
+  return showDialog(context: context, builder: (context) => _StatusDialog(doc: doc, current: current));
+}
+
+int _itemCount(List<Map<String, dynamic>> items) =>
+    items.fold<int>(0, (s, i) => s + ((i['quantity'] as num?)?.toInt() ?? 0));
+
+double _subtotal(List<Map<String, dynamic>> items) =>
+    items.fold<double>(0, (s, i) => s + ((i['price'] as num?)?.toDouble() ?? 0) * ((i['quantity'] as num?)?.toInt() ?? 0));
+
+class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
+
+  @override
+  State<OrdersScreen> createState() => _OrdersScreenState();
+}
+
+class _OrdersScreenState extends State<OrdersScreen> {
+  String? _selectedId;
 
   @override
   Widget build(BuildContext context) {
@@ -61,16 +85,53 @@ class OrdersScreen extends StatelessWidget {
               ),
             );
           }
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: docs.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (context, i) => _OrderTile(docs[i]),
-              ),
-            ),
+
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < _splitBreakpoint) {
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: docs.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, i) => _OrderTile(docs[i]),
+                    ),
+                  ),
+                );
+              }
+
+              var selected = docs.first;
+              for (final d in docs) {
+                if (d.id == _selectedId) {
+                  selected = d;
+                  break;
+                }
+              }
+
+              return ColoredBox(
+                color: AppColors.tint,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: _OrderListCard(
+                          docs: docs,
+                          selectedId: selected.id,
+                          onSelect: (id) => setState(() => _selectedId = id),
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(flex: 4, child: _OrderDetailCard(doc: selected)),
+                    ],
+                  ),
+                ),
+              );
+            },
           );
         },
       ),
@@ -78,6 +139,191 @@ class OrdersScreen extends StatelessWidget {
   }
 }
 
+/// Left panel of the wide layout: a scrollable list of compact, tappable
+/// order rows in their own card, separated from the detail card on the right.
+class _OrderListCard extends StatelessWidget {
+  const _OrderListCard({required this.docs, required this.selectedId, required this.onSelect});
+
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs;
+  final String selectedId;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 8)),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(10),
+        itemCount: docs.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 6),
+        itemBuilder: (context, i) {
+          final doc = docs[i];
+          return _OrderRow(doc: doc, selected: doc.id == selectedId, onTap: () => onSelect(doc.id));
+        },
+      ),
+    );
+  }
+}
+
+class _OrderRow extends StatelessWidget {
+  const _OrderRow({required this.doc, required this.selected, required this.onTap});
+
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = doc.data();
+    final history = List<Map<String, dynamic>>.from(d['history'] as List? ?? const []);
+    final status = history.isEmpty ? 'placed' : history.last['status'] as String;
+    final items = List<Map<String, dynamic>>.from(d['items'] as List? ?? const []);
+    final itemCount = _itemCount(items);
+    final subtotal = _subtotal(items);
+    final fee = ((d['area'] as Map?)?['fee'] as num?)?.toDouble() ?? 0;
+    final address = d['address'] as Map<String, dynamic>?;
+    final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
+    final (color, background) = _statusColors(status);
+
+    return Material(
+      color: selected ? AppColors.primarySoft : Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${d['displayId'] ?? doc.id}  ·  ${d['customerName'] ?? address?['fullName'] ?? 'Unknown'}',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      [
+                        if (createdAt != null) DateFormat.yMMMd().add_jm().format(createdAt),
+                        '$itemCount item${itemCount == 1 ? '' : 's'}',
+                        '\$${(subtotal + fee).toStringAsFixed(2)}',
+                      ].join('  ·  '),
+                      style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              StatusPill(label: _statusLabel(status), color: color, background: background),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Right panel of the wide layout: full detail for whichever order is
+/// selected in the list, in its own separated card.
+class _OrderDetailCard extends StatelessWidget {
+  const _OrderDetailCard({required this.doc});
+
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = doc.data();
+    final history = List<Map<String, dynamic>>.from(d['history'] as List? ?? const []);
+    final status = history.isEmpty ? 'placed' : history.last['status'] as String;
+    final items = List<Map<String, dynamic>>.from(d['items'] as List? ?? const []);
+    final subtotal = _subtotal(items);
+    final fee = ((d['area'] as Map?)?['fee'] as num?)?.toDouble() ?? 0;
+    final address = d['address'] as Map<String, dynamic>?;
+    final (color, background) = _statusColors(status);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 8)),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          key: ValueKey(doc.id),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${d['displayId'] ?? doc.id}',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                  ),
+                ),
+                StatusPill(label: _statusLabel(status), color: color, background: background),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${d['customerName'] ?? address?['fullName'] ?? 'Unknown'}',
+              style: TextStyle(color: AppColors.muted),
+            ),
+            const SizedBox(height: 20),
+            Text('Items', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.muted, fontSize: 12.5)),
+            const SizedBox(height: 6),
+            for (final i in items)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text('${i['quantity']}× ${i['name']}  (\$${i['price']})'),
+              ),
+            Divider(color: AppColors.line, height: 28),
+            Text(
+              'Deliver to: ${address?['fullName']} · ${address?['street']}, ${address?['city']} · ${address?['phone']}',
+            ),
+            const SizedBox(height: 4),
+            Text('Payment: ${d['payment']}'),
+            const SizedBox(height: 4),
+            Text('Total: \$${(subtotal + fee).toStringAsFixed(2)}'),
+            const SizedBox(height: 20),
+            Text('History', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.muted, fontSize: 12.5)),
+            const SizedBox(height: 6),
+            for (final h in history)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('• ${_statusLabel(h['status'] as String)}  —  ${_fmtTimestamp(h['at'] as Timestamp?)}'),
+              ),
+            const SizedBox(height: 20),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                onPressed: () => _advanceStatus(context, doc, status),
+                icon: const Icon(Icons.arrow_forward, size: 18),
+                label: const Text('Update status'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Narrow-layout row: the old expand-in-place tile, kept for mobile web
+/// where there isn't room for a side-by-side list and detail panel.
 class _OrderTile extends StatelessWidget {
   const _OrderTile(this.doc);
 
@@ -89,11 +335,8 @@ class _OrderTile extends StatelessWidget {
     final history = List<Map<String, dynamic>>.from(d['history'] as List? ?? const []);
     final status = history.isEmpty ? 'placed' : history.last['status'] as String;
     final items = List<Map<String, dynamic>>.from(d['items'] as List? ?? const []);
-    final itemCount = items.fold<int>(0, (s, i) => s + ((i['quantity'] as num?)?.toInt() ?? 0));
-    final subtotal = items.fold<double>(
-      0,
-      (s, i) => s + ((i['price'] as num?)?.toDouble() ?? 0) * ((i['quantity'] as num?)?.toInt() ?? 0),
-    );
+    final itemCount = _itemCount(items);
+    final subtotal = _subtotal(items);
     final fee = ((d['area'] as Map?)?['fee'] as num?)?.toDouble() ?? 0;
     final address = d['address'] as Map<String, dynamic>?;
     final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
@@ -151,7 +394,7 @@ class _OrderTile extends StatelessWidget {
                 for (final h in history)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text('• ${_statusLabel(h['status'] as String)}  —  ${_fmt(h['at'] as Timestamp?)}'),
+                    child: Text('• ${_statusLabel(h['status'] as String)}  —  ${_fmtTimestamp(h['at'] as Timestamp?)}'),
                   ),
                 const SizedBox(height: 14),
                 Align(
@@ -167,15 +410,6 @@ class _OrderTile extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  String _fmt(Timestamp? t) => t == null ? '' : DateFormat.yMMMd().add_jm().format(t.toDate());
-
-  Future<void> _advanceStatus(BuildContext context, QueryDocumentSnapshot<Map<String, dynamic>> doc, String current) {
-    return showDialog(
-      context: context,
-      builder: (context) => _StatusDialog(doc: doc, current: current),
     );
   }
 }

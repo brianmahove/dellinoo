@@ -6,9 +6,9 @@ service cloud.firestore {
     // only client allowed to write products/delivery_areas/order status.
     // Membership is an allowlist keyed by email — `admins/{email}` existing
     // means that address is an admin — so it works even before that person
-    // has ever signed into any Dellinoo app (no uid needed yet). Managed by
-    // hand/IAM for now (see CLAUDE.md); the admin panel itself never writes
-    // to this collection.
+    // has ever signed into any Dellinoo app (no uid needed yet). Managed
+    // from the panel's own Admins screen (admin/lib/admins_screen.dart);
+    // any admin can add or remove another.
     function isAdmin() {
       return request.auth != null && request.auth.token.email != null &&
         exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
@@ -16,7 +16,13 @@ service cloud.firestore {
 
     match /admins/{email} {
       allow read: if isAdmin();
-      allow write: if false;
+      allow create, update: if isAdmin();
+      // mahovebrian@gmail.com manages the other admins, so no other admin
+      // account can remove it — only that account can remove itself (it
+      // can't via the panel's own UI, but the rule doesn't need to assume
+      // that). Mirrored in admin/lib/admins_screen.dart's UI-level check.
+      allow delete: if isAdmin() &&
+        (email != 'mahovebrian@gmail.com' || request.auth.token.email == 'mahovebrian@gmail.com');
     }
 
     // Catalogue is public to read (no login needed to browse); only admins write.

@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'admins_screen.dart';
+import 'dashboard_screen.dart';
 import 'delivery_areas_screen.dart';
 import 'orders_screen.dart';
 import 'products_screen.dart';
@@ -11,6 +13,7 @@ import 'theme.dart';
 /// above it, a sidebar (desktop web) — matches Material's own "compact vs.
 /// medium" breakpoint at 600, with a little headroom for the sidebar's width.
 const _wideBreakpoint = 720.0;
+const _topNavHeight = 72.0;
 
 class _Destination {
   const _Destination(this.icon, this.selectedIcon, this.label);
@@ -20,11 +23,13 @@ class _Destination {
 }
 
 const _destinations = [
+  _Destination(Icons.dashboard_outlined, Icons.dashboard, 'Dashboard'),
   _Destination(Icons.inventory_2_outlined, Icons.inventory_2, 'Products'),
   _Destination(Icons.receipt_long_outlined, Icons.receipt_long, 'Orders'),
   _Destination(Icons.local_shipping_outlined, Icons.local_shipping, 'Delivery areas'),
+  _Destination(Icons.admin_panel_settings_outlined, Icons.admin_panel_settings, 'Admins'),
 ];
-const _screens = [ProductsScreen(), OrdersScreen(), DeliveryAreasScreen()];
+const _screens = [DashboardScreen(), ProductsScreen(), OrdersScreen(), DeliveryAreasScreen(), AdminsScreen()];
 
 /// Signed-in shell: checks the `admins/{email}` allowlist (mirrors
 /// firestore.rules' `isAdmin()`) before showing any admin screen — this is a
@@ -67,37 +72,28 @@ class _AdminShellState extends State<AdminShell> {
 
   Widget _wideLayout(BuildContext context) {
     return Scaffold(
-      body: Row(
-        children: [
-          NavigationRail(
-            selectedIndex: _index,
-            onDestinationSelected: (i) => setState(() => _index = i),
-            labelType: NavigationRailLabelType.all,
-            leading: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Image.asset('assets/images/logo_icon.png', width: 36, height: 36),
-            ),
-            trailing: Expanded(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: IconButton(
-                    tooltip: 'Sign out',
-                    onPressed: () => FirebaseAuth.instance.signOut(),
-                    icon: Icon(Icons.logout, color: AppColors.muted),
-                  ),
+      backgroundColor: AppColors.tint,
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            _TopNav(index: _index, onSelect: (i) => setState(() => _index = i), user: widget.user),
+            const SizedBox(height: 16),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 30, offset: const Offset(0, 12)),
+                  ],
                 ),
+                clipBehavior: Clip.antiAlias,
+                child: _screens[_index],
               ),
             ),
-            destinations: [
-              for (final d in _destinations)
-                NavigationRailDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: Text(d.label)),
-            ],
-          ),
-          VerticalDivider(width: 1, color: AppColors.line),
-          Expanded(child: _screens[_index]),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -158,6 +154,136 @@ class _AdminShellState extends State<AdminShell> {
               OutlinedButton(onPressed: () => FirebaseAuth.instance.signOut(), child: const Text('Sign out')),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Desktop-web top bar: logo, horizontal nav links, avatar menu — replaces
+/// the old NavigationRail sidebar.
+class _TopNav extends StatelessWidget {
+  const _TopNav({required this.index, required this.onSelect, required this.user});
+
+  final int index;
+  final ValueChanged<int> onSelect;
+  final User user;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: _topNavHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 8)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Image.asset('assets/images/logo_full.png',height: 28),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < _destinations.length; i++) ...[
+                  if (i != 0) const SizedBox(width: 36),
+                  _NavLink(destination: _destinations[i], selected: i == index, onTap: () => onSelect(i)),
+                ],
+              ],
+            ),
+          ),
+          _UserMenu(user: user),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavLink extends StatelessWidget {
+  const _NavLink({required this.destination, required this.selected, required this.onTap});
+
+  final _Destination destination;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.accentOrange : AppColors.muted;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          child: Row(
+            children: [
+              Icon(selected ? destination.selectedIcon : destination.icon, size: 18, color: color),
+              const SizedBox(width: 6),
+              Text(
+                destination.label,
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: color),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UserMenu extends StatelessWidget {
+  const _UserMenu({required this.user});
+
+  final User user;
+
+  @override
+  Widget build(BuildContext context) {
+    final photo = user.photoURL;
+    final initial = (user.email ?? user.displayName ?? '?').substring(0, 1).toUpperCase();
+    return PopupMenuButton<void>(
+      tooltip: user.email ?? '',
+      offset: const Offset(0, 46),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          enabled: false,
+          child: Text(
+            user.email ?? '',
+            style: TextStyle(color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          onTap: () => FirebaseAuth.instance.signOut(),
+          child: Row(
+            children: [
+              Icon(Icons.logout, size: 18, color: AppColors.ink),
+              const SizedBox(width: 10),
+              const Text('Sign out'),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.line, width: 1.5),
+        ),
+        child: CircleAvatar(
+          radius: 17,
+          backgroundColor: AppColors.primarySoft,
+          backgroundImage: photo != null ? NetworkImage(photo) : null,
+          child: photo == null
+              ? Text(
+                  initial,
+                  style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w800),
+                )
+              : null,
         ),
       ),
     );

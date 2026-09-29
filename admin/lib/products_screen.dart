@@ -18,67 +18,264 @@ const _categoryIds = [
   'games',
   'electronics',
 ];
+const _categoryLabels = {
+  'women': 'Women',
+  'men': 'Men',
+  'kids': 'Kids',
+  'shoes': 'Shoes',
+  'handbags': 'Handbags',
+  'phones': 'Phones',
+  'watches': 'Watches',
+  'laptops': 'Laptops',
+  'games': 'Games',
+  'electronics': 'Electronics',
+};
 const _stockStatuses = ['inStock', 'preorder'];
+const _stockFilters = {'all': 'All', 'inStock': 'In stock', 'preorder': 'Preorder'};
 
-class ProductsScreen extends StatelessWidget {
+class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
+
+  @override
+  State<ProductsScreen> createState() => _ProductsScreenState();
+}
+
+class _ProductsScreenState extends State<ProductsScreen> {
+  final _search = TextEditingController();
+  String _category = 'all';
+  String _stockFilter = 'all';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openForm({QueryDocumentSnapshot<Map<String, dynamic>>? doc}) {
+    return showDialog(
+      context: context,
+      builder: (context) => _ProductForm(doc: doc),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Products'), automaticallyImplyLeading: false),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(context),
+        onPressed: () => _openForm(),
         icon: const Icon(Icons.add),
         label: const Text('Add product'),
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('products').orderBy('name').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = snapshot.data!.docs;
-          if (docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.inventory_2_outlined, size: 40, color: AppColors.muted),
-                  const SizedBox(height: 10),
-                  Text('No products yet', style: TextStyle(color: AppColors.muted)),
-                ],
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _FilterRow(
+                search: _search,
+                onSearchChanged: () => setState(() {}),
+                category: _category,
+                onCategorySelect: (c) => setState(() => _category = c),
+                stockFilter: _stockFilter,
+                onStockFilterChanged: (s) => setState(() => _stockFilter = s),
               ),
-            );
-          }
-          return GridView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 280,
-              mainAxisExtent: 280,
-              crossAxisSpacing: 14,
-              mainAxisSpacing: 14,
-            ),
-            itemCount: docs.length,
-            itemBuilder: (context, i) => _ProductCard(docs[i], onEdit: () => _openForm(context, doc: docs[i])),
-          );
-        },
+              const SizedBox(height: 16),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: FirebaseFirestore.instance.collection('products').orderBy('name').snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
+                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                    final query = _search.text.trim().toLowerCase();
+                    final docs = snapshot.data!.docs.where((doc) {
+                      final d = doc.data();
+                      if (_category != 'all' && d['categoryId'] != _category) return false;
+                      if (_stockFilter != 'all' && d['stockStatus'] != _stockFilter) return false;
+                      if (query.isNotEmpty && !('${d['name']}').toLowerCase().contains(query)) return false;
+                      return true;
+                    }).toList();
+                    if (docs.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.inventory_2_outlined, size: 40, color: AppColors.muted),
+                            const SizedBox(height: 10),
+                            Text('No products found', style: TextStyle(color: AppColors.muted)),
+                          ],
+                        ),
+                      );
+                    }
+                    return GridView.builder(
+                      padding: const EdgeInsets.only(bottom: 96),
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 240,
+                        mainAxisExtent: 300,
+                        crossAxisSpacing: 18,
+                        mainAxisSpacing: 18,
+                      ),
+                      itemCount: docs.length,
+                      itemBuilder: (context, i) => _ProductCard(
+                        docs[i],
+                        accent: i.isEven ? AppColors.accentOrange : AppColors.primary,
+                        onEdit: () => _openForm(doc: docs[i]),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
+}
 
-  Future<void> _openForm(BuildContext context, {QueryDocumentSnapshot<Map<String, dynamic>>? doc}) {
-    return showDialog(
-      context: context,
-      builder: (context) => _ProductForm(doc: doc),
+class _FilterRow extends StatelessWidget {
+  const _FilterRow({
+    required this.search,
+    required this.onSearchChanged,
+    required this.category,
+    required this.onCategorySelect,
+    required this.stockFilter,
+    required this.onStockFilterChanged,
+  });
+
+  final TextEditingController search;
+  final VoidCallback onSearchChanged;
+  final String category;
+  final ValueChanged<String> onCategorySelect;
+  final String stockFilter;
+  final ValueChanged<String> onStockFilterChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 280,
+          height: 44,
+          child: TextField(
+            controller: search,
+            onChanged: (_) => onSearchChanged(),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: 'Search products...',
+              prefixIcon: Icon(Icons.search, size: 20, color: AppColors.muted),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        _CategoryRow(
+          selected: category,
+          onSelect: onCategorySelect,
+          stockFilter: stockFilter,
+          onStockFilterChanged: onStockFilterChanged,
+        ),
+      ],
+    );
+  }
+}
+
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({
+    required this.selected,
+    required this.onSelect,
+    required this.stockFilter,
+    required this.onStockFilterChanged,
+  });
+
+  final String selected;
+  final ValueChanged<String> onSelect;
+  final String stockFilter;
+  final ValueChanged<String> onStockFilterChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _CategoryPill(label: 'All Products', selected: selected == 'all', onTap: () => onSelect('all')),
+                for (final c in _categoryIds) ...[
+                  const SizedBox(width: 10),
+                  _CategoryPill(label: _categoryLabels[c]!, selected: selected == c, onTap: () => onSelect(c)),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        DropdownButtonHideUnderline(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            height: 38,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(19),
+              border: Border.all(color: AppColors.line),
+            ),
+            child: DropdownButton<String>(
+              value: stockFilter,
+              isDense: true,
+              icon: Icon(Icons.keyboard_arrow_down, size: 18, color: AppColors.muted),
+              style: const TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600, fontSize: 13),
+              items: [for (final e in _stockFilters.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+              onChanged: (v) => onStockFilterChanged(v!),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CategoryPill extends StatelessWidget {
+  const _CategoryPill({required this.label, required this.selected, required this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? AppColors.ink : Colors.transparent,
+      shape: StadiumBorder(side: selected ? BorderSide.none : BorderSide(color: AppColors.line)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: selected ? AppColors.onInk : AppColors.muted,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
 
 class _ProductCard extends StatelessWidget {
-  const _ProductCard(this.doc, {required this.onEdit});
+  const _ProductCard(this.doc, {required this.onEdit, required this.accent});
 
   final QueryDocumentSnapshot<Map<String, dynamic>> doc;
   final VoidCallback onEdit;
+  final Color accent;
 
   Future<void> _confirmDelete(BuildContext context) async {
     final ok = await showDialog<bool>(
@@ -100,76 +297,98 @@ class _ProductCard extends StatelessWidget {
     final d = doc.data();
     final inStock = d['stockStatus'] == 'inStock';
     final isNew = d['isNew'] as bool? ?? false;
-    return Container(
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(22)),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onEdit,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ColoredBox(
-                    color: AppColors.field,
-                    child: Image.network(
-                      d['thumbnail'] as String? ?? '',
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Icon(Icons.image_not_supported_outlined, color: AppColors.muted),
+    final price = (d['price'] as num?)?.toDouble() ?? 0;
+    final oldPrice = (d['oldPrice'] as num?)?.toDouble();
+    return GestureDetector(
+      onLongPress: () => _confirmDelete(context),
+      child: Container(
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(22)),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onEdit,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ColoredBox(
+                      color: AppColors.field,
+                      child: Image.network(
+                        d['thumbnail'] as String? ?? '',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Icon(Icons.image_not_supported_outlined, color: AppColors.muted),
+                      ),
                     ),
-                  ),
-                  if (isNew)
                     Positioned(
                       top: 8,
-                      left: 8,
-                      child: StatusPill(label: 'NEW', color: AppColors.onPrimary, background: AppColors.accentOrange),
+                      right: 8,
+                      child: _RoundIconButton(
+                        icon: isNew ? Icons.favorite : Icons.favorite_border,
+                        iconColor: isNew ? AppColors.accentOrange : AppColors.ink,
+                        tooltip: 'Toggle "New" badge',
+                        onTap: () => doc.reference.update({'isNew': !isNew}),
+                      ),
                     ),
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Row(
+                    if (!inStock)
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: StatusPill(
+                          label: 'PREORDER',
+                          color: AppColors.preorder,
+                          background: AppColors.preorderSoft,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      d['name'] as String? ?? '(no name)',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
                       children: [
-                        _RoundIconButton(icon: Icons.edit_outlined, onTap: onEdit),
-                        const SizedBox(width: 4),
-                        _RoundIconButton(icon: Icons.delete_outline, onTap: () => _confirmDelete(context)),
+                        Text(
+                          '\$${price.toStringAsFixed(0)}',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: accent),
+                        ),
+                        if (oldPrice != null) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            '\$${oldPrice.toStringAsFixed(0)}',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: AppColors.muted,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        _RoundIconButton(
+                          icon: Icons.north_east,
+                          iconColor: AppColors.onPrimary,
+                          background: accent,
+                          tooltip: 'Edit product',
+                          onTap: onEdit,
+                        ),
                       ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    d['name'] as String? ?? '(no name)',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Text(
-                        '\$${d['price']}',
-                        style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.accent),
-                      ),
-                      const Spacer(),
-                      StatusPill(
-                        label: inStock ? 'In stock' : 'Preorder',
-                        color: inStock ? AppColors.inStock : AppColors.preorder,
-                        background: inStock ? AppColors.inStockSoft : AppColors.preorderSoft,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -177,25 +396,29 @@ class _ProductCard extends StatelessWidget {
 }
 
 class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({required this.icon, required this.onTap});
+  const _RoundIconButton({required this.icon, required this.onTap, this.iconColor, this.background, this.tooltip});
 
   final IconData icon;
   final VoidCallback onTap;
+  final Color? iconColor;
+  final Color? background;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.9),
+    final button = Material(
+      color: background ?? Colors.white.withValues(alpha: 0.9),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 16, color: AppColors.ink),
+          padding: const EdgeInsets.all(7),
+          child: Icon(icon, size: 15, color: iconColor ?? AppColors.ink),
         ),
       ),
     );
+    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
   }
 }
 
@@ -295,7 +518,7 @@ class _ProductFormState extends State<_ProductForm> {
                 DropdownButtonFormField<String>(
                   initialValue: _categoryId,
                   decoration: const InputDecoration(labelText: 'Category'),
-                  items: [for (final c in _categoryIds) DropdownMenuItem(value: c, child: Text(c))],
+                  items: [for (final c in _categoryIds) DropdownMenuItem(value: c, child: Text(_categoryLabels[c]!))],
                   onChanged: (v) => setState(() => _categoryId = v!),
                 ),
                 Row(
