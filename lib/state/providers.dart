@@ -144,8 +144,128 @@ class AuthNotifier extends Notifier<AppUser?> {
   /// Facebook all set this the same way).
   Future<void> updateName(String name) async {
     await FirebaseAuth.instance.currentUser?.updateDisplayName(name);
+    await refresh();
+  }
+
+  /// Re-reads the current user from Firebase and updates [state] — used
+  /// after anything that changes the account server-side outside a normal
+  /// sign-in (verifying email, linking a provider, etc).
+  Future<void> refresh() async {
     await FirebaseAuth.instance.currentUser?.reload();
     state = _appUserFrom(FirebaseAuth.instance.currentUser);
+  }
+
+  Future<void> sendEmailVerification() => FirebaseAuth.instance.currentUser!.sendEmailVerification();
+
+  /// Re-proves identity for a sensitive action (change email/password,
+  /// delete account) — Firebase requires a *recent* sign-in for these and
+  /// throws `requires-recent-login` otherwise. For Google/Facebook this
+  /// silently re-runs that provider's sign-in; for email/password, the
+  /// caller must supply [password] (prompt for it first).
+  Future<void> reauthenticate({String? password}) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final providerId = user.providerData.isNotEmpty ? user.providerData.first.providerId : 'password';
+    final AuthCredential credential;
+    switch (providerId) {
+      case 'google.com':
+        final account = await GoogleSignIn.instance.authenticate();
+        final idToken = account.authentication.idToken;
+        if (idToken == null) {
+          throw FirebaseAuthException(code: 'no-id-token', message: "Google didn't return a sign-in token.");
+        }
+        credential = GoogleAuthProvider.credential(idToken: idToken);
+      case 'facebook.com':
+        final result = await FacebookAuth.instance.login(loginTracking: LoginTracking.enabled);
+        final token = result.accessToken?.tokenString;
+        if (result.status != LoginStatus.success || token == null) {
+          throw FirebaseAuthException(
+            code: 'facebook-login-failed',
+            message: result.message ?? "Facebook sign-in didn't complete.",
+          );
+        }
+        credential = FacebookAuthProvider.credential(token);
+      default:
+        if (password == null || password.isEmpty) {
+          throw FirebaseAuthException(code: 'password-required', message: 'Enter your password to continue.');
+        }
+        credential = EmailAuthProvider.credential(email: user.email!, password: password);
+    }
+    await user.reauthenticateWithCredential(credential);
+  }
+
+  /// Deletes the account's own Firestore data (saved addresses) and then the
+  /// Firebase Auth account itself. Orders are deliberately *not* deleted
+  /// here — they're kept as business records, matching the Data Deletion
+  /// page's stated policy (and `firestore.rules`, which never lets a client
+  /// delete an order anyway). Throws `requires-recent-login` if the session
+  /// is stale — call [reauthenticate] first when that happens.
+  Future<void> deleteAccount() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final addresses = await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('addresses').get();
+    if (addresses.docs.isNotEmpty) {
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in addresses.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+    await user.delete();
+  }
+
+  /// Adds Google as an extra sign-in method on the current account.
+  Future<void> linkGoogle() async {
+    final account = await GoogleSignIn.instance.authenticate();
+    final idToken = account.authentication.idToken;
+    if (idToken == null) {
+      throw FirebaseAuthException(code: 'no-id-token', message: "Google didn't return a sign-in token.");
+    }
+    await FirebaseAuth.instance.currentUser?.linkWithCredential(GoogleAuthProvider.credential(idToken: idToken));
+    await refresh();
+  }
+
+  /// Adds Facebook as an extra sign-in method on the current account.
+  Future<void> linkFacebook() async {
+    final result = await FacebookAuth.instance.login(loginTracking: LoginTracking.enabled);
+    final token = result.accessToken?.tokenString;
+    if (result.status != LoginStatus.success || token == null) {
+      throw FirebaseAuthException(
+        code: 'facebook-login-failed',
+        message: result.message ?? "Facebook sign-in didn't complete.",
+      );
+    }
+    await FirebaseAuth.instance.currentUser?.linkWithCredential(FacebookAuthProvider.credential(token));
+    await refresh();
+  }
+
+  /// Adds email/password as an extra sign-in method on a Google/Facebook
+  /// account, using its existing email.
+  Future<void> linkPassword(String password) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final email = user?.email;
+    if (user == null || email == null) {
+      throw StateError('No email on this account to add a password to.');
+    }
+    await user.linkWithCredential(EmailAuthProvider.credential(email: email, password: password));
+    await refresh();
+  }
+
+  /// Changes the password on an email/password account. [currentPassword]
+  /// re-proves identity first (see [reauthenticate]).
+  Future<void> changePassword({required String currentPassword, required String newPassword}) async {
+    await reauthenticate(password: currentPassword);
+    await FirebaseAuth.instance.currentUser?.updatePassword(newPassword);
+  }
+
+  /// Starts an email change: Firebase sends a confirmation link to
+  /// [newEmail], and the change only takes effect once that's clicked (the
+  /// modern, non-deprecated replacement for the old immediate `updateEmail`,
+  /// which Firebase disabled for new projects over account-hijacking risk).
+  /// [currentPassword] re-proves identity first (see [reauthenticate]).
+  Future<void> changeEmail({required String currentPassword, required String newEmail}) async {
+    await reauthenticate(password: currentPassword);
+    await FirebaseAuth.instance.currentUser?.verifyBeforeUpdateEmail(newEmail);
   }
 
   Future<void> signOut() async {
