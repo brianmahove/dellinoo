@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/contact.dart';
 import '../../core/app_info.dart';
 import '../../core/theme.dart';
-import '../../data/mock_data.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
@@ -20,6 +19,8 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider);
     final orders = ref.watch(ordersProvider);
+    final addresses = ref.watch(addressBookProvider);
+    final defaultAddress = addresses.where((a) => a.isDefault).firstOrNull ?? addresses.firstOrNull;
     int count(bool Function(Order) test) => orders.where(test).length;
 
     void soon(String what) => showGlassToast(context, '$what — coming in the next build');
@@ -144,8 +145,8 @@ class ProfileScreen extends ConsumerWidget {
             _Item(
               IconlyLight.location,
               'Delivery addresses',
-              () => soon('Addresses'),
-              subtitle: mockAddress.oneLine,
+              () => context.push('/addresses'),
+              subtitle: defaultAddress?.address.oneLine ?? 'Add a delivery address',
               orange: true,
             ),
           ]),

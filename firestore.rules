@@ -51,5 +51,13 @@ service cloud.firestore {
       allow create: if false;
       allow update: if request.auth != null && request.resource.data.next == resource.data.next + 1;
     }
+
+    // A customer's own saved delivery addresses (see AddressBookNotifier in
+    // state/providers.dart) — entirely private, never read by anyone else
+    // (not even admins; admins see the delivery address already captured on
+    // each order, which is a separate, order-scoped copy).
+    match /users/{uid}/addresses/{addressId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }

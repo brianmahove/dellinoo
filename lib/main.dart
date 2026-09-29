@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show LicenseEntryWithLineBreaks, LicenseRegistry;
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart' show LicenseEntryWithLineBreaks, LicenseRegistry, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,8 +21,16 @@ import 'widgets/motion.dart';
 const _googleServerClientId = '239128341649-61jkt6to40lt318r8cbc6rrh8t3u24mv.apps.googleusercontent.com';
 
 Future<void> main() async {
+  runZonedGuarded(_main, (error, stack) => FirebaseCrashlytics.instance.recordError(error, stack, fatal: true));
+}
+
+Future<void> _main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Debug builds report to Crashlytics too but as noisy dev-session noise —
+  // opt out so the console only shows crashes from real installs.
+  await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   // Must be called exactly once, before any other GoogleSignIn method.
   await GoogleSignIn.instance.initialize(serverClientId: _googleServerClientId);
   // Iconly fonts are vendored (not a package), so add their licence by hand.

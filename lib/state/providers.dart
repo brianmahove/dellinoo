@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
@@ -14,6 +16,19 @@ import '../data/mock_data.dart';
 import '../data/mock_products.dart';
 import '../data/models.dart';
 import '../data/order_repository.dart';
+
+/// Analytics is best-effort: a logging hiccup (or, in unit tests, Firebase
+/// never having been initialized at all) must never break real functionality
+/// like adding to cart or checking out. `FirebaseAnalytics.instance` itself
+/// throws synchronously when there's no Firebase app yet, so this needs a
+/// try/catch around the call, not just a `.catchError` on its Future.
+void _logSafely(Future<void> Function() action) {
+  try {
+    action().catchError((_) {});
+  } catch (_) {
+    // Ignored — see above.
+  }
+}
 
 /// Device storage, loaded in `main()` before the app starts. Null in tests,
 /// in which case settings simply aren't persisted.
@@ -71,8 +86,10 @@ class AuthNotifier extends Notifier<AppUser?> {
   void signIn(String phone) =>
       state = AppUser(uid: mockUser.uid, name: mockUser.name, phone: phone, email: mockUser.email);
 
-  Future<void> signInWithPassword({required String email, required String password}) =>
-      FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
+  Future<void> signInWithPassword({required String email, required String password}) async {
+    await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
+    _logSafely(() => FirebaseAnalytics.instance.logLogin(loginMethod: 'password'));
+  }
 
   Future<void> signUp({
     required String name,
@@ -86,6 +103,7 @@ class AuthNotifier extends Notifier<AppUser?> {
     // so the authStateChanges listener above picks up the new name.
     await FirebaseAuth.instance.currentUser?.reload();
     state = _appUserFrom(FirebaseAuth.instance.currentUser);
+    _logSafely(() => FirebaseAnalytics.instance.logSignUp(signUpMethod: 'password'));
   }
 
   /// Throws [GoogleSignInException] (code `canceled`) if the user backs out.
@@ -96,6 +114,7 @@ class AuthNotifier extends Notifier<AppUser?> {
       throw FirebaseAuthException(code: 'no-id-token', message: "Google didn't return a sign-in token.");
     }
     await FirebaseAuth.instance.signInWithCredential(GoogleAuthProvider.credential(idToken: idToken));
+    _logSafely(() => FirebaseAnalytics.instance.logLogin(loginMethod: 'google'));
   }
 
   /// Throws a [FirebaseAuthException] with code `canceled` if the user backs
@@ -116,6 +135,7 @@ class AuthNotifier extends Notifier<AppUser?> {
       );
     }
     await FirebaseAuth.instance.signInWithCredential(FacebookAuthProvider.credential(token));
+    _logSafely(() => FirebaseAnalytics.instance.logLogin(loginMethod: 'facebook'));
   }
 
   Future<void> signOut() async {
@@ -149,6 +169,21 @@ class CartNotifier extends Notifier<List<CartItem>> {
     } else {
       setQuantity(state[i].key, state[i].quantity + quantity);
     }
+    _logSafely(
+      () => FirebaseAnalytics.instance.logAddToCart(
+        currency: 'USD',
+        value: product.price * quantity,
+        items: [
+          AnalyticsEventItem(
+            itemId: product.id,
+            itemName: product.name,
+            itemCategory: product.categoryId,
+            price: product.price,
+            quantity: quantity,
+          ),
+        ],
+      ),
+    );
   }
 
   void setQuantity(String key, int quantity) {
@@ -273,11 +308,116 @@ class OrdersNotifier extends Notifier<List<Order>> {
         .read(orderRepositoryProvider)
         .placeOrder(uid: uid, items: items, address: address, area: area, payment: payment);
     state = [order, ...state];
+    _logSafely(
+      () => FirebaseAnalytics.instance.logPurchase(
+        currency: 'USD',
+        value: order.total,
+        shipping: area.fee,
+        transactionId: order.id,
+        items: [
+          for (final i in items)
+            AnalyticsEventItem(
+              itemId: i.product.id,
+              itemName: i.product.name,
+              itemCategory: i.product.categoryId,
+              price: i.product.price,
+              quantity: i.quantity,
+            ),
+        ],
+      ),
+    );
     return order;
   }
 }
 
 final ordersProvider = NotifierProvider<OrdersNotifier, List<Order>>(OrdersNotifier.new);
+
+// ---------- Saved addresses ----------
+
+/// Talks to Firestore directly (no repository interface, unlike the
+/// catalogue/orders) — this is a small, single-screen feature, not a
+/// backend-swap point worth the extra abstraction.
+class AddressBookNotifier extends Notifier<List<SavedAddress>> {
+  @override
+  List<SavedAddress> build() {
+    final uid = ref.watch(authProvider)?.uid;
+    if (uid == null) return const [];
+    _load(uid);
+    return const [];
+  }
+
+  CollectionReference<Map<String, dynamic>> _collection(String uid) =>
+      FirebaseFirestore.instance.collection('users').doc(uid).collection('addresses');
+
+  SavedAddress _fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data();
+    return SavedAddress(
+      id: doc.id,
+      label: d['label'] as String? ?? 'Address',
+      address: Address(
+        fullName: d['fullName'] as String? ?? '',
+        phone: d['phone'] as String? ?? '',
+        street: d['street'] as String? ?? '',
+        city: d['city'] as String? ?? '',
+      ),
+      isDefault: d['isDefault'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> _toMap(String label, Address address, bool isDefault) => {
+    'label': label,
+    'fullName': address.fullName,
+    'phone': address.phone,
+    'street': address.street,
+    'city': address.city,
+    'isDefault': isDefault,
+  };
+
+  Future<void> _load(String uid) async {
+    final snap = await _collection(uid).get();
+    state = [for (final d in snap.docs) _fromDoc(d)];
+  }
+
+  String get _uid {
+    final uid = ref.read(authProvider)?.uid;
+    if (uid == null) throw StateError('Must be signed in to manage addresses.');
+    return uid;
+  }
+
+  Future<SavedAddress> add({required String label, required Address address, bool isDefault = false}) async {
+    final uid = _uid;
+    if (isDefault) await _clearOtherDefaults(uid);
+    final doc = await _collection(uid).add(_toMap(label, address, isDefault));
+    final saved = SavedAddress(id: doc.id, label: label, address: address, isDefault: isDefault);
+    state = isDefault ? [for (final a in state) a.copyWith(isDefault: false), saved] : [...state, saved];
+    return saved;
+  }
+
+  Future<void> update(SavedAddress updated) async {
+    final uid = _uid;
+    if (updated.isDefault) await _clearOtherDefaults(uid);
+    await _collection(uid).doc(updated.id).update(_toMap(updated.label, updated.address, updated.isDefault));
+    state = [
+      for (final a in state)
+        if (a.id == updated.id) updated else updated.isDefault ? a.copyWith(isDefault: false) : a,
+    ];
+  }
+
+  Future<void> remove(String id) async {
+    await _collection(_uid).doc(id).delete();
+    state = state.where((a) => a.id != id).toList();
+  }
+
+  Future<void> _clearOtherDefaults(String uid) async {
+    final batch = FirebaseFirestore.instance.batch();
+    for (final a in state.where((a) => a.isDefault)) {
+      batch.update(_collection(uid).doc(a.id), {'isDefault': false});
+    }
+    await batch.commit();
+  }
+}
+
+final addressBookProvider = NotifierProvider<AddressBookNotifier, List<SavedAddress>>(AddressBookNotifier.new);
 
 // ---------- Appearance ----------
 

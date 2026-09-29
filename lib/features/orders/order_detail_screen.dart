@@ -9,8 +9,38 @@ import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
+import '../../widgets/glass.dart';
 import 'orders_screen.dart';
 import '../../core/iconly.dart';
+
+/// Re-adds an order's items to the cart at today's prices (not the historical
+/// snapshot stored on the order) — items no longer in the catalogue are
+/// skipped and called out.
+void _orderAgain(BuildContext context, WidgetRef ref, Order order) {
+  final cart = ref.read(cartProvider.notifier);
+  var added = 0;
+  var missing = 0;
+  for (final item in order.items) {
+    final current = ref.read(productProvider(item.product.id));
+    if (current == null) {
+      missing++;
+      continue;
+    }
+    cart.add(current, item.options, quantity: item.quantity);
+    added++;
+  }
+  if (added == 0) {
+    showGlassToast(context, 'Sorry, none of these items are available anymore.');
+    return;
+  }
+  final suffix = missing == 0 ? '' : ' ($missing item${missing == 1 ? '' : 's'} no longer available)';
+  showGlassToast(
+    context,
+    'Added $added item${added == 1 ? '' : 's'} to cart$suffix',
+    actionLabel: 'View cart',
+    onAction: () => context.go('/cart'),
+  );
+}
 
 class OrderDetailScreen extends ConsumerWidget {
   const OrderDetailScreen({super.key, required this.orderId});
@@ -117,7 +147,15 @@ class OrderDetailScreen extends ConsumerWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            child: FilledButton.icon(
+              onPressed: () => _orderAgain(context, ref, order),
+              icon: const Icon(IconlyBold.buy),
+              label: const Text('Order again'),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
             child: OutlinedButton.icon(
               onPressed: () => openWhatsApp('Hi Dellinoo, I need help with my order #${order.id}.'),
               icon: const FaIcon(FontAwesomeIcons.whatsapp),

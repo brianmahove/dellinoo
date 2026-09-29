@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/format.dart';
 import '../../core/theme.dart';
-import '../../data/mock_data.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
@@ -22,7 +21,15 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
-  Address _address = mockAddress;
+  /// The address chosen this session via "Change" — overrides the saved
+  /// default until the user picks another one. `null` means "use whatever
+  /// the default saved address (or the blank fallback) resolves to".
+  Address? _addressOverride;
+
+  /// The address actually in effect, recomputed every build (see build()) —
+  /// kept for `_placeOrder`, which isn't build() and so can't recompute it
+  /// from providers itself without triggering an extra rebuild mid-callback.
+  Address _currentAddress = const Address(fullName: '', phone: '', street: '', city: '');
   DeliveryArea? _area;
   PaymentMethod _payment = PaymentMethod.ecocash;
   final _walletPhone = TextEditingController(text: '0771234567');
@@ -55,7 +62,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       final order = await ref
           .read(ordersProvider.notifier)
-          .place(items: ref.read(cartProvider), address: _address, area: _area!, payment: _payment);
+          .place(items: ref.read(cartProvider), address: _currentAddress, area: _area!, payment: _payment);
       if (!mounted) return;
       ref.read(cartProvider.notifier).clear();
       context.go('/order-success/${order.id}');
@@ -71,6 +78,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   static const _steps = ['Address', 'Delivery', 'Payment'];
 
   void _next() {
+    if (_step == 0 && (_currentAddress.street.isEmpty || _currentAddress.city.isEmpty)) {
+      HapticFeedback.heavyImpact();
+      showGlassToast(context, 'Please add or choose a delivery address');
+      return;
+    }
     if (_step == 1 && _area == null) {
       HapticFeedback.heavyImpact();
       showGlassToast(context, 'Please choose a delivery option');
@@ -101,6 +113,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final areas = ref.watch(deliveryAreasProvider).value ?? const [];
     final fee = _area?.fee ?? 0;
 
+    final savedAddresses = ref.watch(addressBookProvider);
+    final authUser = ref.watch(authProvider);
+    final defaultSaved = savedAddresses.where((a) => a.isDefault).firstOrNull ?? savedAddresses.firstOrNull;
+    // Recomputed every build so a saved default that finishes loading after
+    // the first frame (or a change made on the addresses screen) shows up
+    // here without extra plumbing; an explicit "Change" pick always wins.
+    _currentAddress =
+        _addressOverride ??
+        defaultSaved?.address ??
+        Address(fullName: authUser?.name ?? '', phone: authUser?.phone ?? '', street: '', city: '');
+    final hasAddress = _currentAddress.street.isNotEmpty && _currentAddress.city.isNotEmpty;
+
     if (items.isEmpty) {
       return Scaffold(
         appBar: const PageHeader(title: 'Checkout'),
@@ -112,32 +136,37 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       title: 'Delivery address',
       trailing: TextButton(
         onPressed: () async {
-          final updated = await showGlassBottomSheet<Address>(
+          final picked = await showGlassBottomSheet<Address>(
             context: context,
             isScrollControlled: true,
-            builder: (_) => _AddressSheet(initial: _address),
+            builder: (_) => const _AddressPicker(),
           );
-          if (updated != null) setState(() => _address = updated);
+          if (picked != null) setState(() => _addressOverride = picked);
         },
         child: const Text('Change'),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(IconlyLight.location, color: AppColors.ink),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
+      child: hasAddress
+          ? Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${_address.fullName}  ·  ${_address.phone}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text(_address.oneLine, style: TextStyle(color: AppColors.muted)),
+                Icon(IconlyLight.location, color: AppColors.ink),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_currentAddress.fullName}  ·  ${_currentAddress.phone}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(_currentAddress.oneLine, style: TextStyle(color: AppColors.muted)),
+                    ],
+                  ),
+                ),
               ],
-            ),
-          ),
-        ],
-      ),
+            )
+          : Text('No delivery address yet — tap Change to add one.', style: TextStyle(color: AppColors.muted)),
     );
     final deliverySection = _Section(
       title: 'Delivery option',
@@ -567,31 +596,15 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   }
 }
 
-class _AddressSheet extends StatefulWidget {
-  const _AddressSheet({required this.initial});
-
-  final Address initial;
-
-  @override
-  State<_AddressSheet> createState() => _AddressSheetState();
-}
-
-class _AddressSheetState extends State<_AddressSheet> {
-  late final _name = TextEditingController(text: widget.initial.fullName);
-  late final _phone = TextEditingController(text: widget.initial.phone);
-  late final _street = TextEditingController(text: widget.initial.street);
-  late final _city = TextEditingController(text: widget.initial.city);
+/// Sheet shown by checkout's "Change": pick one of the customer's saved
+/// addresses, or go add a new one (via the full addresses screen — see
+/// AddressesScreen — rather than a duplicate form here).
+class _AddressPicker extends ConsumerWidget {
+  const _AddressPicker();
 
   @override
-  void dispose() {
-    for (final c in [_name, _phone, _street, _city]) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final addresses = ref.watch(addressBookProvider);
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
       child: Column(
@@ -599,32 +612,51 @@ class _AddressSheetState extends State<_AddressSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text('Delivery address', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _name,
-            decoration: const InputDecoration(labelText: 'Full name'),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _phone,
-            decoration: const InputDecoration(labelText: 'Phone number'),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _street,
-            decoration: const InputDecoration(labelText: 'Street address / suburb'),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _city,
-            decoration: const InputDecoration(labelText: 'City / town'),
-          ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () => Navigator.of(
-              context,
-            ).pop(Address(fullName: _name.text, phone: _phone.text, street: _street.text, city: _city.text)),
-            child: const Text('Save address'),
+          const SizedBox(height: 12),
+          if (addresses.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text("You haven't saved any addresses yet.", style: TextStyle(color: AppColors.muted)),
+            )
+          else
+            for (final saved in addresses)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: InkWell(
+                  onTap: () => Navigator.of(context).pop(saved.address),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(color: AppColors.field, borderRadius: BorderRadius.circular(16)),
+                    child: Row(
+                      children: [
+                        Icon(IconlyLight.location, color: AppColors.ink),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(saved.label, style: const TextStyle(fontWeight: FontWeight.w700)),
+                              Text(
+                                '${saved.address.fullName} · ${saved.address.oneLine}',
+                                style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          const SizedBox(height: 4),
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.push('/addresses');
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Add a new address'),
           ),
         ],
       ),

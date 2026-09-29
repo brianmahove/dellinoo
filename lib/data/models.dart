@@ -143,6 +143,29 @@ class Address {
   String get oneLine => '$street, $city';
 }
 
+/// One of a signed-in customer's saved delivery addresses (Firestore
+/// `users/{uid}/addresses`). [Address] itself stays a plain value type used
+/// everywhere (including inside an [Order], where it's a snapshot, not a
+/// reference) — this wrapper only exists where the address book's own
+/// identity (which doc to edit/delete, which one is default) matters.
+class SavedAddress {
+  const SavedAddress({required this.id, required this.label, required this.address, this.isDefault = false});
+
+  final String id;
+
+  /// A short name the customer gave it, e.g. "Home", "Work".
+  final String label;
+  final Address address;
+  final bool isDefault;
+
+  SavedAddress copyWith({String? label, Address? address, bool? isDefault}) => SavedAddress(
+    id: id,
+    label: label ?? this.label,
+    address: address ?? this.address,
+    isDefault: isDefault ?? this.isDefault,
+  );
+}
+
 class Order {
   const Order({
     required this.id,

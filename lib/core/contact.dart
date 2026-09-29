@@ -11,5 +11,14 @@ Future<bool> openWhatsApp(String message) {
   return launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
+/// Opens WhatsApp's own contact/group picker with [message] pre-filled, so
+/// the customer can share to whoever they like — no recipient, unlike
+/// [openWhatsApp] which always messages Dellinoo. Returns false if nothing
+/// could handle the link.
+Future<bool> shareToWhatsApp(String message) {
+  final uri = Uri.https('wa.me', '/', {'text': message});
+  return launchUrl(uri, mode: LaunchMode.externalApplication);
+}
+
 /// Opens [url] in the phone's browser. Returns false if nothing could handle it.
 Future<bool> openLink(String url) => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);

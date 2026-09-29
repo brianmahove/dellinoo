@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/contact.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
@@ -472,7 +473,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
+                          CircleIconButton(
+                            icon: IconlyLight.send,
+                            onTap: () => shareToWhatsApp(
+                              'Check this out on Dellinoo: ${product.name} — ${money(product.price)}',
+                            ),
+                          ),
+                          const SizedBox(width: 10),
                           CircleIconButton(
                             key: _cartKey,
                             icon: IconlyLight.buy,

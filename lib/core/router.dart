@@ -1,9 +1,11 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/login_screen.dart';
 import '../features/profile/about_screen.dart';
+import '../features/profile/addresses_screen.dart';
 import '../features/auth/otp_screen.dart';
 import '../features/auth/signup_screen.dart';
 import '../features/auth/splash_screen.dart';
@@ -23,8 +25,11 @@ import '../features/shell/main_shell.dart';
 import '../features/shell/tab_transitions.dart';
 import '../features/wishlist/wishlist_screen.dart';
 
+final analytics = FirebaseAnalytics.instance;
+
 final appRouter = GoRouter(
   initialLocation: '/splash',
+  observers: [FirebaseAnalyticsObserver(analytics: analytics)],
   routes: [
     GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
     GoRoute(path: '/welcome', builder: (_, _) => const WelcomeScreen()),
@@ -57,6 +62,12 @@ final appRouter = GoRouter(
       ],
     ),
     GoRoute(path: '/about', builder: (_, _) => const AboutScreen()),
+    GoRoute(
+      path: '/addresses',
+      // Saved addresses are per-uid Firestore data — same auth requirement as checkout.
+      redirect: (_, _) => FirebaseAuth.instance.currentUser == null ? '/login' : null,
+      builder: (_, _) => const AddressesScreen(),
+    ),
     GoRoute(
       path: '/products',
       builder: (_, state) {
