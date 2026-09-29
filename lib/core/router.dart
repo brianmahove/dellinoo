@@ -117,7 +117,10 @@ final appRouter = GoRouter(
       path: '/order-success/:id',
       builder: (_, state) => OrderSuccessScreen(orderId: state.pathParameters['id']!),
     ),
-    GoRoute(path: '/orders', builder: (_, _) => const OrdersScreen()),
+    GoRoute(
+      path: '/orders',
+      builder: (_, state) => OrdersScreen(filter: state.extra as OrderStatusFilter?),
+    ),
     GoRoute(
       path: '/orders/:id',
       builder: (_, state) => OrderDetailScreen(orderId: state.pathParameters['id']!),

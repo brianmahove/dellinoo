@@ -11,6 +11,7 @@ import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/motion.dart';
 import '../../core/iconly.dart';
+import '../orders/orders_screen.dart' show OrderStatusFilter;
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -21,7 +22,7 @@ class ProfileScreen extends ConsumerWidget {
     final orders = ref.watch(ordersProvider);
     final addresses = ref.watch(addressBookProvider);
     final defaultAddress = addresses.where((a) => a.isDefault).firstOrNull ?? addresses.firstOrNull;
-    int count(bool Function(Order) test) => orders.where(test).length;
+    int count(bool Function(OrderStatus) test) => orders.where((o) => test(o.status)).length;
 
     void soon(String what) => showGlassToast(context, '$what — coming in the next build');
 
@@ -120,33 +121,22 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 Row(
                   children: [
-                    _OrderShortcut(
-                      IconlyLight.wallet,
-                      'Paid',
-                      count((o) => o.status == OrderStatus.paid || o.status == OrderStatus.placed),
-                    ),
+                    _OrderShortcut(IconlyLight.wallet, OrderStatusFilter.paid, count(OrderStatusFilter.paid.matches)),
                     _OrderShortcut(
                       IconlyLight.bag_2,
-                      'Processing',
-                      count(
-                        (o) => {
-                          OrderStatus.processing,
-                          OrderStatus.boughtInChina,
-                          OrderStatus.inTransit,
-                          OrderStatus.arrivedZim,
-                        }.contains(o.status),
-                      ),
+                      OrderStatusFilter.processing,
+                      count(OrderStatusFilter.processing.matches),
                       orange: true,
                     ),
                     _OrderShortcut(
                       Icons.local_shipping_outlined,
-                      'On the way',
-                      count((o) => o.status == OrderStatus.outForDelivery),
+                      OrderStatusFilter.onTheWay,
+                      count(OrderStatusFilter.onTheWay.matches),
                     ),
                     _OrderShortcut(
                       IconlyLight.tick_square,
-                      'Delivered',
-                      count((o) => o.status == OrderStatus.delivered),
+                      OrderStatusFilter.delivered,
+                      count(OrderStatusFilter.delivered.matches),
                       orange: true,
                     ),
                   ],
@@ -241,10 +231,10 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 class _OrderShortcut extends StatelessWidget {
-  const _OrderShortcut(this.icon, this.label, this.count, {this.orange = false});
+  const _OrderShortcut(this.icon, this.filter, this.count, {this.orange = false});
 
   final IconData icon;
-  final String label;
+  final OrderStatusFilter filter;
   final int count;
   final bool orange;
 
@@ -252,7 +242,7 @@ class _OrderShortcut extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: InkWell(
-        onTap: () => context.push('/orders'),
+        onTap: () => context.push('/orders', extra: filter),
         borderRadius: BorderRadius.circular(10),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
@@ -264,7 +254,7 @@ class _OrderShortcut extends StatelessWidget {
                 child: Icon(icon, color: orange ? AppColors.accentOrange : AppColors.accent),
               ),
               const SizedBox(height: 6),
-              Text(label, style: const TextStyle(fontSize: 12.5)),
+              Text(filter.label, style: const TextStyle(fontSize: 12.5)),
             ],
           ),
         ),

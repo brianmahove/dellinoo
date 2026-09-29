@@ -9,18 +9,56 @@ import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../core/iconly.dart';
 
+/// Groups [OrderStatus] into the four buckets shown as shortcuts on the
+/// Profile screen — kept here (not duplicated as ad-hoc predicates) so the
+/// shortcut counts and the filtered list below always agree.
+enum OrderStatusFilter {
+  paid('Paid'),
+  processing('Processing'),
+  onTheWay('On the way'),
+  delivered('Delivered');
+
+  const OrderStatusFilter(this.label);
+  final String label;
+
+  bool matches(OrderStatus status) => switch (this) {
+    OrderStatusFilter.paid => status == OrderStatus.paid || status == OrderStatus.placed,
+    OrderStatusFilter.processing => const {
+      OrderStatus.processing,
+      OrderStatus.boughtInChina,
+      OrderStatus.inTransit,
+      OrderStatus.arrivedZim,
+    }.contains(status),
+    OrderStatusFilter.onTheWay => status == OrderStatus.outForDelivery,
+    OrderStatusFilter.delivered => status == OrderStatus.delivered,
+  };
+}
+
 class OrdersScreen extends ConsumerWidget {
-  const OrdersScreen({super.key});
+  const OrdersScreen({super.key, this.filter});
+
+  /// When set (a Profile-screen shortcut was tapped), shows only orders
+  /// matching that status instead of the usual Active/Completed tabs.
+  final OrderStatusFilter? filter;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final orders = ref.watch(ordersProvider);
-    final active = orders.where((o) => o.status != OrderStatus.delivered).toList();
-    final done = orders.where((o) => o.status == OrderStatus.delivered).toList();
 
     Widget list(List<Order> list) => list.isEmpty
         ? const EmptyState(icon: IconlyLight.paper, title: 'No orders here', message: 'Your orders will show up here.')
         : ListView(padding: const EdgeInsets.symmetric(vertical: 10), children: [for (final o in list) OrderCard(o)]);
+
+    final filter = this.filter;
+    if (filter != null) {
+      return Scaffold(
+        appBar: PageHeader(title: filter.label),
+        body: list(orders.where((o) => filter.matches(o.status)).toList()),
+      );
+    }
+
+    final active = orders.where((o) => o.status != OrderStatus.delivered).toList();
+    final done = orders.where((o) => o.status == OrderStatus.delivered).toList();
 
     return DefaultTabController(
       length: 2,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -287,15 +288,79 @@ final authProvider = NotifierProvider<AuthNotifier, AppUser?>(AuthNotifier.new);
 
 // ---------- Cart ----------
 
+/// Lightweight on-disk record: just enough to rebuild a [CartItem] against
+/// whatever the catalogue says about that product *now* (price/name can't be
+/// trusted from a stale save — same reasoning as "Order again").
+class _CartEntry {
+  const _CartEntry(this.productId, this.options, this.quantity);
+
+  final String productId;
+  final Map<String, String> options;
+  final int quantity;
+
+  Map<String, dynamic> toJson() => {'productId': productId, 'options': options, 'quantity': quantity};
+
+  static _CartEntry fromJson(Map<String, dynamic> json) => _CartEntry(
+    json['productId'] as String,
+    Map<String, String>.from(json['options'] as Map),
+    json['quantity'] as int,
+  );
+}
+
+/// Persisted locally (SharedPreferences), not through Firestore — cart stays
+/// per-device/pre-purchase by design (see CLAUDE.md roadmap item 1), it just
+/// needs to survive the app being closed and reopened.
 class CartNotifier extends Notifier<List<CartItem>> {
+  static const _prefsKey = 'cart_v1';
+
   @override
-  List<CartItem> build() => const [];
+  List<CartItem> build() {
+    // Fire-and-forget rather than `ref.watch(productsProvider)`: watching
+    // would re-run build() (dropping whatever's in `state`) every time the
+    // catalogue future changes, including well after startup.
+    unawaited(_hydrate());
+    return const [];
+  }
+
+  Future<void> _hydrate() async {
+    final raw = ref.read(prefsProvider)?.getString(_prefsKey);
+    if (raw == null || raw.isEmpty) return;
+    List<Product> products;
+    try {
+      products = await ref.read(productsProvider.future);
+    } catch (_) {
+      return; // Catalogue unreachable — leave the cart empty rather than crash.
+    }
+    final items = <CartItem>[];
+    for (final json in jsonDecode(raw) as List) {
+      final entry = _CartEntry.fromJson(json as Map<String, dynamic>);
+      Product? product;
+      for (final p in products) {
+        if (p.id == entry.productId) {
+          product = p;
+          break;
+        }
+      }
+      // Silently drops items for products removed from the catalogue since save.
+      if (product != null) items.add(CartItem(product: product, options: entry.options, quantity: entry.quantity));
+    }
+    // Don't clobber items the user already added while this was loading.
+    if (state.isEmpty && items.isNotEmpty) state = items;
+  }
+
+  void _persist() {
+    final prefs = ref.read(prefsProvider);
+    if (prefs == null) return;
+    final entries = [for (final e in state) _CartEntry(e.product.id, e.options, e.quantity).toJson()];
+    prefs.setString(_prefsKey, jsonEncode(entries));
+  }
 
   void add(Product product, Map<String, String> options, {int quantity = 1}) {
     final item = CartItem(product: product, options: options, quantity: quantity);
     final i = state.indexWhere((e) => e.key == item.key);
     if (i == -1) {
       state = [...state, item];
+      _persist();
     } else {
       setQuantity(state[i].key, state[i].quantity + quantity);
     }
@@ -319,10 +384,18 @@ class CartNotifier extends Notifier<List<CartItem>> {
   void setQuantity(String key, int quantity) {
     if (quantity <= 0) return remove(key);
     state = [for (final e in state) e.key == key ? e.copyWith(quantity: quantity) : e];
+    _persist();
   }
 
-  void remove(String key) => state = state.where((e) => e.key != key).toList();
-  void clear() => state = const [];
+  void remove(String key) {
+    state = state.where((e) => e.key != key).toList();
+    _persist();
+  }
+
+  void clear() {
+    state = const [];
+    _persist();
+  }
 
   /// Removes an item and returns what's needed to [restore] it (for "Undo").
   (CartItem, int)? removeForUndo(String key) {
@@ -336,6 +409,7 @@ class CartNotifier extends Notifier<List<CartItem>> {
   void restore(CartItem item, int index) {
     if (state.any((e) => e.key == item.key)) return;
     state = [...state]..insert(index.clamp(0, state.length), item);
+    _persist();
   }
 }
 
@@ -347,16 +421,27 @@ final cartSubtotalProvider = Provider<double>((ref) => ref.watch(cartProvider).f
 // ---------- Wishlist ----------
 
 /// Saved product id -> the price when it was saved (to spot price drops).
+/// Persisted locally (SharedPreferences), same as [CartNotifier].
 class WishlistNotifier extends Notifier<Map<String, double>> {
+  static const _prefsKey = 'wishlist_v1';
+
   @override
   Map<String, double> build() {
+    final raw = ref.read(prefsProvider)?.getString(_prefsKey);
+    if (raw != null) {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      return decoded.map((id, price) => MapEntry(id, (price as num).toDouble()));
+    }
+    // No save yet (fresh install, or prefs unavailable in tests): demo seed.
+    // The Prada bag was saved when it cost $50 more.
     double price(String id) => mockProducts.firstWhere((p) => p.id == id).price;
-    // Demo: the Prada bag was saved when it cost $50 more.
     return {'p174': price('p174') + 50, 'p133': price('p133')};
   }
 
-  void toggle(String productId, double currentPrice) =>
-      state = state.containsKey(productId) ? (Map.of(state)..remove(productId)) : {...state, productId: currentPrice};
+  void toggle(String productId, double currentPrice) {
+    state = state.containsKey(productId) ? (Map.of(state)..remove(productId)) : {...state, productId: currentPrice};
+    ref.read(prefsProvider)?.setString(_prefsKey, jsonEncode(state));
+  }
 }
 
 final wishlistProvider = NotifierProvider<WishlistNotifier, Map<String, double>>(WishlistNotifier.new);

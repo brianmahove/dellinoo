@@ -371,7 +371,7 @@ class _Row extends StatelessWidget {
 }
 
 /// China -> Zimbabwe route card: a plane moves along the route as the order
-/// progresses. Stays dark in both themes so it stands out.
+/// progresses. Light orange (brand accentOrange tint) in both themes so it stands out.
 class _ChinaJourney extends StatelessWidget {
   const _ChinaJourney(this.order);
 
@@ -402,16 +402,19 @@ class _ChinaJourney extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-      decoration: BoxDecoration(color: AppColors.black, borderRadius: BorderRadius.circular(22)),
+      decoration: BoxDecoration(
+        color: AppColors.accentOrange.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(22),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             headline,
-            style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800),
+            style: TextStyle(color: AppColors.ink, fontSize: 19, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 2),
-          Text(sub, style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 13.5)),
+          Text(sub, style: TextStyle(color: AppColors.muted, fontSize: 13.5)),
           const SizedBox(height: 22),
           SizedBox(
             height: 34,
@@ -448,9 +451,9 @@ class _ChinaJourney extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              Text('Guangzhou', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12.5)),
+              Text('Guangzhou', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
               const Spacer(),
-              Text('Harare', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12.5)),
+              Text('Harare', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
             ],
           ),
           if (progress < 1) ...[
@@ -458,7 +461,7 @@ class _ChinaJourney extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: AppColors.accentOrange.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -483,7 +486,11 @@ class _Pin extends StatelessWidget {
     return Container(
       width: 34,
       height: 34,
-      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: AppColors.black.withValues(alpha: 0.12), blurRadius: 4)],
+      ),
       child: Center(
         child: Text(
           label,
@@ -507,7 +514,7 @@ class _RoutePainter extends CustomPainter {
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
     final todo = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
+      ..color = AppColors.accentOrange.withValues(alpha: 0.35)
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
     final split = size.width * progress;
