@@ -8,6 +8,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/catalog_repository.dart';
+import '../data/firestore_catalog_repository.dart';
 import '../data/mock_data.dart';
 import '../data/mock_products.dart';
 import '../data/models.dart';
@@ -16,7 +17,7 @@ import '../data/models.dart';
 /// in which case settings simply aren't persisted.
 final prefsProvider = Provider<SharedPreferences?>((ref) => null);
 
-final catalogRepositoryProvider = Provider<CatalogRepository>((ref) => MockCatalogRepository());
+final catalogRepositoryProvider = Provider<CatalogRepository>((ref) => FirestoreCatalogRepository());
 
 final categoriesProvider = FutureProvider<List<Category>>(
   (ref) => ref.watch(catalogRepositoryProvider).fetchCategories(),

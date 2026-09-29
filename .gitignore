@@ -46,3 +46,6 @@ app.*.map.json
 
 # Firebase CLI local deploy cache
 .firebase/
+
+# Personal Claude Code permission overrides
+.claude/settings.local.json

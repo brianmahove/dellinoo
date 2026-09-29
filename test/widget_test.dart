@@ -1,3 +1,4 @@
+import 'package:dellinoo/data/catalog_repository.dart';
 import 'package:dellinoo/data/models.dart';
 import 'package:dellinoo/data/mock_products.dart';
 import 'package:dellinoo/state/providers.dart';
@@ -56,7 +57,10 @@ void main() {
   });
 
   test('wishlist reports a price drop only when the price fell', () async {
-    final container = ProviderContainer();
+    // Uses the mock repository directly — no live Firestore/network in unit tests.
+    final container = ProviderContainer(
+      overrides: [catalogRepositoryProvider.overrideWithValue(MockCatalogRepository())],
+    );
     addTearDown(container.dispose);
     await container.read(productsProvider.future);
     // p174 is seeded as saved when it cost $50 more; p133 at today's price.
