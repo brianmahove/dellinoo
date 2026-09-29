@@ -169,6 +169,7 @@ class SavedAddress {
 class Order {
   const Order({
     required this.id,
+    required this.docId,
     required this.items,
     required this.address,
     required this.area,
@@ -176,7 +177,16 @@ class Order {
     required this.history,
   });
 
+  /// Human-friendly "DL#####" id, shown in the UI and used in routes.
   final String id;
+
+  /// The underlying Firestore document id (a different, opaque string) —
+  /// needed anywhere we talk to Firestore or the payments Worker directly
+  /// by document path (see lib/widgets/payment_dialog.dart), since Firestore
+  /// doesn't know about [id]. For mock orders (never backed by real
+  /// Firestore) this is just a copy of [id].
+  final String docId;
+
   final List<CartItem> items;
   final Address address;
   final DeliveryArea area;

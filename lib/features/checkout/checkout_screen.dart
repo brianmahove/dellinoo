@@ -33,7 +33,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Address _currentAddress = const Address(fullName: '', phone: '', street: '', city: '');
   DeliveryArea? _area;
   PaymentMethod _payment = PaymentMethod.ecocash;
-  final _walletPhone = TextEditingController(text: '0771234567');
+
+  /// Defaults to the delivery address's phone once that resolves (see
+  /// build()) — left blank until then rather than a hardcoded placeholder
+  /// number, so it's always the customer's own number, not a dummy one.
+  final _walletPhone = TextEditingController();
   bool _placing = false;
   int _step = 0;
 
@@ -71,7 +75,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     await showGlassDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => PaymentWaitDialog(orderId: order.id, method: _payment, phone: _walletPhone.text),
+      builder: (_) => PaymentWaitDialog(orderId: order.docId, method: _payment, phone: _walletPhone.text),
     );
     if (!mounted) return;
     context.go('/order-success/${order.id}');
@@ -126,6 +130,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         defaultSaved?.address ??
         Address(fullName: authUser?.name ?? '', phone: authUser?.phone ?? '', street: '', city: '');
     final hasAddress = _currentAddress.street.isNotEmpty && _currentAddress.city.isNotEmpty;
+    // Pre-fill the wallet number with the customer's own delivery phone as
+    // soon as it's known — only while still blank, so it never overwrites
+    // something they've already typed or edited.
+    if (_walletPhone.text.isEmpty && _currentAddress.phone.isNotEmpty) {
+      _walletPhone.text = _currentAddress.phone;
+    }
 
     if (items.isEmpty) {
       return Scaffold(
@@ -175,7 +185,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       child: Column(
         children: [
           for (final a in areas)
-            _SelectTile(
+            SelectTile(
               selected: _area?.id == a.id,
               onTap: () => setState(() => _area = a),
               title: a.name,
@@ -197,10 +207,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           // integration setup page (Sep 2026).
           for (final m in PaymentMethod.values)
             if (m != PaymentMethod.onemoney)
-              _SelectTile(
+              SelectTile(
                 selected: _payment == m,
                 onTap: () => setState(() => _payment = m),
-                leading: _PaymentLogo(m),
+                leading: PaymentLogo(m),
                 title: m.label,
                 subtitle: m.subtitle,
                 // Card also takes Visa and Mastercard, shown next to the ZimSwitch logo.
@@ -419,85 +429,6 @@ class _Section extends StatelessWidget {
           child,
         ],
       ),
-    );
-  }
-}
-
-class _SelectTile extends StatelessWidget {
-  const _SelectTile({
-    required this.selected,
-    required this.onTap,
-    required this.title,
-    required this.subtitle,
-    this.leading,
-    this.trailing,
-  });
-
-  final bool selected;
-  final VoidCallback onTap;
-  final String title;
-  final String subtitle;
-  final Widget? leading;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.primarySoft : AppColors.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: selected ? AppColors.primary : AppColors.line, width: selected ? 2 : 1),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                color: selected ? AppColors.accentOrange : AppColors.muted,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              if (leading != null) ...[leading!, const SizedBox(width: 10)],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-                    Text(subtitle, style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
-                  ],
-                ),
-              ),
-              ?trailing,
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PaymentLogo extends StatelessWidget {
-  const _PaymentLogo(this.method);
-
-  final PaymentMethod method;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 58,
-      height: 38,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE6E0D9)),
-      ),
-      child: Image.asset(method.logo, fit: BoxFit.contain, filterQuality: FilterQuality.medium),
     );
   }
 }

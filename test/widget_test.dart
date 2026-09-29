@@ -89,6 +89,7 @@ void main() {
     final local = mockProducts.firstWhere((p) => p.stockStatus == StockStatus.inStock);
     Order order(Product p) => Order(
       id: 'x',
+      docId: 'x',
       items: [CartItem(product: p, options: const {}, quantity: 1)],
       address: const Address(fullName: 'A', phone: '1', street: 's', city: 'Harare'),
       area: const DeliveryArea(id: 'x', name: 'X', fee: 0, eta: ''),

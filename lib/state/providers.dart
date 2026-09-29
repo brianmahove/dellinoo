@@ -466,6 +466,30 @@ class OrdersNotifier extends Notifier<List<Order>> {
     );
     return order;
   }
+
+  /// Reflects a payment the payments Worker already confirmed (see
+  /// lib/widgets/payment_dialog.dart's PaymentWaitDialog) into local state —
+  /// without this, a screen reading `ordersProvider` keeps showing the order
+  /// as unpaid until the next full re-fetch (sign-in/out), even though it's
+  /// genuinely paid. [docId] is the order's Firestore document id (see
+  /// Order.docId), not its display id.
+  void markPaid(String docId) {
+    state = [
+      for (final o in state)
+        if (o.docId == docId && o.status == OrderStatus.placed)
+          Order(
+            id: o.id,
+            docId: o.docId,
+            items: o.items,
+            address: o.address,
+            area: o.area,
+            payment: o.payment,
+            history: [...o.history, StatusEvent(OrderStatus.paid, DateTime.now())],
+          )
+        else
+          o,
+    ];
+  }
 }
 
 final ordersProvider = NotifierProvider<OrdersNotifier, List<Order>>(OrdersNotifier.new);

@@ -68,8 +68,31 @@ async function postAndVerify(url: string, pairs: [string, string][], key: string
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   });
-  const { entries, obj } = parseForm(await res.text());
+  const rawText = await res.text();
+  const { entries, obj } = parseForm(rawText);
+
+  const hasHash = entries.some(([k]) => k.toLowerCase() === 'hash');
+  if (!hasHash) {
+    // Paynow's plain validation-error responses (e.g. "not a valid test
+    // case number", a malformed field) aren't signed at all — there's
+    // nothing to verify, and treating "no hash" the same as "hash present
+    // but wrong" hid a perfectly good, actionable error message behind a
+    // scary "security failure" one. Only a genuine Error response is safe
+    // to trust unsigned (it carries no payment-affecting data); anything
+    // else missing a hash is unexpected and stays untrusted.
+    if (obj.status?.toLowerCase() === 'error') {
+      console.error(`Paynow returned an unsigned error response from ${url}: ${rawText}`);
+      return obj;
+    }
+    console.error(`Paynow response has no hash and isn't a plain error either — ${url}: ${rawText}`);
+    throw new Error('Paynow response was missing its security hash');
+  }
+
   if (!(await verifyHash(entries, key))) {
+    // Log the raw body before throwing — otherwise this failure is
+    // undiagnosable later (was it a duplicate-reference error page, a
+    // malformed field, or something else entirely?).
+    console.error(`Paynow response hash did not validate for ${url}: ${rawText}`);
     throw new Error('Paynow response hash did not validate');
   }
   return obj;

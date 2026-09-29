@@ -49,18 +49,20 @@ class AboutScreen extends StatelessWidget {
                 child: Row(
                   children: [
                     Flexible(
-                      child: Text(
-                        'Designed & developed by',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: AppColors.muted, fontSize: 13.5),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Designed & developed by',
+                          style: TextStyle(color: AppColors.muted, fontSize: 13.5),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
                     // The logo has white lettering for dark surfaces; the light version is recoloured navy.
                     Image.asset(
                       AppColors.dark ? 'assets/images/vizion_logo_dark.png' : 'assets/images/vizion_logo_light.png',
-                      height: 15,
+                      height: 8,
                       semanticLabel: AppInfo.developer,
                     ),
                     const Spacer(),

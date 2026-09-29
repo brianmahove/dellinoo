@@ -29,7 +29,7 @@ class FirestoreOrderRepository implements OrderRepository {
         .where('userId', isEqualTo: uid)
         .orderBy('createdAt', descending: true)
         .get();
-    return [for (final doc in snapshot.docs) _orderFromDoc(doc.data())];
+    return [for (final doc in snapshot.docs) _orderFromDoc(doc.id, doc.data())];
   }
 
   @override
@@ -75,6 +75,7 @@ class FirestoreOrderRepository implements OrderRepository {
     // customers can't write order status themselves (firestore.rules).
     return Order(
       id: displayId,
+      docId: orderRef.id,
       items: items,
       address: address,
       area: area,
@@ -121,11 +122,12 @@ class FirestoreOrderRepository implements OrderRepository {
     };
   }
 
-  Order _orderFromDoc(Map<String, dynamic> data) {
+  Order _orderFromDoc(String docId, Map<String, dynamic> data) {
     final address = data['address'] as Map<String, dynamic>;
     final area = data['area'] as Map<String, dynamic>;
     return Order(
       id: data['displayId'] as String? ?? 'DL0',
+      docId: docId,
       items: [for (final i in (data['items'] as List)) _cartItemFromMap(i as Map<String, dynamic>)],
       address: Address(
         fullName: address['fullName'] as String,

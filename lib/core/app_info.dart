@@ -7,5 +7,5 @@ abstract final class AppInfo {
   /// Studio that designed and built the app.
   static const developer = 'vizion';
   static const developerUrl = 'https://viziontechnologies.vercel.app/';
-  static const copyright = '© 2026 Vizion. All rights reserved.';
+  static const copyright = '© 2026 Dellinoo. All rights reserved.';
 }

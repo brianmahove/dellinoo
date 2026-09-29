@@ -44,8 +44,10 @@ class MockOrderRepository implements OrderRepository {
     required PaymentMethod payment,
   }) async {
     final now = DateTime.now();
+    final id = 'DL${10232 + buildMockOrders().length + _placedCount}';
     final order = Order(
-      id: 'DL${10232 + buildMockOrders().length + _placedCount}',
+      id: id,
+      docId: id,
       items: items,
       address: address,
       area: area,

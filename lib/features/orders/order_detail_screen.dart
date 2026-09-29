@@ -151,11 +151,11 @@ class OrderDetailScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
               child: FilledButton.icon(
-                onPressed: () => showGlassDialog<bool>(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) =>
-                      PaymentWaitDialog(orderId: order.id, method: order.payment, phone: order.address.phone),
+                onPressed: () => retryPayment(
+                  context,
+                  orderId: order.docId,
+                  initialMethod: order.payment,
+                  initialPhone: order.address.phone,
                 ),
                 icon: const Icon(IconlyLight.wallet),
                 label: const Text('Complete payment'),

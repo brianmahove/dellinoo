@@ -48,6 +48,7 @@ List<Order> buildMockOrders() {
   return [
     Order(
       id: 'DL10227',
+      docId: 'DL10227',
       items: [CartItem(product: fromChina[1], options: const {}, quantity: 1)],
       address: mockAddress,
       area: mockDeliveryAreas[2],
@@ -66,6 +67,7 @@ List<Order> buildMockOrders() {
     ),
     Order(
       id: 'DL10231',
+      docId: 'DL10231',
       items: [
         CartItem(product: p('p88'), options: const {'Size (EU)': '42'}, quantity: 1),
         CartItem(product: p('p100'), options: const {}, quantity: 1),
@@ -82,6 +84,7 @@ List<Order> buildMockOrders() {
     ),
     Order(
       id: 'DL10198',
+      docId: 'DL10198',
       items: [CartItem(product: fromChina[0], options: const {}, quantity: 1)],
       address: mockAddress,
       area: mockDeliveryAreas[0],

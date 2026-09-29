@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/format.dart';
+import '../../core/iconly.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/motion.dart';
+import '../../widgets/payment_dialog.dart';
 
 class OrderSuccessScreen extends ConsumerWidget {
   const OrderSuccessScreen({super.key, required this.orderId});
@@ -18,6 +20,10 @@ class OrderSuccessScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final order = ref.watch(ordersProvider).where((o) => o.id == orderId).firstOrNull;
     final hasPreorder = order?.items.any((i) => i.product.stockStatus == StockStatus.preorder) ?? false;
+    // Only known-unpaid (status still `placed`) gets the different treatment
+    // below — an order we haven't loaded yet defaults to the celebratory
+    // copy rather than flashing a scary state during a brief load.
+    final unpaid = order?.status == OrderStatus.placed;
 
     return Scaffold(
       body: Stack(
@@ -28,9 +34,12 @@ class OrderSuccessScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   const Spacer(),
-                  const DrawnCheck(),
+                  unpaid ? Icon(IconlyBold.time_circle, size: 64, color: AppColors.accentOrange) : const DrawnCheck(),
                   const SizedBox(height: 24),
-                  const Text('Order placed!', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+                  Text(
+                    unpaid ? 'Order saved' : 'Order placed!',
+                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Order #$orderId${order != null ? ' · ${money(order.total)}' : ''}',
@@ -40,6 +49,9 @@ class OrderSuccessScreen extends ConsumerWidget {
                   Text(
                     order == null
                         ? 'Thanks for shopping with Dellinoo.'
+                        : unpaid
+                        ? "We couldn't confirm your payment. Your order is saved and nothing's lost — "
+                              'you can complete payment any time from below.'
                         : hasPreorder
                         ? 'Thanks for shopping with Dellinoo. In-stock items arrive by '
                               '${weekdayDayMonth(StockStatus.inStock.arrivalFrom(order.createdAt))}; items from China by '
@@ -52,7 +64,23 @@ class OrderSuccessScreen extends ConsumerWidget {
                     style: const TextStyle(height: 1.5),
                   ),
                   const Spacer(),
-                  GradientButton(onPressed: () => context.go('/orders/$orderId'), child: const Text('Track my order')),
+                  if (unpaid && order != null) ...[
+                    GradientButton(
+                      onPressed: () => retryPayment(
+                        context,
+                        orderId: order.docId,
+                        initialMethod: order.payment,
+                        initialPhone: order.address.phone,
+                      ),
+                      child: const Text('Complete payment'),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  GradientButton(
+                    onPressed: () => context.go('/orders/$orderId'),
+                    colors: unpaid ? AppColors.orangeGradient : AppColors.buttonGradient,
+                    child: const Text('Track my order'),
+                  ),
                   const SizedBox(height: 12),
                   GradientButton(
                     onPressed: () => context.go('/home'),
@@ -63,7 +91,7 @@ class OrderSuccessScreen extends ConsumerWidget {
               ),
             ),
           ),
-          const Positioned.fill(child: ConfettiBurst()),
+          if (!unpaid) const Positioned.fill(child: ConfettiBurst()),
         ],
       ),
     );
