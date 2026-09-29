@@ -36,6 +36,36 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Promo codes: a signed-in customer may fetch one code *by exact id* (to
+    // validate what they typed) but can't list them all; only admins write.
+    // The payments Worker re-validates the code itself before charging.
+    match /coupons/{code} {
+      allow get: if request.auth != null;
+      allow list, write: if isAdmin();
+    }
+
+    // "Request an item" (customer app → admin quote). A customer creates
+    // their own as `new` and reads only theirs; only admins quote/close.
+    match /item_requests/{requestId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId &&
+        request.resource.data.status == 'new' && request.resource.data.link is string &&
+        request.resource.data.link.size() <= 2000;
+      allow update, delete: if isAdmin();
+    }
+
+    // Product reviews: public to read; one per customer per product (the doc
+    // id is `{productId}_{uid}`, so a second review overwrites the first).
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create, update: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid &&
+        reviewId == request.resource.data.productId + '_' + request.auth.uid &&
+        request.resource.data.rating is int && request.resource.data.rating >= 1 && request.resource.data.rating <= 5 &&
+        request.resource.data.text is string && request.resource.data.text.size() <= 1000;
+      allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
     // Orders belong to the signed-in user who placed them (see
     // firestore_order_repository.dart). No guest orders — checkout requires
     // sign-in (see router.dart). Admins can read every order and update

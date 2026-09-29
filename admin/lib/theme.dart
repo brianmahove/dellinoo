@@ -89,7 +89,7 @@ ThemeData buildAdminTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.field,
+      fillColor: AppColors.tint, // pale lavender, same as the customer app's login fields
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       hintStyle: TextStyle(color: AppColors.muted),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),

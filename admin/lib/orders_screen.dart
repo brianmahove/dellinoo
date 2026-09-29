@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'glass_dialog.dart';
 import 'theme.dart';
 
 /// Below this width the split list/detail layout doesn't have room, so
@@ -44,7 +45,7 @@ String _statusLabel(String s) => switch (s) {
 String _fmtTimestamp(Timestamp? t) => t == null ? '' : DateFormat.yMMMd().add_jm().format(t.toDate());
 
 Future<void> _advanceStatus(BuildContext context, QueryDocumentSnapshot<Map<String, dynamic>> doc, String current) {
-  return showDialog(context: context, builder: (context) => _StatusDialog(doc: doc, current: current));
+  return showGlassDialog(context: context, builder: (context) => _StatusDialog(doc: doc, current: current));
 }
 
 int _itemCount(List<Map<String, dynamic>> items) =>
@@ -447,7 +448,7 @@ class _StatusDialogState extends State<_StatusDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return GlassAlertDialog(
       title: const Text('Update order status'),
       content: SizedBox(
         width: 380,

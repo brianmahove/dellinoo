@@ -51,6 +51,7 @@ class FirestoreCatalogRepository implements CatalogRepository {
       rating: ((data['rating'] as num?) ?? 0).toDouble(),
       soldCount: (data['soldCount'] as num?)?.toInt() ?? 0,
       isNew: data['isNew'] as bool? ?? false,
+      saleEndsAt: (data['saleEndsAt'] as Timestamp?)?.toDate(),
     );
   }
 

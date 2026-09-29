@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart' show ThemeMode;
@@ -13,7 +14,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/catalog_repository.dart';
 import '../data/firestore_catalog_repository.dart';
 import '../data/firestore_order_repository.dart';
-import '../data/mock_data.dart';
 import '../data/mock_products.dart';
 import '../data/models.dart';
 import '../data/order_repository.dart';
@@ -55,6 +55,22 @@ final productProvider = Provider.family<Product?, String>((ref, id) {
   return null;
 });
 
+// ---------- Connectivity ----------
+
+/// Whether the device has *a* network connection (not proof that Dellinoo's
+/// servers are reachable). Errors — e.g. the plugin missing in unit tests —
+/// count as online so the offline banner never shows spuriously.
+final onlineProvider = StreamProvider<bool>((ref) async* {
+  bool online(List<ConnectivityResult> r) => !r.every((e) => e == ConnectivityResult.none);
+  try {
+    final connectivity = Connectivity();
+    yield online(await connectivity.checkConnectivity());
+    yield* connectivity.onConnectivityChanged.map(online);
+  } catch (_) {
+    yield true;
+  }
+});
+
 // ---------- Auth ----------
 
 /// Maps a Firebase [User] to the app's own [AppUser].
@@ -82,11 +98,6 @@ class AuthNotifier extends Notifier<AppUser?> {
     _sub = auth.authStateChanges().listen((user) => state = _appUserFrom(user));
     return _appUserFrom(auth.currentUser);
   }
-
-  /// Phone + OTP sign-in — kept for the (currently unlinked) OTP screen; see
-  /// CLAUDE.md roadmap. Real phone auth isn't wired in yet.
-  void signIn(String phone) =>
-      state = AppUser(uid: mockUser.uid, name: mockUser.name, phone: phone, email: mockUser.email);
 
   Future<void> signInWithPassword({required String email, required String password}) async {
     await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
@@ -249,6 +260,19 @@ class AuthNotifier extends Notifier<AppUser?> {
       throw StateError('No email on this account to add a password to.');
     }
     await user.linkWithCredential(EmailAuthProvider.credential(email: email, password: password));
+    await refresh();
+  }
+
+  /// Removes a sign-in method ([providerId] e.g. `google.com`) from the
+  /// current account. Refuses to remove the last one — that would lock the
+  /// customer out.
+  Future<void> unlink(String providerId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    if (user.providerData.length <= 1) {
+      throw FirebaseAuthException(code: 'last-provider', message: "You can't remove your only sign-in method.");
+    }
+    await user.unlink(providerId);
     await refresh();
   }
 
@@ -497,6 +521,13 @@ class OrdersNotifier extends Notifier<List<Order>> {
     return const [];
   }
 
+  /// Pull-to-refresh: re-fetches from the backend (merging, same as the
+  /// first load).
+  Future<void> refresh() async {
+    final uid = ref.read(authProvider)?.uid;
+    if (uid != null) await _load(uid);
+  }
+
   Future<void> _load(String uid) async {
     final fetched = await ref.read(orderRepositoryProvider).fetchOrders(uid);
     // Merge rather than overwrite: an order placed (optimistically added to
@@ -516,6 +547,7 @@ class OrdersNotifier extends Notifier<List<Order>> {
     required Address address,
     required DeliveryArea area,
     required PaymentMethod payment,
+    Coupon? coupon,
   }) async {
     final user = ref.read(authProvider);
     if (user == null) throw StateError('Must be signed in to place an order.');
@@ -529,6 +561,7 @@ class OrdersNotifier extends Notifier<List<Order>> {
           address: address,
           area: area,
           payment: payment,
+          coupon: coupon,
         );
     state = [order, ...state];
     _logSafely(
@@ -562,15 +595,7 @@ class OrdersNotifier extends Notifier<List<Order>> {
     state = [
       for (final o in state)
         if (o.docId == docId && o.status == OrderStatus.placed)
-          Order(
-            id: o.id,
-            docId: o.docId,
-            items: o.items,
-            address: o.address,
-            area: o.area,
-            payment: o.payment,
-            history: [...o.history, StatusEvent(OrderStatus.paid, DateTime.now())],
-          )
+          o.withHistory([...o.history, StatusEvent(OrderStatus.paid, DateTime.now())])
         else
           o,
     ];
@@ -578,6 +603,57 @@ class OrdersNotifier extends Notifier<List<Order>> {
 }
 
 final ordersProvider = NotifierProvider<OrdersNotifier, List<Order>>(OrdersNotifier.new);
+
+// ---------- Coupons ----------
+
+/// The promo code currently applied in checkout (cleared once the order is
+/// placed, or when the customer removes it).
+class AppliedCouponNotifier extends Notifier<Coupon?> {
+  @override
+  Coupon? build() => null;
+
+  void set(Coupon? coupon) => state = coupon;
+}
+
+final appliedCouponProvider = NotifierProvider<AppliedCouponNotifier, Coupon?>(AppliedCouponNotifier.new);
+
+class CouponException implements Exception {
+  const CouponException(this.message);
+  final String message;
+}
+
+/// Looks a code up and checks it applies to this customer/cart; returns the
+/// coupon, or throws a [CouponException] whose message is safe to show.
+/// (Best-effort UX check — the payments Worker enforces it for real.)
+Future<Coupon> lookupCoupon(String rawCode, {required String uid, required double subtotal}) async {
+  final code = rawCode.trim().toUpperCase();
+  if (code.isEmpty) throw const CouponException('Enter a promo code');
+  final db = FirebaseFirestore.instance;
+  final snap = await db.collection('coupons').doc(code).get();
+  final d = snap.data();
+  if (d == null || d['active'] != true) throw const CouponException("That code isn't valid");
+  final coupon = Coupon(
+    code: code,
+    percentOff: (d['percentOff'] as num?)?.toDouble(),
+    amountOff: (d['amountOff'] as num?)?.toDouble(),
+    minSubtotal: (d['minSubtotal'] as num?)?.toDouble(),
+    firstOrderOnly: d['firstOrderOnly'] as bool? ?? false,
+    expiresAt: (d['expiresAt'] as Timestamp?)?.toDate(),
+  );
+  if (coupon.expiresAt != null && coupon.expiresAt!.isBefore(DateTime.now())) {
+    throw const CouponException('That code has expired');
+  }
+  if (coupon.minSubtotal != null && subtotal < coupon.minSubtotal!) {
+    throw CouponException('Spend at least \$${coupon.minSubtotal!.toStringAsFixed(0)} to use this code');
+  }
+  if (coupon.firstOrderOnly) {
+    final mine = await db.collection('orders').where('userId', isEqualTo: uid).get();
+    if (mine.docs.any((o) => o.data().containsKey('paidAt'))) {
+      throw const CouponException('That code is for first orders only');
+    }
+  }
+  return coupon;
+}
 
 // ---------- Saved addresses ----------
 

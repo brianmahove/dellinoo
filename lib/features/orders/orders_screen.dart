@@ -47,7 +47,14 @@ class OrdersScreen extends ConsumerWidget {
 
     Widget list(List<Order> list) => list.isEmpty
         ? const EmptyState(icon: IconlyLight.paper, title: 'No orders here', message: 'Your orders will show up here.')
-        : ListView(padding: const EdgeInsets.symmetric(vertical: 10), children: [for (final o in list) OrderCard(o)]);
+        : RefreshIndicator(
+            onRefresh: ref.read(ordersProvider.notifier).refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              children: [for (final o in list) OrderCard(o)],
+            ),
+          );
 
     final filter = this.filter;
     if (filter != null) {

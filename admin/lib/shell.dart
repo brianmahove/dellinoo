@@ -3,7 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'admins_screen.dart';
+import 'coupons_screen.dart';
 import 'dashboard_screen.dart';
+import 'requests_screen.dart';
 import 'delivery_areas_screen.dart';
 import 'orders_screen.dart';
 import 'products_screen.dart';
@@ -27,9 +29,19 @@ const _destinations = [
   _Destination(Icons.inventory_2_outlined, Icons.inventory_2, 'Products'),
   _Destination(Icons.receipt_long_outlined, Icons.receipt_long, 'Orders'),
   _Destination(Icons.local_shipping_outlined, Icons.local_shipping, 'Delivery areas'),
+  _Destination(Icons.sell_outlined, Icons.sell, 'Coupons'),
+  _Destination(Icons.travel_explore_outlined, Icons.travel_explore, 'Requests'),
   _Destination(Icons.admin_panel_settings_outlined, Icons.admin_panel_settings, 'Admins'),
 ];
-const _screens = [DashboardScreen(), ProductsScreen(), OrdersScreen(), DeliveryAreasScreen(), AdminsScreen()];
+const _screens = [
+  DashboardScreen(),
+  ProductsScreen(),
+  OrdersScreen(),
+  DeliveryAreasScreen(),
+  CouponsScreen(),
+  RequestsScreen(),
+  AdminsScreen(),
+];
 
 /// Signed-in shell: checks the `admins/{email}` allowlist (mirrors
 /// firestore.rules' `isAdmin()`) before showing any admin screen — this is a

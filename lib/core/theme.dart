@@ -187,13 +187,14 @@ ThemeData buildTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.surface,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      // Same look as the login/signup `AuthField`: pale lavender, 16px corners, violet ring on focus.
+      fillColor: AppColors.dark ? AppColors.field : const Color(0xFFF1F0FB),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       hintStyle: TextStyle(color: AppColors.muted),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
       ),
     ),

@@ -58,7 +58,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       order = await ref
           .read(ordersProvider.notifier)
-          .place(items: ref.read(cartProvider), address: _currentAddress, area: _area!, payment: _payment);
+          .place(
+            items: ref.read(cartProvider),
+            address: _currentAddress,
+            area: _area!,
+            payment: _payment,
+            coupon: ref.read(appliedCouponProvider),
+          );
     } catch (_) {
       if (mounted) {
         showGlassToast(context, "Couldn't place your order. Please try again.");
@@ -68,6 +74,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
     if (!mounted) return;
     ref.read(cartProvider.notifier).clear();
+    ref.read(appliedCouponProvider.notifier).set(null);
 
     // The order now exists (unpaid) in Firestore either way — payment
     // outcome only decides whether it's already paid when we get to order
@@ -118,6 +125,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final subtotal = ref.watch(cartSubtotalProvider);
     final areas = ref.watch(deliveryAreasProvider).value ?? const [];
     final fee = _area?.fee ?? 0;
+    final coupon = ref.watch(appliedCouponProvider);
+    final discount = coupon?.discountFor(subtotal) ?? 0;
+    final total = subtotal - discount + fee;
 
     final savedAddresses = ref.watch(addressBookProvider);
     final authUser = ref.watch(authProvider);
@@ -269,9 +279,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           const Divider(),
           const SizedBox(height: 8),
           _AmountRow('Subtotal', money(subtotal)),
+          if (coupon != null) _AmountRow('Promo ${coupon.code}', '-${money(discount)}'),
           _AmountRow('Delivery', _area == null ? '—' : (fee == 0 ? 'FREE' : money(fee))),
           const SizedBox(height: 4),
-          _AmountRow('Total', money(subtotal + fee), bold: true, amount: subtotal + fee),
+          _AmountRow('Total', money(total), bold: true, amount: total),
         ],
       ),
     );
@@ -279,7 +290,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final pages = [
       [addressSection, summarySection],
       [deliverySection],
-      [paymentSection, summarySection],
+      [paymentSection, _CouponBox(subtotal: subtotal), summarySection],
     ];
 
     return PopScope(
@@ -325,7 +336,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               trailingIcon: IconlyLight.arrow_right,
               child: _step < _steps.length - 1
                   ? const Text('Continue')
-                  : Row(mainAxisSize: MainAxisSize.min, children: [const Text('Pay '), AnimatedMoney(subtotal + fee)]),
+                  : Row(mainAxisSize: MainAxisSize.min, children: [const Text('Pay '), AnimatedMoney(total)]),
             ),
           ),
         ),
@@ -530,6 +541,94 @@ class _AddressPicker extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// "Have a promo code?" — validates against Firestore `coupons` and stores
+/// the result in [appliedCouponProvider] for the summary/total to pick up.
+class _CouponBox extends ConsumerStatefulWidget {
+  const _CouponBox({required this.subtotal});
+
+  final double subtotal;
+
+  @override
+  ConsumerState<_CouponBox> createState() => _CouponBoxState();
+}
+
+class _CouponBoxState extends ConsumerState<_CouponBox> {
+  final _code = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
+  }
+
+  Future<void> _apply() async {
+    final uid = ref.read(authProvider)?.uid;
+    if (uid == null) return;
+    setState(() => _busy = true);
+    try {
+      final coupon = await lookupCoupon(_code.text, uid: uid, subtotal: widget.subtotal);
+      ref.read(appliedCouponProvider.notifier).set(coupon);
+      _code.clear();
+      if (mounted) showGlassToast(context, '${coupon.code} applied — ${coupon.label}');
+    } on CouponException catch (e) {
+      HapticFeedback.heavyImpact();
+      if (mounted) showGlassToast(context, e.message);
+    } catch (_) {
+      if (mounted) showGlassToast(context, "Couldn't check that code. Try again.");
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final applied = ref.watch(appliedCouponProvider);
+    return _Section(
+      title: 'Promo code',
+      child: applied != null
+          ? Row(
+              children: [
+                Icon(IconlyBold.discount, color: AppColors.inStock),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${applied.code} · ${applied.label}',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.inStock),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => ref.read(appliedCouponProvider.notifier).set(null),
+                  child: const Text('Remove'),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _code,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(hintText: 'Enter code'),
+                    onSubmitted: (_) => _apply(),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                FilledButton(
+                  // The theme's buttons are full-width by default; inside a Row
+                  // that means infinite width, so give this one a finite size.
+                  style: FilledButton.styleFrom(minimumSize: const Size(96, 54)),
+                  onPressed: _busy ? null : _apply,
+                  child: _busy
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Apply'),
+                ),
+              ],
+            ),
     );
   }
 }

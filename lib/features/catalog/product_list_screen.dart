@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
 import '../../data/models.dart';
+import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
 import '../../core/iconly.dart';
@@ -132,7 +134,7 @@ class _FilterSheetState extends State<_FilterSheet> {
   }
 }
 
-class ProductListScreen extends StatefulWidget {
+class ProductListScreen extends ConsumerStatefulWidget {
   const ProductListScreen({super.key, required this.title, this.categoryId, this.collection = ProductCollection.all});
 
   final String title;
@@ -140,10 +142,10 @@ class ProductListScreen extends StatefulWidget {
   final ProductCollection collection;
 
   @override
-  State<ProductListScreen> createState() => _ProductListScreenState();
+  ConsumerState<ProductListScreen> createState() => _ProductListScreenState();
 }
 
-class _ProductListScreenState extends State<ProductListScreen> {
+class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   ProductFilter _filter = const ProductFilter();
 
   bool _inCollection(Product p) => switch (widget.collection) {
@@ -164,42 +166,49 @@ class _ProductListScreenState extends State<ProductListScreen> {
               .where(_inCollection)
               .toList();
           final products = _filter.apply(base);
-          return CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${products.length} items',
-                          style: TextStyle(color: AppColors.muted, fontSize: 15, fontWeight: FontWeight.w600),
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(productsProvider);
+              await ref.read(productsProvider.future);
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${products.length} items',
+                            style: TextStyle(color: AppColors.muted, fontSize: 15, fontWeight: FontWeight.w600),
+                          ),
                         ),
-                      ),
-                      FilterButton(
-                        active: _filter.isActive,
-                        onTap: () async {
-                          final f = await showFilterSheet(context, _filter);
-                          if (f != null) setState(() => _filter = f);
-                        },
-                      ),
-                    ],
+                        FilterButton(
+                          active: _filter.isActive,
+                          onTap: () async {
+                            final f = await showFilterSheet(context, _filter);
+                            if (f != null) setState(() => _filter = f);
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              if (products.isEmpty)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: EmptyState(
-                    icon: IconlyLight.search,
-                    title: 'Nothing here yet',
-                    message: 'Try a different filter.',
-                  ),
-                )
-              else
-                ProductSliverGrid(products, animateKey: '${_filter.stock.name}-${_filter.sort.name}'),
-            ],
+                if (products.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: EmptyState(
+                      icon: IconlyLight.search,
+                      title: 'Nothing here yet',
+                      message: 'Try a different filter.',
+                    ),
+                  )
+                else
+                  ProductSliverGrid(products, animateKey: '${_filter.stock.name}-${_filter.sort.name}'),
+              ],
+            ),
           );
         },
       ),

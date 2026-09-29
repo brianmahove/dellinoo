@@ -84,6 +84,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     final fbUser = FirebaseAuth.instance.currentUser;
     final providerIds = fbUser?.providerData.map((p) => p.providerId).toSet() ?? const <String>{};
     final hasPassword = providerIds.contains('password');
+    final canUnlink = providerIds.length > 1;
     final emailVerified = fbUser?.emailVerified ?? true; // Google/Facebook emails count as verified
     final createdAt = fbUser?.metadata.creationTime;
     final addresses = ref.watch(addressBookProvider);
@@ -208,6 +209,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   label: 'Password',
                   linked: hasPassword,
                   onLink: () => _openAddPassword(context, ref),
+                  onUnlink: canUnlink ? () => _unlink(context, ref, 'password', 'Password') : null,
                 ),
                 const SizedBox(height: 10),
                 _ProviderRow(
@@ -215,6 +217,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   label: 'Google',
                   linked: providerIds.contains('google.com'),
                   onLink: () => _link(context, ref, ref.read(authProvider.notifier).linkGoogle),
+                  onUnlink: canUnlink ? () => _unlink(context, ref, 'google.com', 'Google') : null,
                 ),
                 const SizedBox(height: 10),
                 _ProviderRow(
@@ -223,6 +226,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   label: 'Facebook',
                   linked: providerIds.contains('facebook.com'),
                   onLink: () => _link(context, ref, ref.read(authProvider.notifier).linkFacebook),
+                  onUnlink: canUnlink ? () => _unlink(context, ref, 'facebook.com', 'Facebook') : null,
                 ),
                 if (hasPassword) ...[
                   const Divider(height: 24),
@@ -303,10 +307,32 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     }
   }
 
+  Future<void> _unlink(BuildContext context, WidgetRef ref, String providerId, String label) async {
+    final ok = await showGlassDialog<bool>(
+      context: context,
+      builder: (dialogContext) => GlassAlertDialog(
+        title: Text('Remove $label sign-in?'),
+        content: Text("You won't be able to sign in with $label any more. Your other sign-in methods keep working."),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Remove')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(authProvider.notifier).unlink(providerId);
+      if (context.mounted) showGlassToast(context, '$label removed');
+    } catch (e) {
+      final message = authErrorMessage(e);
+      if (context.mounted && message != null) showGlassToast(context, message);
+    }
+  }
+
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     final ok = await showGlassDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) => GlassAlertDialog(
         title: const Text('Delete your account?'),
         content: const Text(
           "This removes your account and saved addresses. Past orders are kept as records, as explained in "
@@ -365,7 +391,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     final controller = TextEditingController();
     return showGlassDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) => GlassAlertDialog(
         title: Text(title),
         content: TextField(
           controller: controller,
@@ -431,6 +457,7 @@ class _ProviderRow extends StatelessWidget {
     required this.label,
     required this.linked,
     required this.onLink,
+    this.onUnlink,
   });
 
   final IconData? icon;
@@ -439,6 +466,9 @@ class _ProviderRow extends StatelessWidget {
   final String label;
   final bool linked;
   final VoidCallback onLink;
+
+  /// Null when this is the only sign-in method (can't be removed).
+  final VoidCallback? onUnlink;
 
   @override
   Widget build(BuildContext context) {
@@ -464,6 +494,7 @@ class _ProviderRow extends StatelessWidget {
                 'Linked',
                 style: TextStyle(color: AppColors.inStock, fontSize: 12.5, fontWeight: FontWeight.w600),
               ),
+              if (onUnlink != null) TextButton(onPressed: onUnlink, child: const Text('Remove')),
             ],
           )
         else

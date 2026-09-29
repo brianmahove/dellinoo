@@ -142,6 +142,7 @@ class OrderDetailScreen extends ConsumerWidget {
                 _Info(IconlyLight.wallet, 'Paid with ${order.payment.label}', dateTime(order.createdAt)),
                 const Divider(height: 24),
                 _Row('Subtotal', money(order.subtotal)),
+                if (order.discount > 0) _Row('Promo ${order.couponCode ?? ''}', '-${money(order.discount)}'),
                 _Row('Delivery', order.area.fee == 0 ? 'FREE' : money(order.area.fee)),
                 _Row('Total', money(order.total), bold: true),
               ],

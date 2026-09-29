@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'glass_dialog.dart';
 import 'theme.dart';
 
 /// The same 10 fixed category ids the customer app uses (see mockCategories
@@ -52,7 +53,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _openForm({QueryDocumentSnapshot<Map<String, dynamic>>? doc}) {
-    return showDialog(
+    return showGlassDialog(
       context: context,
       builder: (context) => _ProductForm(doc: doc),
     );
@@ -278,9 +279,9 @@ class _ProductCard extends StatelessWidget {
   final Color accent;
 
   Future<void> _confirmDelete(BuildContext context) async {
-    final ok = await showDialog<bool>(
+    final ok = await showGlassDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => GlassAlertDialog(
         title: const Text('Delete product?'),
         content: Text('"${doc.data()['name']}" will be removed from the catalogue.'),
         actions: [
@@ -449,6 +450,7 @@ class _ProductFormState extends State<_ProductForm> {
   late String _categoryId = _d?['categoryId'] as String? ?? _categoryIds.first;
   late String _stockStatus = _d?['stockStatus'] as String? ?? _stockStatuses.first;
   late bool _isNew = _d?['isNew'] as bool? ?? false;
+  late DateTime? _saleEndsAt = (_d?['saleEndsAt'] as Timestamp?)?.toDate();
   bool _saving = false;
 
   Map<String, dynamic>? get _d => widget.doc?.data();
@@ -484,6 +486,8 @@ class _ProductFormState extends State<_ProductForm> {
       'rating': (_d?['rating'] as num?) ?? 0,
       'soldCount': (_d?['soldCount'] as num?) ?? 0,
       'isNew': _isNew,
+      // Only meaningful with an old price; null clears a finished flash sale.
+      'saleEndsAt': _oldPrice.text.trim().isEmpty || _saleEndsAt == null ? null : Timestamp.fromDate(_saleEndsAt!),
     };
     final products = FirebaseFirestore.instance.collection('products');
     if (widget.doc != null) {
@@ -496,7 +500,7 @@ class _ProductFormState extends State<_ProductForm> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return GlassAlertDialog(
       title: Text(widget.doc == null ? 'Add product' : 'Edit product'),
       content: SizedBox(
         width: 480,
@@ -568,6 +572,46 @@ class _ProductFormState extends State<_ProductForm> {
                 TextFormField(
                   controller: _sizes,
                   decoration: const InputDecoration(labelText: 'Sizes (comma-separated, leave blank if none)'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _saleEndsAt == null
+                              ? 'Flash sale: no end time (needs an old price)'
+                              : 'Flash sale ends ${_saleEndsAt!.toLocal().toString().substring(0, 16)}',
+                          style: TextStyle(color: AppColors.muted, fontSize: 13),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          final now = DateTime.now();
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _saleEndsAt ?? now.add(const Duration(days: 1)),
+                            firstDate: now,
+                            lastDate: now.add(const Duration(days: 365)),
+                          );
+                          if (date == null || !context.mounted) return;
+                          final time = await showTimePicker(
+                            context: context,
+                            initialTime: const TimeOfDay(hour: 23, minute: 59),
+                          );
+                          if (time == null) return;
+                          setState(() => _saleEndsAt = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+                        },
+                        child: Text(_saleEndsAt == null ? 'Set end' : 'Change'),
+                      ),
+                      if (_saleEndsAt != null)
+                        IconButton(
+                          tooltip: 'Clear',
+                          onPressed: () => setState(() => _saleEndsAt = null),
+                          icon: const Icon(Icons.close, size: 18),
+                        ),
+                    ],
+                  ),
                 ),
                 CheckboxListTile(
                   value: _isNew,

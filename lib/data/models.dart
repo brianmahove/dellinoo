@@ -46,6 +46,7 @@ class Product {
     this.rating = 0,
     this.soldCount = 0,
     this.isNew = false,
+    this.saleEndsAt,
   });
 
   final String id;
@@ -62,6 +63,12 @@ class Product {
   final double rating;
   final int soldCount;
   final bool isNew;
+
+  /// When a flash sale ends (set by the admin); null for an open-ended sale.
+  final DateTime? saleEndsAt;
+
+  /// Flash sale still running — drives the countdown.
+  bool get flashSaleActive => onSale && saleEndsAt != null && saleEndsAt!.isAfter(DateTime.now());
 
   bool get onSale => oldPrice != null && oldPrice! > price;
   int get discountPercent => onSale ? ((1 - price / oldPrice!) * 100).round() : 0;
@@ -175,7 +182,26 @@ class Order {
     required this.area,
     required this.payment,
     required this.history,
+    this.couponCode,
+    this.discount = 0,
   });
+
+  /// Promo code applied at checkout and the amount it took off the
+  /// subtotal (delivery is never discounted).
+  final String? couponCode;
+  final double discount;
+
+  Order withHistory(List<StatusEvent> history) => Order(
+    id: id,
+    docId: docId,
+    items: items,
+    address: address,
+    area: area,
+    payment: payment,
+    history: history,
+    couponCode: couponCode,
+    discount: discount,
+  );
 
   /// Human-friendly "DL#####" id, shown in the UI and used in routes.
   final String id;
@@ -196,7 +222,7 @@ class Order {
   OrderStatus get status => history.last.status;
   DateTime get createdAt => history.first.at;
   double get subtotal => items.fold(0, (sum, i) => sum + i.total);
-  double get total => subtotal + area.fee;
+  double get total => subtotal - discount + area.fee;
   int get itemCount => items.fold(0, (sum, i) => sum + i.quantity);
 
   bool get hasChinaItems => items.any((i) => i.product.stockStatus == StockStatus.preorder);
@@ -206,6 +232,35 @@ class Order {
     for (final s in OrderStatus.values)
       if (!s.chinaLeg || hasChinaItems) s,
   ];
+}
+
+/// A promo code (Firestore `coupons/{CODE}`, managed in the admin panel).
+/// The payments Worker re-validates and recomputes the discount itself —
+/// this class only drives what checkout *shows*.
+class Coupon {
+  const Coupon({
+    required this.code,
+    this.percentOff,
+    this.amountOff,
+    this.minSubtotal,
+    this.firstOrderOnly = false,
+    this.expiresAt,
+  });
+
+  final String code;
+  final double? percentOff;
+  final double? amountOff;
+  final double? minSubtotal;
+  final bool firstOrderOnly;
+  final DateTime? expiresAt;
+
+  String get label =>
+      percentOff != null ? '${percentOff!.toStringAsFixed(0)}% off' : '\$${(amountOff ?? 0).toStringAsFixed(2)} off';
+
+  double discountFor(double subtotal) {
+    final raw = percentOff != null ? subtotal * percentOff! / 100 : (amountOff ?? 0);
+    return raw.clamp(0, subtotal).toDouble();
+  }
 }
 
 class AppUser {

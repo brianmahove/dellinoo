@@ -322,3 +322,85 @@ void showGlassToast(
       ),
     );
 }
+
+// ---------- Dialog body ----------
+
+/// Frosted replacement for [AlertDialog] — same `title` / `content` / `actions`,
+/// but drawn as a [GlassBox] like the toasts. Use inside [showGlassDialog].
+class GlassAlertDialog extends StatelessWidget {
+  const GlassAlertDialog({
+    super.key,
+    this.title,
+    this.content,
+    this.actions = const [],
+    this.contentPadding = const EdgeInsets.fromLTRB(24, 0, 24, 8),
+  });
+
+  final Widget? title;
+  final Widget? content;
+  final List<Widget> actions;
+  final EdgeInsetsGeometry contentPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return AnimatedPadding(
+      padding: MediaQuery.viewInsetsOf(context) + const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      duration: const Duration(milliseconds: 100),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: GlassBox(
+            shadow: true,
+            borderRadius: BorderRadius.circular(26),
+            tint: AppColors.glass(0.72),
+            child: Material(
+              type: MaterialType.transparency,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (title != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                        child: DefaultTextStyle(
+                          style: (text.titleLarge ?? const TextStyle()).copyWith(
+                            color: AppColors.ink,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 20,
+                          ),
+                          child: title!,
+                        ),
+                      )
+                    else
+                      const SizedBox(height: 24),
+                    if (content != null)
+                      Padding(
+                        padding: contentPadding,
+                        child: DefaultTextStyle(
+                          style: (text.bodyMedium ?? const TextStyle()).copyWith(
+                            color: AppColors.ink.withValues(alpha: 0.8),
+                            fontSize: 14.5,
+                            height: 1.4,
+                          ),
+                          child: content!,
+                        ),
+                      ),
+                    if (actions.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        child: Wrap(alignment: WrapAlignment.end, spacing: 8, runSpacing: 4, children: actions),
+                      )
+                    else
+                      const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

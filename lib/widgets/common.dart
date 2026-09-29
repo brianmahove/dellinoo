@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1111,6 +1113,58 @@ class _FadeInUpState extends State<FadeInUp> with SingleTickerProviderStateMixin
         child: Transform.translate(offset: Offset(widget.dx, widget.offset) * (1 - _curve.value), child: child),
       ),
       child: widget.child,
+    );
+  }
+}
+
+/// "Flash sale ends in 02:14:09" pill, ticking every second. Renders nothing
+/// once the sale is over.
+class SaleCountdown extends StatefulWidget {
+  const SaleCountdown({super.key, required this.endsAt});
+
+  final DateTime endsAt;
+
+  @override
+  State<SaleCountdown> createState() => _SaleCountdownState();
+}
+
+class _SaleCountdownState extends State<SaleCountdown> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final left = widget.endsAt.difference(DateTime.now());
+    if (left.isNegative) return const SizedBox.shrink();
+    String two(int n) => n.toString().padLeft(2, '0');
+    final text = left.inDays > 0
+        ? '${left.inDays}d ${two(left.inHours % 24)}h ${two(left.inMinutes % 60)}m'
+        : '${two(left.inHours)}:${two(left.inMinutes % 60)}:${two(left.inSeconds % 60)}';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(color: AppColors.accentOrange, borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.bolt_rounded, size: 16, color: AppColors.onPrimary),
+          const SizedBox(width: 4),
+          Text(
+            'Flash sale ends in $text',
+            style: const TextStyle(color: AppColors.onPrimary, fontWeight: FontWeight.w800, fontSize: 12.5),
+          ),
+        ],
+      ),
     );
   }
 }

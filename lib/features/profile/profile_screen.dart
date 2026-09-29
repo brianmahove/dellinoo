@@ -157,6 +157,30 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ]),
           _Group([
+            _Item(
+              IconlyLight.search,
+              'Request an item',
+              () => context.push('/request-item'),
+              subtitle: 'Send a link, get a quote',
+            ),
+            _Item(
+              IconlyLight.add_user,
+              'Invite friends',
+              () {
+                if (user == null) {
+                  context.push('/login');
+                  return;
+                }
+                // A short, stable code derived from the account id.
+                final code = 'DL${user.uid.substring(0, 6).toUpperCase()}';
+                shareToWhatsApp(
+                  'I shop China-to-Zimbabwe on Dellinoo — clothes, phones, shoes and more. '
+                  'Tell them my code $code when you order!',
+                );
+              },
+              subtitle: 'Share Dellinoo on WhatsApp',
+              orange: true,
+            ),
             _Item(IconlyLight.chat, 'Chat with us on WhatsApp', () => openWhatsApp('Hi Dellinoo, I have a question.')),
             _Item(IconlyLight.info_square, 'Help & FAQs', () => soon('Help'), orange: true),
             _Item(Icons.local_shipping_outlined, 'Delivery information', () => soon('Delivery info')),

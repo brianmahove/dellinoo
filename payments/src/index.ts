@@ -1,6 +1,6 @@
 import type { Env } from './types';
 import { AuthError, verifyFirebaseIdToken } from './auth';
-import { getAccessToken, getOrder, computeAmount, patchFields, appendPaidAndPatch } from './firestore';
+import { AmountError, getAccessToken, getOrder, computeAmount, patchFields, appendPaidAndPatch } from './firestore';
 import { initiateRedirect, initiateExpress, parseForm, verifyHash } from './paynow';
 
 function json(data: unknown, status = 200): Response {
@@ -91,7 +91,13 @@ async function handleInitiate(request: Request, env: Env, origin: string): Promi
   // Never trust a client-sent amount, order ownership or phone default —
   // recompute/re-derive those from the order doc itself. `method` is the
   // one thing we DO take from the client (validated above).
-  const amount = computeAmount(order);
+  let amount: string;
+  try {
+    amount = await computeAmount(orderId, order, env, token);
+  } catch (e) {
+    if (e instanceof AmountError) return json({ ok: false, error: e.code, message: e.message }, 409);
+    throw e;
+  }
   const authemail = order.customerEmail || 'orders@dellinoo.co.zw';
   const resulturl = `${origin}/paynow/webhook`;
   const returnurl = `${origin}/paynow/return?order=${orderId}`;

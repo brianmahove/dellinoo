@@ -112,7 +112,8 @@ export interface LoadedOrder {
   payment: string;
   address: { fullName: string; phone: string; street: string; city: string };
   area: { id: string; name: string; fee: number; eta: string };
-  items: Array<{ price: number; quantity: number }>;
+  items: Array<{ productId: string; price: number; quantity: number }>;
+  coupon: { code: string } | null;
   history: Array<{ status: string; at: string }>;
 }
 
@@ -133,13 +134,83 @@ export async function getOrder(orderId: string, env: Env, token: string): Promis
     address: (get('address') as LoadedOrder['address']) ?? { fullName: '', phone: '', street: '', city: '' },
     area: (get('area') as LoadedOrder['area']) ?? { id: '', name: '', fee: 0, eta: '' },
     items: (get('items') as LoadedOrder['items']) ?? [],
+    coupon: (get('coupon') as LoadedOrder['coupon']) ?? null,
     history: (get('history') as LoadedOrder['history']) ?? [],
   };
 }
 
-export function computeAmount(order: LoadedOrder): string {
-  const subtotal = order.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  return (subtotal + (order.area.fee ?? 0)).toFixed(2);
+export class AmountError extends Error {
+  constructor(
+    public code: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+async function getDocFields(path: string, env: Env, token: string): Promise<Record<string, unknown> | null> {
+  const res = await fetch(`${FIRESTORE_BASE}/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Firestore get ${path} failed: ${res.status} ${await res.text()}`);
+  const json = (await res.json()) as { fields?: Record<string, FirestoreValue> };
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(json.fields ?? {})) out[k] = fromFirestoreValue(v);
+  return out;
+}
+
+// True if [uid] has a *paid* order other than [exceptOrderId] — used to
+// enforce first-order-only coupons.
+async function hasOtherPaidOrder(uid: string, exceptOrderId: string, env: Env, token: string): Promise<boolean> {
+  const res = await fetch(
+    `${FIRESTORE_BASE}/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: 'orders' }],
+          where: { fieldFilter: { field: { fieldPath: 'userId' }, op: 'EQUAL', value: { stringValue: uid } } },
+          limit: 50,
+        },
+      }),
+    },
+  );
+  if (!res.ok) throw new Error(`Firestore runQuery failed: ${res.status} ${await res.text()}`);
+  const rows = (await res.json()) as Array<{ document?: { name: string; fields?: Record<string, FirestoreValue> } }>;
+  return rows.some((r) => r.document && !r.document.name.endsWith(`/${exceptOrderId}`) && r.document.fields?.paidAt);
+}
+
+// The amount to charge, computed from the catalogue and coupon *documents*,
+// never from prices/discounts the customer's app wrote onto the order (the
+// client can write anything to its own order doc — see firestore.rules).
+export async function computeAmount(orderId: string, order: LoadedOrder, env: Env, token: string): Promise<string> {
+  let subtotal = 0;
+  for (const item of order.items) {
+    const product = await getDocFields(`products/${item.productId}`, env, token);
+    if (!product || typeof product.price !== 'number') {
+      throw new AmountError('invalid_order', 'An item in this order is no longer available');
+    }
+    subtotal += product.price * item.quantity;
+  }
+
+  let discount = 0;
+  if (order.coupon?.code) {
+    const coupon = await getDocFields(`coupons/${order.coupon.code}`, env, token);
+    const expiresAt = coupon?.expiresAt ? Date.parse(coupon.expiresAt as string) : null;
+    const bad = (why: string) => new AmountError('coupon_invalid', `Coupon ${order.coupon!.code} ${why}`);
+    if (!coupon || coupon.active !== true) throw bad('is not valid');
+    if (expiresAt !== null && expiresAt < Date.now()) throw bad('has expired');
+    if (typeof coupon.minSubtotal === 'number' && subtotal < coupon.minSubtotal) throw bad('needs a bigger order');
+    if (coupon.firstOrderOnly === true && (await hasOtherPaidOrder(order.userId, orderId, env, token))) {
+      throw bad('is for first orders only');
+    }
+    if (typeof coupon.percentOff === 'number') discount = (subtotal * coupon.percentOff) / 100;
+    else if (typeof coupon.amountOff === 'number') discount = coupon.amountOff;
+    discount = Math.min(Math.max(discount, 0), subtotal);
+  }
+  return (subtotal - discount + (order.area.fee ?? 0)).toFixed(2);
 }
 
 // Sets a couple of plain fields (e.g. `paynowReference` right after

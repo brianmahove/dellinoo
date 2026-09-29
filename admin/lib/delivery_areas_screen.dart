@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'glass_dialog.dart';
 import 'theme.dart';
 
 class DeliveryAreasScreen extends StatelessWidget {
@@ -11,7 +12,7 @@ class DeliveryAreasScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Delivery areas'), automaticallyImplyLeading: false),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showDialog(context: context, builder: (context) => const _AreaForm()),
+        onPressed: () => showGlassDialog(context: context, builder: (context) => const _AreaForm()),
         icon: const Icon(Icons.add),
         label: const Text('Add area'),
       ),
@@ -66,7 +67,7 @@ class DeliveryAreasScreen extends StatelessWidget {
                           const SizedBox(width: 8),
                           IconButton(
                             icon: const Icon(Icons.edit_outlined),
-                            onPressed: () => showDialog(
+                            onPressed: () => showGlassDialog(
                               context: context,
                               builder: (context) => _AreaForm(doc: doc),
                             ),
@@ -74,9 +75,9 @@ class DeliveryAreasScreen extends StatelessWidget {
                           IconButton(
                             icon: const Icon(Icons.delete_outline),
                             onPressed: () async {
-                              final ok = await showDialog<bool>(
+                              final ok = await showGlassDialog<bool>(
                                 context: context,
-                                builder: (context) => AlertDialog(
+                                builder: (context) => GlassAlertDialog(
                                   title: const Text('Delete area?'),
                                   content: Text('"${d['name']}" will be removed.'),
                                   actions: [
@@ -155,7 +156,7 @@ class _AreaFormState extends State<_AreaForm> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return GlassAlertDialog(
       title: Text(widget.doc == null ? 'Add delivery area' : 'Edit delivery area'),
       content: SizedBox(
         width: 420,

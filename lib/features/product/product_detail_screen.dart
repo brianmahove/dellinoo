@@ -12,6 +12,7 @@ import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
+import 'reviews_section.dart';
 import 'size_guide.dart';
 import '../../core/iconly.dart';
 
@@ -298,6 +299,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         product.brand,
                         style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
                       ),
+                      if (product.flashSaleActive) ...[
+                        const SizedBox(height: 12),
+                        SaleCountdown(endsAt: product.saleEndsAt!),
+                      ],
                       const SizedBox(height: 14),
                       Row(
                         children: [
@@ -411,6 +416,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         'Delivery across Zimbabwe — fee by area at checkout',
                       ),
                       const _InfoRow(IconlyLight.wallet, 'EcoCash, OneMoney, InnBucks or card'),
+                      const SizedBox(height: 16),
+                      ReviewsSection(productId: product.id),
                     ],
                   ),
                 ),

@@ -14,6 +14,7 @@ import 'core/theme.dart';
 import 'firebase_options.dart';
 import 'state/providers.dart';
 import 'widgets/motion.dart';
+import 'widgets/offline_banner.dart';
 
 /// The web OAuth client Firebase generated for this project (from
 /// `google-services.json`'s `oauth_client` entry) — required by `google_sign_in`
@@ -85,6 +86,7 @@ class _DellinooAppState extends ConsumerState<DellinooApp> with WidgetsBindingOb
           debugShowCheckedModeBanner: false,
           theme: buildTheme(),
           routerConfig: appRouter,
+          builder: (context, child) => OfflineBanner(child: child ?? const SizedBox.shrink()),
         ),
       ),
     );

@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/login_screen.dart';
+import '../features/requests/request_item_screen.dart';
 import '../features/profile/about_screen.dart';
 import '../features/profile/account_screen.dart';
 import '../features/profile/addresses_screen.dart';
-import '../features/auth/otp_screen.dart';
 import '../features/auth/signup_screen.dart';
 import '../features/auth/splash_screen.dart';
 import '../features/auth/welcome_screen.dart';
@@ -36,10 +36,6 @@ final appRouter = GoRouter(
     GoRoute(path: '/welcome', builder: (_, _) => const WelcomeScreen()),
     GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
     GoRoute(path: '/signup', builder: (_, _) => const SignUpScreen()),
-    GoRoute(
-      path: '/otp',
-      builder: (_, state) => OtpScreen(phone: state.uri.queryParameters['phone'] ?? ''),
-    ),
     StatefulShellRoute(
       builder: (_, _, shell) => MainShell(shell: shell),
       navigatorContainerBuilder: (_, shell, children) =>
@@ -75,6 +71,11 @@ final appRouter = GoRouter(
       // Saved addresses are per-uid Firestore data — same auth requirement as checkout.
       redirect: (_, _) => FirebaseAuth.instance.currentUser == null ? '/login' : null,
       builder: (_, _) => const AddressesScreen(),
+    ),
+    GoRoute(
+      path: '/request-item',
+      redirect: (_, _) => FirebaseAuth.instance.currentUser == null ? '/login' : null,
+      builder: (_, _) => const RequestItemScreen(),
     ),
     GoRoute(
       path: '/products',

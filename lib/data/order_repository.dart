@@ -24,6 +24,7 @@ abstract class OrderRepository {
     required Address address,
     required DeliveryArea area,
     required PaymentMethod payment,
+    Coupon? coupon,
   });
 }
 
@@ -42,6 +43,7 @@ class MockOrderRepository implements OrderRepository {
     required Address address,
     required DeliveryArea area,
     required PaymentMethod payment,
+    Coupon? coupon,
   }) async {
     final now = DateTime.now();
     final id = 'DL${10232 + buildMockOrders().length + _placedCount}';
@@ -53,6 +55,8 @@ class MockOrderRepository implements OrderRepository {
       area: area,
       payment: payment,
       history: [StatusEvent(OrderStatus.placed, now), StatusEvent(OrderStatus.paid, now)],
+      couponCode: coupon?.code,
+      discount: coupon?.discountFor(items.fold(0.0, (sum, i) => sum + i.total)) ?? 0,
     );
     _placedCount++;
     return order;

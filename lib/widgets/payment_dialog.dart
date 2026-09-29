@@ -236,8 +236,8 @@ class _PaymentWaitDialogState extends ConsumerState<PaymentWaitDialog> {
   @override
   Widget build(BuildContext context) {
     final message = _waitingMessage();
-    return AlertDialog(
-      contentPadding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+    return GlassAlertDialog(
+      contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

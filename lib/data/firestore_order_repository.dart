@@ -41,6 +41,7 @@ class FirestoreOrderRepository implements OrderRepository {
     required Address address,
     required DeliveryArea area,
     required PaymentMethod payment,
+    Coupon? coupon,
   }) async {
     final now = DateTime.now();
     final orderRef = _db.collection('orders').doc();
@@ -64,6 +65,7 @@ class FirestoreOrderRepository implements OrderRepository {
           address: address,
           area: area,
           payment: payment,
+          coupon: coupon,
           now: now,
         ),
       );
@@ -81,6 +83,8 @@ class FirestoreOrderRepository implements OrderRepository {
       area: area,
       payment: payment,
       history: [StatusEvent(OrderStatus.placed, now)],
+      couponCode: coupon?.code,
+      discount: coupon?.discountFor(items.fold(0.0, (acc, i) => acc + i.total)) ?? 0,
     );
   }
 
@@ -93,6 +97,7 @@ class FirestoreOrderRepository implements OrderRepository {
     required Address address,
     required DeliveryArea area,
     required PaymentMethod payment,
+    Coupon? coupon,
     required DateTime now,
   }) {
     return {
@@ -116,6 +121,8 @@ class FirestoreOrderRepository implements OrderRepository {
       'address': {'fullName': address.fullName, 'phone': address.phone, 'street': address.street, 'city': address.city},
       'area': {'id': area.id, 'name': area.name, 'fee': area.fee, 'eta': area.eta},
       'payment': payment.name,
+      if (coupon != null)
+        'coupon': {'code': coupon.code, 'discount': coupon.discountFor(items.fold(0.0, (acc, i) => acc + i.total))},
       'history': [
         {'status': OrderStatus.placed.name, 'at': Timestamp.fromDate(now)},
       ],
@@ -125,6 +132,7 @@ class FirestoreOrderRepository implements OrderRepository {
   Order _orderFromDoc(String docId, Map<String, dynamic> data) {
     final address = data['address'] as Map<String, dynamic>;
     final area = data['area'] as Map<String, dynamic>;
+    final coupon = data['coupon'] as Map<String, dynamic>?;
     return Order(
       id: data['displayId'] as String? ?? 'DL0',
       docId: docId,
@@ -142,6 +150,8 @@ class FirestoreOrderRepository implements OrderRepository {
         eta: area['eta'] as String,
       ),
       payment: PaymentMethod.values.byName(data['payment'] as String),
+      couponCode: coupon?['code'] as String?,
+      discount: (coupon?['discount'] as num?)?.toDouble() ?? 0,
       history: [
         for (final e in (data['history'] as List))
           StatusEvent(

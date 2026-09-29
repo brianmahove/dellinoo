@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'glass_dialog.dart';
 import 'theme.dart';
 
 /// Hardcoded protected admin — this account manages the others, so no other
@@ -22,7 +23,7 @@ class AdminsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Admins'), automaticallyImplyLeading: false),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showDialog(context: context, builder: (context) => const _AdminForm()),
+        onPressed: () => showGlassDialog(context: context, builder: (context) => const _AdminForm()),
         icon: const Icon(Icons.add),
         label: const Text('Add admin'),
       ),
@@ -75,9 +76,9 @@ class AdminsScreen extends StatelessWidget {
                         onPressed: !canDelete
                             ? null
                             : () async {
-                                final ok = await showDialog<bool>(
+                                final ok = await showGlassDialog<bool>(
                                   context: context,
-                                  builder: (context) => AlertDialog(
+                                  builder: (context) => GlassAlertDialog(
                                     title: const Text('Remove admin?'),
                                     content: Text('"${doc.id}" will lose access to this panel.'),
                                     actions: [
@@ -151,7 +152,7 @@ class _AdminFormState extends State<_AdminForm> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return GlassAlertDialog(
       title: const Text('Add admin'),
       content: SizedBox(
         width: 420,
