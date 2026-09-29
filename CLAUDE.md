@@ -112,6 +112,7 @@ Rebranded (Sep 2026) from the original yellow/black reference mockups to the cli
 - **Privacy Policy / Data Deletion pages** (`hosting/privacy.html`, `hosting/data-deletion.html`, deployed to Firebase Hosting for Facebook/Google App Review — see live URLs below): drafted by Claude, not reviewed by the client or a lawyer. Update once "delete my account" is a real feature.
 
 Resolved: the logo is now the client's real bag-and-smile mark (`assets/images/logo_*.png`, `lib/widgets/brand.dart`), and the launcher icon / native launch screen (`assets/icon/`, `res/drawable*/launch_background.xml`, `values-v31`) were updated to match in the violet/orange rebrand. Regenerate the launcher icon with `dart run flutter_launcher_icons` if `assets/icon/` changes again.
+The launcher icon's source images (`assets/icon/icon.png`/`icon_foreground.png`/`icon_monochrome.png`) were rescaled Sep 2026 — the mark used to occupy only ~55% of the 1024×1024 canvas (a lot of dead white space around it on the home screen), now ~80%, centred on the same auto-detected bounding box for all three source images so the adaptive layers stay aligned. No image-editing tool was available in this environment (no ImageMagick/PIL/ffmpeg), so this went through a throwaway Node/Jimp script in the scratchpad, not a repo-tracked tool — if the mark changes again, redo it by eye in real design software rather than hunting for that script.
 
 ## Roadmap
 
