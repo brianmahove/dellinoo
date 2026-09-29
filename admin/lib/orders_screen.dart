@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'theme.dart';
+
 /// Matches OrderStatus in the main app's lib/data/models.dart — kept in sync
 /// by hand (see the note in shell.dart about not sharing code yet).
 const _statuses = [
@@ -27,6 +29,13 @@ String _statusLabel(String s) => switch (s) {
   _ => s,
 };
 
+(Color, Color) _statusColors(String s) => switch (s) {
+  'delivered' => (AppColors.inStock, AppColors.inStockSoft),
+  'outForDelivery' || 'arrivedZim' => (AppColors.accentOrange, AppColors.preorderSoft),
+  'boughtInChina' || 'inTransit' || 'processing' => (AppColors.preorder, AppColors.preorderSoft),
+  _ => (AppColors.accent, AppColors.primarySoft),
+};
+
 class OrdersScreen extends StatelessWidget {
   const OrdersScreen({super.key});
 
@@ -40,12 +49,28 @@ class OrdersScreen extends StatelessWidget {
           if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           final docs = snapshot.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text('No orders yet.'));
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, i) => _OrderTile(docs[i]),
+          if (docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.receipt_long_outlined, size: 40, color: AppColors.muted),
+                  const SizedBox(height: 10),
+                  Text('No orders yet', style: TextStyle(color: AppColors.muted)),
+                ],
+              ),
+            );
+          }
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: docs.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, i) => _OrderTile(docs[i]),
+              ),
+            ),
           );
         },
       ),
@@ -73,16 +98,31 @@ class _OrderTile extends StatelessWidget {
     final address = d['address'] as Map<String, dynamic>?;
     final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
 
+    final (color, background) = _statusColors(status);
     return Card(
       child: ExpansionTile(
-        title: Text('${d['displayId'] ?? doc.id}  ·  ${address?['fullName'] ?? 'Unknown'}'),
-        subtitle: Text(
-          [
-            if (createdAt != null) DateFormat.yMMMd().add_jm().format(createdAt),
-            '$itemCount item${itemCount == 1 ? '' : 's'}',
-            '\$${(subtotal + fee).toStringAsFixed(2)}',
-            _statusLabel(status),
-          ].join('  ·  '),
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${d['displayId'] ?? doc.id}  ·  ${address?['fullName'] ?? 'Unknown'}',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            StatusPill(label: _statusLabel(status), color: color, background: background),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            [
+              if (createdAt != null) DateFormat.yMMMd().add_jm().format(createdAt),
+              '$itemCount item${itemCount == 1 ? '' : 's'}',
+              '\$${(subtotal + fee).toStringAsFixed(2)}',
+            ].join('  ·  '),
+            style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+          ),
         ),
         children: [
           Padding(
@@ -95,19 +135,25 @@ class _OrderTile extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Text('${i['quantity']}× ${i['name']}  (\$${i['price']})'),
                   ),
-                const Divider(),
+                Divider(color: AppColors.line),
                 Text('Deliver to: ${address?['street']}, ${address?['city']} · ${address?['phone']}'),
                 Text('Payment: ${d['payment']}'),
                 const SizedBox(height: 12),
-                Text('History', style: Theme.of(context).textTheme.labelLarge),
+                Text(
+                  'History',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.muted, fontSize: 12.5),
+                ),
                 for (final h in history)
-                  Text('• ${_statusLabel(h['status'] as String)}  —  ${_fmt(h['at'] as Timestamp?)}'),
-                const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text('• ${_statusLabel(h['status'] as String)}  —  ${_fmt(h['at'] as Timestamp?)}'),
+                  ),
+                const SizedBox(height: 14),
                 Align(
                   alignment: Alignment.centerRight,
                   child: FilledButton.icon(
                     onPressed: () => _advanceStatus(context, doc, status),
-                    icon: const Icon(Icons.arrow_forward),
+                    icon: const Icon(Icons.arrow_forward, size: 18),
                     label: const Text('Update status'),
                   ),
                 ),

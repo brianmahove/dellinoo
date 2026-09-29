@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 import 'login_screen.dart';
 import 'shell.dart';
+import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +21,7 @@ class AdminApp extends StatelessWidget {
     return MaterialApp(
       title: 'Dellinoo Admin',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5B21D6)), useMaterial3: true),
+      theme: buildAdminTheme(),
       home: const _AuthGate(),
     );
   }

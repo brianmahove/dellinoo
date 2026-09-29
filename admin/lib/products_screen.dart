@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'theme.dart';
+
 /// The same 10 fixed category ids the customer app uses (see mockCategories
 /// in the main app's lib/data/mock_data.dart) — categories aren't their own
 /// Firestore collection, so this list has to be kept in sync by hand.
@@ -36,52 +38,49 @@ class ProductsScreen extends StatelessWidget {
           if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           final docs = snapshot.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text('No products yet.'));
-          return ListView.separated(
+          if (docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.inventory_2_outlined, size: 40, color: AppColors.muted),
+                  const SizedBox(height: 10),
+                  Text('No products yet', style: TextStyle(color: AppColors.muted)),
+                ],
+              ),
+            );
+          }
+          return GridView.builder(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 280,
+              mainAxisExtent: 280,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 14,
+            ),
             itemCount: docs.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, i) {
-              final doc = docs[i];
-              final d = doc.data();
-              return Card(
-                child: ListTile(
-                  leading: SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Image.network(
-                        d['thumbnail'] as String? ?? '',
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported_outlined),
-                      ),
-                    ),
-                  ),
-                  title: Text(d['name'] as String? ?? '(no name)'),
-                  subtitle: Text(
-                    '${d['categoryId']} · \$${d['price']} · ${d['stockStatus']}${(d['isNew'] as bool? ?? false) ? ' · NEW' : ''}',
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () => _openForm(context, doc: doc),
-                      ),
-                      IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _confirmDelete(context, doc)),
-                    ],
-                  ),
-                ),
-              );
-            },
+            itemBuilder: (context, i) => _ProductCard(docs[i], onEdit: () => _openForm(context, doc: docs[i])),
           );
         },
       ),
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, QueryDocumentSnapshot<Map<String, dynamic>> doc) async {
+  Future<void> _openForm(BuildContext context, {QueryDocumentSnapshot<Map<String, dynamic>>? doc}) {
+    return showDialog(
+      context: context,
+      builder: (context) => _ProductForm(doc: doc),
+    );
+  }
+}
+
+class _ProductCard extends StatelessWidget {
+  const _ProductCard(this.doc, {required this.onEdit});
+
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+  final VoidCallback onEdit;
+
+  Future<void> _confirmDelete(BuildContext context) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -96,10 +95,106 @@ class ProductsScreen extends StatelessWidget {
     if (ok == true) await doc.reference.delete();
   }
 
-  Future<void> _openForm(BuildContext context, {QueryDocumentSnapshot<Map<String, dynamic>>? doc}) {
-    return showDialog(
-      context: context,
-      builder: (context) => _ProductForm(doc: doc),
+  @override
+  Widget build(BuildContext context) {
+    final d = doc.data();
+    final inStock = d['stockStatus'] == 'inStock';
+    final isNew = d['isNew'] as bool? ?? false;
+    return Container(
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(22)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onEdit,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: AppColors.field,
+                    child: Image.network(
+                      d['thumbnail'] as String? ?? '',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Icon(Icons.image_not_supported_outlined, color: AppColors.muted),
+                    ),
+                  ),
+                  if (isNew)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: StatusPill(label: 'NEW', color: AppColors.onPrimary, background: AppColors.accentOrange),
+                    ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Row(
+                      children: [
+                        _RoundIconButton(icon: Icons.edit_outlined, onTap: onEdit),
+                        const SizedBox(width: 4),
+                        _RoundIconButton(icon: Icons.delete_outline, onTap: () => _confirmDelete(context)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    d['name'] as String? ?? '(no name)',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(
+                        '\$${d['price']}',
+                        style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.accent),
+                      ),
+                      const Spacer(),
+                      StatusPill(
+                        label: inStock ? 'In stock' : 'Preorder',
+                        color: inStock ? AppColors.inStock : AppColors.preorder,
+                        background: inStock ? AppColors.inStockSoft : AppColors.preorderSoft,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.9),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 16, color: AppColors.ink),
+        ),
+      ),
     );
   }
 }

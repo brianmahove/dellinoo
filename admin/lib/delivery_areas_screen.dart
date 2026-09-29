@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'theme.dart';
+
 class DeliveryAreasScreen extends StatelessWidget {
   const DeliveryAreasScreen({super.key});
 
@@ -19,54 +21,86 @@ class DeliveryAreasScreen extends StatelessWidget {
           if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           final docs = snapshot.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text('No delivery areas yet.'));
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-            itemCount: docs.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, i) {
-              final doc = docs[i];
-              final d = doc.data();
-              final fee = (d['fee'] as num?)?.toDouble() ?? 0;
-              return Card(
-                child: ListTile(
-                  title: Text(d['name'] as String? ?? ''),
-                  subtitle: Text('${fee == 0 ? 'FREE' : '\$${fee.toStringAsFixed(2)}'} · ${d['eta']}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () => showDialog(
-                          context: context,
-                          builder: (context) => _AreaForm(doc: doc),
-                        ),
+          if (docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.local_shipping_outlined, size: 40, color: AppColors.muted),
+                  const SizedBox(height: 10),
+                  Text('No delivery areas yet', style: TextStyle(color: AppColors.muted)),
+                ],
+              ),
+            );
+          }
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                itemCount: docs.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, i) {
+                  final doc = docs[i];
+                  final d = doc.data();
+                  final fee = (d['fee'] as num?)?.toDouble() ?? 0;
+                  return Card(
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                      leading: CircleAvatar(
+                        backgroundColor: AppColors.primarySoft,
+                        child: Icon(Icons.local_shipping_outlined, color: AppColors.accent, size: 20),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () async {
-                          final ok = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Delete area?'),
-                              content: Text('"${d['name']}" will be removed.'),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                                FilledButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text('Delete'),
-                                ),
-                              ],
+                      title: Text(d['name'] as String? ?? '', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Text('${d['eta']}', style: TextStyle(color: AppColors.muted)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            fee == 0 ? 'FREE' : '\$${fee.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: fee == 0 ? AppColors.inStock : AppColors.accent,
                             ),
-                          );
-                          if (ok == true) await doc.reference.delete();
-                        },
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            onPressed: () => showDialog(
+                              context: context,
+                              builder: (context) => _AreaForm(doc: doc),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () async {
+                              final ok = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Delete area?'),
+                                  content: Text('"${d['name']}" will be removed.'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (ok == true) await doc.reference.delete();
+                            },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              );
-            },
+                    ),
+                  );
+                },
+              ),
+            ),
           );
         },
       ),
