@@ -31,62 +31,78 @@ class ProfileScreen extends ConsumerWidget {
         children: [
           Container(
             margin: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 16, 20, 0),
-            padding: const EdgeInsets.all(20),
-            // Same violet-to-orange gradient as the home banners; text is always white.
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              // Light lavender-to-peach tint (same family as the brand
+              // gradient, just much lighter) so dark text/icons read clearly.
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF4C1DB8), AppColors.primary, AppColors.accentOrange],
-                stops: [0, 0.6, 1],
+                colors: [AppColors.primarySoft, const Color(0xFFFFE9D6)],
               ),
               borderRadius: BorderRadius.circular(26),
             ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 32,
-                  backgroundColor: Colors.white,
-                  child: Text(
-                    user == null ? '?' : user.name.split(' ').map((w) => w[0]).take(2).join(),
-                    style: const TextStyle(color: AppColors.primary, fontSize: 22, fontWeight: FontWeight.w800),
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(26),
+                onTap: user == null ? null : () => context.push('/account'),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 32,
+                        backgroundColor: AppColors.primary,
+                        backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
+                        child: user?.photoUrl != null
+                            ? null
+                            : Text(
+                                user == null ? '?' : user.name.split(' ').map((w) => w[0]).take(2).join(),
+                                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800),
+                              ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: user == null
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Welcome to Dellinoo',
+                                    style: TextStyle(color: AppColors.ink, fontSize: 18, fontWeight: FontWeight.w700),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    width: 140,
+                                    child: GradientButton(
+                                      height: 40,
+                                      colors: AppColors.orangeGradient,
+                                      trailingIcon: IconlyLight.arrow_right,
+                                      onPressed: () => context.go('/login'),
+                                      child: const Text('Sign in', style: TextStyle(fontSize: 14)),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    user.name,
+                                    style: TextStyle(color: AppColors.ink, fontSize: 19, fontWeight: FontWeight.w700),
+                                  ),
+                                  Text(
+                                    user.phone.isEmpty ? (user.email ?? '') : user.phone,
+                                    style: TextStyle(color: AppColors.muted),
+                                  ),
+                                ],
+                              ),
+                      ),
+                      if (user != null) Icon(IconlyLight.arrow_right_2, color: AppColors.muted),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: user == null
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Welcome to Dellinoo',
-                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: 140,
-                              child: GradientButton(
-                                height: 40,
-                                colors: AppColors.orangeGradient,
-                                trailingIcon: IconlyLight.arrow_right,
-                                onPressed: () => context.go('/login'),
-                                child: const Text('Sign in', style: TextStyle(fontSize: 14)),
-                              ),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user.name,
-                              style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700),
-                            ),
-                            Text(user.phone, style: TextStyle(color: Colors.white.withValues(alpha: 0.85))),
-                          ],
-                        ),
-                ),
-              ],
+              ),
             ),
           ),
           Container(

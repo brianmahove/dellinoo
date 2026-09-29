@@ -20,6 +20,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     super.initState();
     Future.delayed(const Duration(milliseconds: 2000), () {
       if (!mounted) return;
+      // Firebase Auth persists the session on its own — a returning signed-in
+      // customer should land straight on Home, not be sent through /login
+      // again just because the splash screen didn't check.
+      if (ref.read(authProvider) != null) {
+        context.go('/home');
+        return;
+      }
       // First launch: explain how Dellinoo works before asking to sign in.
       context.go(hasSeenWelcome(ref.read(prefsProvider)) ? '/login' : '/welcome');
     });

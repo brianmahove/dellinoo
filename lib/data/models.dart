@@ -199,11 +199,15 @@ class Order {
 }
 
 class AppUser {
-  const AppUser({required this.uid, required this.name, required this.phone, this.email});
+  const AppUser({required this.uid, required this.name, required this.phone, this.email, this.photoUrl});
 
   /// Firebase Auth uid — scopes Firestore data (e.g. orders) to this user.
   final String uid;
   final String name;
   final String phone;
   final String? email;
+
+  /// Profile photo from the sign-in provider (Google/Facebook) — null for
+  /// email/password accounts, or any provider that didn't supply one.
+  final String? photoUrl;
 }

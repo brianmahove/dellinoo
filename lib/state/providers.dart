@@ -65,6 +65,7 @@ AppUser? _appUserFrom(User? user) {
     name: (displayName != null && displayName.trim().isNotEmpty) ? displayName : (user.email ?? 'Dellinoo customer'),
     phone: user.phoneNumber ?? '',
     email: user.email,
+    photoUrl: user.photoURL,
   );
 }
 
@@ -136,6 +137,15 @@ class AuthNotifier extends Notifier<AppUser?> {
     }
     await FirebaseAuth.instance.signInWithCredential(FacebookAuthProvider.credential(token));
     _logSafely(() => FirebaseAnalytics.instance.logLogin(loginMethod: 'facebook'));
+  }
+
+  /// Lets a signed-in customer change their display name from the account
+  /// screen (works regardless of sign-in method — email/password, Google or
+  /// Facebook all set this the same way).
+  Future<void> updateName(String name) async {
+    await FirebaseAuth.instance.currentUser?.updateDisplayName(name);
+    await FirebaseAuth.instance.currentUser?.reload();
+    state = _appUserFrom(FirebaseAuth.instance.currentUser);
   }
 
   Future<void> signOut() async {

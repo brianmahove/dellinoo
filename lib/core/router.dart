@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/login_screen.dart';
 import '../features/profile/about_screen.dart';
+import '../features/profile/account_screen.dart';
 import '../features/profile/addresses_screen.dart';
 import '../features/auth/otp_screen.dart';
 import '../features/auth/signup_screen.dart';
@@ -62,6 +63,13 @@ final appRouter = GoRouter(
       ],
     ),
     GoRoute(path: '/about', builder: (_, _) => const AboutScreen()),
+    GoRoute(
+      path: '/account',
+      // The profile header only makes it tappable when signed in, but guard
+      // the route directly too (e.g. deep link, or a session that expired).
+      redirect: (_, _) => FirebaseAuth.instance.currentUser == null ? '/login' : null,
+      builder: (_, _) => const AccountScreen(),
+    ),
     GoRoute(
       path: '/addresses',
       // Saved addresses are per-uid Firestore data — same auth requirement as checkout.
