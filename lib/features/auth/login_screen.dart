@@ -30,6 +30,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  /// Returns to whatever pushed the login screen (e.g. checkout, redirected
+  /// there by the router when unauthenticated) rather than always going home.
+  void _afterSuccess() => context.canPop() ? context.pop() : context.go('/home');
+
   Future<void> _logIn() async {
     setState(() => _submitting = true);
     try {
@@ -37,7 +41,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .read(authProvider.notifier)
           .signInWithPassword(email: _identifier.text.trim(), password: _password.text);
       if (!mounted) return;
-      context.go('/home');
+      _afterSuccess();
     } catch (e) {
       final message = authErrorMessage(e);
       if (mounted && message != null) showGlassToast(context, message);
@@ -51,7 +55,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       await ref.read(authProvider.notifier).signInWithGoogle();
       if (!mounted) return;
-      context.go('/home');
+      _afterSuccess();
     } catch (e) {
       final message = authErrorMessage(e);
       if (mounted && message != null) showGlassToast(context, message);
@@ -65,7 +69,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       await ref.read(authProvider.notifier).signInWithFacebook();
       if (!mounted) return;
-      context.go('/home');
+      _afterSuccess();
     } catch (e) {
       final message = authErrorMessage(e);
       if (mounted && message != null) showGlassToast(context, message);

@@ -1,0 +1,47 @@
+import 'mock_data.dart';
+import 'models.dart';
+
+/// The UI only talks to this interface (via `orderRepositoryProvider`), so
+/// the mock can be swapped for the real backend without touching screens —
+/// same pattern as `CatalogRepository`.
+abstract class OrderRepository {
+  /// Orders belonging to [uid], most recent first.
+  Future<List<Order>> fetchOrders(String uid);
+
+  /// Places an order for [uid] and returns it (with its generated id).
+  Future<Order> placeOrder({
+    required String uid,
+    required List<CartItem> items,
+    required Address address,
+    required DeliveryArea area,
+    required PaymentMethod payment,
+  });
+}
+
+class MockOrderRepository implements OrderRepository {
+  int _placedCount = 0;
+
+  @override
+  Future<List<Order>> fetchOrders(String uid) async => buildMockOrders();
+
+  @override
+  Future<Order> placeOrder({
+    required String uid,
+    required List<CartItem> items,
+    required Address address,
+    required DeliveryArea area,
+    required PaymentMethod payment,
+  }) async {
+    final now = DateTime.now();
+    final order = Order(
+      id: 'DL${10232 + buildMockOrders().length + _placedCount}',
+      items: items,
+      address: address,
+      area: area,
+      payment: payment,
+      history: [StatusEvent(OrderStatus.placed, now), StatusEvent(OrderStatus.paid, now)],
+    );
+    _placedCount++;
+    return order;
+  }
+}

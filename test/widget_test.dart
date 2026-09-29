@@ -1,9 +1,17 @@
 import 'package:dellinoo/data/catalog_repository.dart';
 import 'package:dellinoo/data/models.dart';
 import 'package:dellinoo/data/mock_products.dart';
+import 'package:dellinoo/data/order_repository.dart';
 import 'package:dellinoo/state/providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// A signed-in stand-in that never touches Firebase, for tests that need
+/// `authProvider` to report a user (e.g. placing an order).
+class _FakeAuthNotifier extends AuthNotifier {
+  @override
+  AppUser? build() => const AppUser(uid: 'test-uid', name: 'Test User', phone: '', email: null);
+}
 
 void main() {
   test('cart merges identical items and totals correctly', () {
@@ -21,19 +29,27 @@ void main() {
     expect(container.read(cartSubtotalProvider), closeTo(shoe.price * 3, 0.001));
   });
 
-  test('placing an order adds it first with paid status', () {
-    final container = ProviderContainer();
+  test('placing an order adds it first with paid status', () async {
+    // Uses the mock repositories directly — no live Firebase/network in unit
+    // tests. (The initial mock-orders fetch triggered by build() races with
+    // this call; OrdersNotifier merges rather than overwrites, so that's
+    // safe, but it does mean we only assert on the order just placed here,
+    // not on the fetched list's length.)
+    final container = ProviderContainer(
+      overrides: [
+        authProvider.overrideWith(_FakeAuthNotifier.new),
+        orderRepositoryProvider.overrideWithValue(MockOrderRepository()),
+      ],
+    );
     addTearDown(container.dispose);
     final orders = container.read(ordersProvider.notifier);
-    final before = container.read(ordersProvider).length;
-    final order = orders.place(
+    final order = await orders.place(
       items: [CartItem(product: mockProducts.first, options: const {}, quantity: 2)],
       address: const Address(fullName: 'A', phone: '1', street: 's', city: 'Harare'),
       area: const DeliveryArea(id: 'x', name: 'X', fee: 5, eta: '1 day'),
       payment: PaymentMethod.ecocash,
     );
 
-    expect(container.read(ordersProvider), hasLength(before + 1));
     expect(container.read(ordersProvider).first.id, order.id);
     expect(order.status, OrderStatus.paid);
     expect(order.total, closeTo(mockProducts.first.price * 2 + 5, 0.001));

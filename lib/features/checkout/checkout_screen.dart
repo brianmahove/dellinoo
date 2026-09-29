@@ -47,14 +47,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       builder: (_) => _PaymentDialog(method: _payment, phone: _walletPhone.text),
     );
     if (!mounted) return;
-    setState(() => _placing = false);
-    if (paid != true) return;
+    if (paid != true) {
+      setState(() => _placing = false);
+      return;
+    }
 
-    final order = ref
-        .read(ordersProvider.notifier)
-        .place(items: ref.read(cartProvider), address: _address, area: _area!, payment: _payment);
-    ref.read(cartProvider.notifier).clear();
-    context.go('/order-success/${order.id}');
+    try {
+      final order = await ref
+          .read(ordersProvider.notifier)
+          .place(items: ref.read(cartProvider), address: _address, area: _area!, payment: _payment);
+      if (!mounted) return;
+      ref.read(cartProvider.notifier).clear();
+      context.go('/order-success/${order.id}');
+    } catch (_) {
+      if (!mounted) return;
+      // Payment already went through — don't lose the cart, let them retry.
+      showGlassToast(context, "Payment received, but we couldn't save your order. Please try again.");
+    } finally {
+      if (mounted) setState(() => _placing = false);
+    }
   }
 
   static const _steps = ['Address', 'Delivery', 'Payment'];

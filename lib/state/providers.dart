@@ -9,9 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/catalog_repository.dart';
 import '../data/firestore_catalog_repository.dart';
+import '../data/firestore_order_repository.dart';
 import '../data/mock_data.dart';
 import '../data/mock_products.dart';
 import '../data/models.dart';
+import '../data/order_repository.dart';
 
 /// Device storage, loaded in `main()` before the app starts. Null in tests,
 /// in which case settings simply aren't persisted.
@@ -44,6 +46,7 @@ AppUser? _appUserFrom(User? user) {
   if (user == null) return null;
   final displayName = user.displayName;
   return AppUser(
+    uid: user.uid,
     name: (displayName != null && displayName.trim().isNotEmpty) ? displayName : (user.email ?? 'Dellinoo customer'),
     phone: user.phoneNumber ?? '',
     email: user.email,
@@ -65,7 +68,8 @@ class AuthNotifier extends Notifier<AppUser?> {
 
   /// Phone + OTP sign-in — kept for the (currently unlinked) OTP screen; see
   /// CLAUDE.md roadmap. Real phone auth isn't wired in yet.
-  void signIn(String phone) => state = AppUser(name: mockUser.name, phone: phone, email: mockUser.email);
+  void signIn(String phone) =>
+      state = AppUser(uid: mockUser.uid, name: mockUser.name, phone: phone, email: mockUser.email);
 
   Future<void> signInWithPassword({required String email, required String password}) =>
       FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
@@ -231,25 +235,43 @@ final recentSearchesProvider = NotifierProvider<_RecentList, List<String>>(() =>
 
 // ---------- Orders ----------
 
+final orderRepositoryProvider = Provider<OrderRepository>((ref) => FirestoreOrderRepository());
+
 class OrdersNotifier extends Notifier<List<Order>> {
   @override
-  List<Order> build() => buildMockOrders();
+  List<Order> build() {
+    // Reactive: rebuilds (and re-fetches) whenever sign-in state changes.
+    final uid = ref.watch(authProvider)?.uid;
+    if (uid == null) return const [];
+    _load(uid);
+    return const [];
+  }
 
-  Order place({
+  Future<void> _load(String uid) async {
+    final fetched = await ref.read(orderRepositoryProvider).fetchOrders(uid);
+    // Merge rather than overwrite: an order placed (optimistically added to
+    // state) while this fetch was still in flight must not be dropped if the
+    // fetch resolves after it.
+    final existingIds = state.map((o) => o.id).toSet();
+    final merged = [
+      ...state,
+      for (final o in fetched)
+        if (!existingIds.contains(o.id)) o,
+    ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    state = merged;
+  }
+
+  Future<Order> place({
     required List<CartItem> items,
     required Address address,
     required DeliveryArea area,
     required PaymentMethod payment,
-  }) {
-    final now = DateTime.now();
-    final order = Order(
-      id: 'DL${10232 + state.length}',
-      items: items,
-      address: address,
-      area: area,
-      payment: payment,
-      history: [StatusEvent(OrderStatus.placed, now), StatusEvent(OrderStatus.paid, now)],
-    );
+  }) async {
+    final uid = ref.read(authProvider)?.uid;
+    if (uid == null) throw StateError('Must be signed in to place an order.');
+    final order = await ref
+        .read(orderRepositoryProvider)
+        .placeOrder(uid: uid, items: items, address: address, area: area, payment: payment);
     state = [order, ...state];
     return order;
   }

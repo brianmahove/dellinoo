@@ -14,5 +14,25 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+
+    // Orders belong to the signed-in user who placed them (see
+    // firestore_order_repository.dart). No guest orders — checkout requires
+    // sign-in (see router.dart). Status changes (processing, shipped, etc.)
+    // are admin/Cloud-Functions-only, not yet built — clients never update.
+    match /orders/{orderId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if false;
+    }
+
+    // Generates the human-friendly "DL#####" order numbers. Any signed-in
+    // client may read it and bump it by exactly 1 as part of placing an
+    // order (see the transaction in firestore_order_repository.dart) — the
+    // +1 check stops a client claiming an arbitrary block of numbers.
+    match /meta/orderCounter {
+      allow read: if request.auth != null;
+      allow create: if false;
+      allow update: if request.auth != null && request.resource.data.next == resource.data.next + 1;
+    }
   }
 }

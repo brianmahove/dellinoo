@@ -42,6 +42,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     super.dispose();
   }
 
+  /// Returns to whatever pushed the sign-up screen (e.g. checkout, redirected
+  /// there by the router when unauthenticated) rather than always going home.
+  void _afterSuccess() => context.canPop() ? context.pop() : context.go('/home');
+
   Future<void> _signUp() async {
     setState(() => _submitting = true);
     try {
@@ -54,7 +58,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             password: _password.text,
           );
       if (!mounted) return;
-      context.go('/home');
+      _afterSuccess();
     } catch (e) {
       final message = authErrorMessage(e);
       if (mounted && message != null) showGlassToast(context, message);
@@ -68,7 +72,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     try {
       await ref.read(authProvider.notifier).signInWithGoogle();
       if (!mounted) return;
-      context.go('/home');
+      _afterSuccess();
     } catch (e) {
       final message = authErrorMessage(e);
       if (mounted && message != null) showGlassToast(context, message);
@@ -82,7 +86,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     try {
       await ref.read(authProvider.notifier).signInWithFacebook();
       if (!mounted) return;
-      context.go('/home');
+      _afterSuccess();
     } catch (e) {
       final message = authErrorMessage(e);
       if (mounted && message != null) showGlassToast(context, message);
