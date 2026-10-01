@@ -11,6 +11,7 @@ import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/payment_dialog.dart';
+import 'invoice_section.dart';
 import 'orders_screen.dart';
 import '../../core/iconly.dart';
 
@@ -148,6 +149,7 @@ class OrderDetailScreen extends ConsumerWidget {
               ],
             ),
           ),
+          InvoiceSection(order),
           if (order.status == OrderStatus.placed)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),

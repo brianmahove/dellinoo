@@ -112,7 +112,11 @@ class CircleIconButton extends StatelessWidget {
       ),
     );
     if (!glass) return button;
-    return GlassBox(borderRadius: BorderRadius.circular(square ? size * 0.32 : size / 2), tint: AppColors.glass(0.55), child: button);
+    return GlassBox(
+      borderRadius: BorderRadius.circular(square ? size * 0.32 : size / 2),
+      tint: AppColors.glass(0.55),
+      child: button,
+    );
   }
 }
 

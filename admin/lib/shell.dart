@@ -9,6 +9,7 @@ import 'customers_screen.dart';
 import 'dashboard_screen.dart';
 import 'requests_screen.dart';
 import 'delivery_areas_screen.dart';
+import 'invoices_screen.dart';
 import 'orders_screen.dart';
 import 'products_screen.dart';
 import 'theme.dart';
@@ -39,6 +40,7 @@ const _destinations = [
   _Destination(IconlyLight.location, IconlyBold.location, 'Delivery areas'),
   _Destination(IconlyLight.discount, IconlyBold.discount, 'Coupons'),
   _Destination(IconlyLight.discovery, IconlyBold.discovery, 'Requests'),
+  _Destination(IconlyLight.document, IconlyBold.document, 'Invoices'),
   _Destination(IconlyLight.shield_done, IconlyBold.shield_done, 'Admins'),
 ];
 const _screens = [
@@ -49,16 +51,17 @@ const _screens = [
   DeliveryAreasScreen(),
   CouponsScreen(),
   RequestsScreen(),
+  InvoicesScreen(),
   AdminsScreen(),
   AccountScreen(), // not in the nav; opened from the avatar
   SizedBox.shrink(), // placeholder for the mobile "More" page, built in _body()
 ];
 
 /// Index of [AccountScreen] in [_screens] (one past the nav destinations).
-const _accountIndex = 8;
+const _accountIndex = 9;
 
 /// Index of the mobile-only "More" page (a menu of the destinations without a bottom-bar tab).
-const _moreIndex = 9;
+const _moreIndex = 10;
 
 /// Signed-in shell: checks the `admins/{email}` allowlist (mirrors
 /// firestore.rules' `isAdmin()`) before showing any admin screen — this is a
@@ -276,15 +279,25 @@ class _TopNav extends StatelessWidget {
         children: [
           Image.asset('assets/images/logo_full.png', height: 28),
           const SizedBox(width: 10),
+          // Centred while the links fit, horizontally scrollable once they
+          // don't (nine destinations overflow a narrow laptop window).
           Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < _destinations.length; i++) ...[
-                  if (i != 0) const SizedBox(width: 36),
-                  _NavLink(destination: _destinations[i], selected: i == index, onTap: () => onSelect(i)),
-                ],
-              ],
+            child: LayoutBuilder(
+              builder: (context, box) => SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: box.maxWidth),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      for (var i = 0; i < _destinations.length; i++) ...[
+                        if (i != 0) const SizedBox(width: 28),
+                        _NavLink(destination: _destinations[i], selected: i == index, onTap: () => onSelect(i)),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
           _UserMenu(user: user, selected: index == _accountIndex, onTap: onAccount),

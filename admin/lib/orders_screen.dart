@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'glass_dialog.dart';
+import 'invoice_pdf.dart';
+import 'invoices_screen.dart';
 import 'theme.dart';
 import 'iconly.dart';
 
@@ -309,13 +311,18 @@ class _OrderDetailCard extends StatelessWidget {
                 child: Text('• ${_statusLabel(h['status'] as String)}  —  ${_fmtTimestamp(h['at'] as Timestamp?)}'),
               ),
             const SizedBox(height: 20),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: () => _advanceStatus(context, doc, status),
-                icon: const Icon(IconlyLight.arrow_right, size: 18),
-                label: const Text('Update status'),
-              ),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
+              children: [
+                _InvoiceButton(orderDocId: doc.id),
+                FilledButton.icon(
+                  onPressed: () => _advanceStatus(context, doc, status),
+                  icon: const Icon(IconlyLight.arrow_right, size: 18),
+                  label: const Text('Update status'),
+                ),
+              ],
             ),
           ],
         ),
@@ -399,13 +406,18 @@ class _OrderTile extends StatelessWidget {
                     child: Text('• ${_statusLabel(h['status'] as String)}  —  ${_fmtTimestamp(h['at'] as Timestamp?)}'),
                   ),
                 const SizedBox(height: 14),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton.icon(
-                    onPressed: () => _advanceStatus(context, doc, status),
-                    icon: const Icon(IconlyLight.arrow_right, size: 18),
-                    label: const Text('Update status'),
-                  ),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    _InvoiceButton(orderDocId: doc.id),
+                    FilledButton.icon(
+                      onPressed: () => _advanceStatus(context, doc, status),
+                      icon: const Icon(IconlyLight.arrow_right, size: 18),
+                      label: const Text('Update status'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -479,6 +491,38 @@ class _StatusDialogState extends State<_StatusDialog> {
               : const Text('Add'),
         ),
       ],
+    );
+  }
+}
+
+/// Invoice action for one order: downloads the PDF if the order has already
+/// been invoiced, otherwise issues one (see invoices_screen.dart). Lets the
+/// admin invoice an order the customer never asked about — a customer's own
+/// request shows up on the Invoices screen instead.
+class _InvoiceButton extends StatelessWidget {
+  const _InvoiceButton({required this.orderDocId});
+
+  final String orderDocId;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('invoices')
+          .where('orderDocId', isEqualTo: orderDocId)
+          .limit(1)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final invoice = snapshot.data?.docs.firstOrNull?.data();
+        return OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(minimumSize: const Size(150, 48)),
+          onPressed: invoice == null
+              ? () => issueInvoice(context: context, orderDocId: orderDocId)
+              : () => downloadInvoice(invoice),
+          icon: Icon(invoice == null ? IconlyLight.document : IconlyLight.download, size: 18),
+          label: Text(invoice == null ? 'Create invoice' : '${invoice['number']}'),
+        );
+      },
     );
   }
 }

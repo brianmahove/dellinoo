@@ -39,6 +39,12 @@ dependencies:
   firebase_auth: ^6.7.0
   intl: ^0.20.3
   google_fonts: ^8.2.1
+  # Invoice PDFs are built in the browser and downloaded/printed from here —
+  # there's no Storage bucket to keep them in (Spark plan), so nothing is
+  # ever uploaded; the invoice *data* lives in Firestore and the document is
+  # regenerated on demand. See invoice_pdf.dart.
+  pdf: ^3.11.3
+  printing: ^5.14.2
 
 dev_dependencies:
   flutter_test:

@@ -66,6 +66,26 @@ service cloud.firestore {
       allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
+    // "Request an invoice" (customer app -> admin issues one). Same shape as
+    // item_requests above: the customer creates their own as `new`, reads
+    // only theirs, and only admins issue/close. The bill-to details are the
+    // customer's own (company name, TIN) so they're written client-side.
+    match /invoice_requests/{requestId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId &&
+        request.resource.data.status == 'new' && request.resource.data.orderDocId is string;
+      allow update, delete: if isAdmin();
+    }
+
+    // Issued invoices. Written only by the admin panel (it snapshots the
+    // order's lines and totals at issue time, so an invoice never changes
+    // under the customer's feet); the customer can read their own, which is
+    // what shows the invoice number on the order screen.
+    match /invoices/{invoiceId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
+      allow write: if isAdmin();
+    }
+
     // Orders belong to the signed-in user who placed them (see
     // firestore_order_repository.dart). No guest orders — checkout requires
     // sign-in (see router.dart). Admins can read every order and update
@@ -86,6 +106,13 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if false;
       allow update: if request.auth != null && request.resource.data.next == resource.data.next + 1;
+    }
+
+    // Generates the sequential "INV-00001" invoice numbers. Unlike
+    // meta/orderCounter, only admins ever touch this one — invoices are
+    // issued from the panel, never by a customer.
+    match /meta/invoiceCounter {
+      allow read, write: if isAdmin();
     }
 
     // A customer's own saved delivery addresses (see AddressBookNotifier in
