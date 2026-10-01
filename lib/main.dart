@@ -13,6 +13,7 @@ import 'core/router.dart';
 import 'core/theme.dart';
 import 'firebase_options.dart';
 import 'state/providers.dart';
+import 'widgets/glass.dart';
 import 'widgets/motion.dart';
 import 'widgets/offline_banner.dart';
 
@@ -72,6 +73,13 @@ class _DellinooAppState extends ConsumerState<DellinooApp> with WidgetsBindingOb
     final platformDark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
     final dark = mode == ThemeMode.dark || (mode == ThemeMode.system && platformDark);
     AppColors.dark = dark;
+    // Settings toggles kept as plain statics (like AppColors.dark) so widgets
+    // deep in the tree don't each need a ref; the MaterialApp key below
+    // remounts the tree when one changes, exactly like a theme switch.
+    final glass = ref.watch(glassEffectsProvider);
+    final slowMotion = ref.watch(reduceMotionProvider);
+    GlassBox.enabled = glass;
+    kForceReduceMotion = slowMotion;
 
     return ThemeReveal(
       key: themeRevealKey,
@@ -81,7 +89,7 @@ class _DellinooAppState extends ConsumerState<DellinooApp> with WidgetsBindingOb
         // up the new AppColors. Navigation (GoRouter) and app state (Riverpod)
         // live outside this tree, so the user stays where they were.
         child: MaterialApp.router(
-          key: ValueKey(dark),
+          key: ValueKey('$dark-$glass-$slowMotion'),
           title: 'Dellinoo',
           debugShowCheckedModeBanner: false,
           theme: buildTheme(),

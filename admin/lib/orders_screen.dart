@@ -518,7 +518,7 @@ class _InvoiceButton extends StatelessWidget {
           style: OutlinedButton.styleFrom(minimumSize: const Size(150, 48)),
           onPressed: invoice == null
               ? () => issueInvoice(context: context, orderDocId: orderDocId)
-              : () => downloadInvoice(invoice),
+              : () => runPdfAction(context, () => downloadInvoice(invoice)),
           icon: Icon(invoice == null ? IconlyLight.document : IconlyLight.download, size: 18),
           label: Text(invoice == null ? 'Create invoice' : '${invoice['number']}'),
         );

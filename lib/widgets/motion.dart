@@ -9,8 +9,14 @@ import '../core/format.dart';
 import '../core/theme.dart';
 import 'brand.dart';
 
-/// True when the user asked the OS to reduce motion; decorative effects skip.
-bool reduceMotion(BuildContext context) => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+/// Set from Settings (reduceMotionProvider, mirrored in main()) so the app can
+/// reduce motion even when the phone itself doesn't ask for it.
+bool kForceReduceMotion = false;
+
+/// True when the OS *or* the app's own setting asks for less motion;
+/// decorative effects skip.
+bool reduceMotion(BuildContext context) =>
+    kForceReduceMotion || (MediaQuery.maybeDisableAnimationsOf(context) ?? false);
 
 // ---------------------------------------------------------------------------
 // Press-down

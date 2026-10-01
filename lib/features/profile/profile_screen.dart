@@ -8,7 +8,6 @@ import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
-import '../../widgets/glass.dart';
 import '../../widgets/motion.dart';
 import '../../core/iconly.dart';
 import '../orders/orders_screen.dart' show OrderStatusFilter;
@@ -23,8 +22,6 @@ class ProfileScreen extends ConsumerWidget {
     final addresses = ref.watch(addressBookProvider);
     final defaultAddress = addresses.where((a) => a.isDefault).firstOrNull ?? addresses.firstOrNull;
     int count(bool Function(OrderStatus) test) => orders.where((o) => test(o.status)).length;
-
-    void soon(String what) => showGlassToast(context, '$what — coming in the next build');
 
     return Scaffold(
       body: ListView(
@@ -182,35 +179,19 @@ class ProfileScreen extends ConsumerWidget {
               orange: true,
             ),
             _Item(IconlyLight.chat, 'Chat with us on WhatsApp', () => openWhatsApp('Hi Dellinoo, I have a question.')),
-            _Item(IconlyLight.info_square, 'Help & FAQs', () => soon('Help'), orange: true),
-            _Item(Icons.local_shipping_outlined, 'Delivery information', () => soon('Delivery info')),
+            _Item(IconlyLight.info_square, 'Help & FAQs', () => context.push('/help'), orange: true),
+            _Item(Icons.local_shipping_outlined, 'Delivery information', () => context.push('/delivery-info')),
           ]),
           _Group([
+            // Appearance and data saver live on the Settings screen now, so
+            // each preference has exactly one home.
             _Item(
-              AppColors.dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-              'Appearance',
-              () => _showAppearanceSheet(context, ref),
-              subtitle: switch (ref.watch(themeModeProvider)) {
-                ThemeMode.system => 'Same as phone',
-                ThemeMode.light => 'Light',
-                ThemeMode.dark => 'Dark',
-              },
+              IconlyLight.setting,
+              'Settings',
+              () => context.push('/settings'),
+              subtitle: 'Appearance, data, privacy',
               orange: true,
             ),
-            SwitchListTile(
-              secondary: Icon(IconlyLight.download, color: AppColors.accent),
-              title: Text(
-                'Data saver',
-                style: TextStyle(color: AppColors.ink, fontSize: 14, fontWeight: FontWeight.w500),
-              ),
-              subtitle: Text(
-                'Smaller photos to save mobile data',
-                style: TextStyle(fontSize: 12.5, color: AppColors.muted),
-              ),
-              value: ref.watch(dataSaverProvider),
-              onChanged: ref.read(dataSaverProvider.notifier).set,
-            ),
-            _Item(IconlyLight.setting, 'Settings', () => soon('Settings'), orange: true),
             _Item(IconlyLight.info_circle, 'About Dellinoo', () => context.push('/about')),
             if (user != null)
               _Item(IconlyLight.logout, 'Sign out', () async {
@@ -334,56 +315,4 @@ class _Item extends StatelessWidget {
       trailing: danger ? null : Icon(IconlyLight.arrow_right_2, color: AppColors.muted),
     );
   }
-}
-
-void _showAppearanceSheet(BuildContext context, WidgetRef ref) {
-  showGlassBottomSheet<void>(
-    context: context,
-    builder: (sheetContext) => Consumer(
-      builder: (_, ref, _) {
-        final mode = ref.watch(themeModeProvider);
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Appearance', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final (m, label) in const [
-                      (ThemeMode.system, 'Same as phone'),
-                      (ThemeMode.light, 'Light'),
-                      (ThemeMode.dark, 'Dark'),
-                    ])
-                      Builder(
-                        builder: (pillContext) => PillChip(
-                          label: label,
-                          selected: mode == m,
-                          dense: true,
-                          onTap: () async {
-                            final box = pillContext.findRenderObject() as RenderBox?;
-                            final origin = box?.localToGlobal(box.size.center(Offset.zero)) ?? Offset.zero;
-                            final notifier = ref.read(themeModeProvider.notifier);
-                            Navigator.of(sheetContext).pop();
-                            // Let the sheet slide away, then wipe to the new theme
-                            // in a circle growing from the tapped pill.
-                            await Future<void>.delayed(const Duration(milliseconds: 280));
-                            await themeRevealKey.currentState?.reveal(origin, () => notifier.set(m));
-                          },
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    ),
-  );
 }

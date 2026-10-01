@@ -8,6 +8,8 @@ import '../features/requests/request_item_screen.dart';
 import '../features/profile/about_screen.dart';
 import '../features/profile/account_screen.dart';
 import '../features/profile/addresses_screen.dart';
+import '../features/profile/delivery_info_screen.dart';
+import '../features/profile/help_screen.dart';
 import '../features/auth/signup_screen.dart';
 import '../features/auth/splash_screen.dart';
 import '../features/auth/welcome_screen.dart';
@@ -22,6 +24,7 @@ import '../features/orders/order_detail_screen.dart';
 import '../features/orders/orders_screen.dart';
 import '../features/product/product_detail_screen.dart';
 import '../features/profile/profile_screen.dart';
+import '../features/profile/settings_screen.dart';
 import '../features/shell/main_shell.dart';
 import '../features/shell/tab_transitions.dart';
 import '../features/wishlist/wishlist_screen.dart';
@@ -59,6 +62,9 @@ final appRouter = GoRouter(
       ],
     ),
     GoRoute(path: '/about', builder: (_, _) => const AboutScreen()),
+    GoRoute(path: '/help', builder: (_, _) => const HelpScreen()),
+    GoRoute(path: '/delivery-info', builder: (_, _) => const DeliveryInfoScreen()),
+    GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
     GoRoute(
       path: '/account',
       // The profile header only makes it tappable when signed in, but guard

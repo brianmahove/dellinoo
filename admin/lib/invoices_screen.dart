@@ -61,6 +61,21 @@ Future<String?> issueInvoice({required BuildContext context, required String ord
   );
 }
 
+/// Runs a print/download and puts any failure on screen.
+///
+/// These are fire-and-forget button callbacks, so without this a failure is
+/// just an uncaught async error in the browser console and a button that
+/// appears to do nothing — which is how a missing `printing` web plugin
+/// registration presented itself once already.
+Future<void> runPdfAction(BuildContext context, Future<void> Function() action) async {
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await action();
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text("Couldn't open the PDF: $e")));
+  }
+}
+
 class InvoicesScreen extends StatefulWidget {
   const InvoicesScreen({super.key});
 
@@ -300,13 +315,13 @@ class InvoiceCard extends StatelessWidget {
               children: [
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(minimumSize: const Size(120, 44)),
-                  onPressed: () => printInvoice(invoice),
+                  onPressed: () => runPdfAction(context, () => printInvoice(invoice)),
                   icon: const Icon(IconlyLight.paper, size: 18),
                   label: const Text('Print'),
                 ),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(minimumSize: const Size(140, 44)),
-                  onPressed: () => downloadInvoice(invoice),
+                  onPressed: () => runPdfAction(context, () => downloadInvoice(invoice)),
                   icon: const Icon(IconlyLight.download, size: 18),
                   label: const Text('Download PDF'),
                 ),
@@ -443,15 +458,23 @@ class _IssueDialogState extends State<_IssueDialog> {
       if (!mounted) return;
       Navigator.pop(context, number);
       messenger.showSnackBar(SnackBar(content: Text('$number issued')));
-      // Straight to the document — issuing it is only useful if you can hand
-      // it over, and the panel can't email it (no server).
-      final saved = await invoiceRef.get();
-      final data = saved.data();
-      if (data != null) await downloadInvoice(data);
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
       messenger.showSnackBar(SnackBar(content: Text("Couldn't issue invoice: $e")));
+      return;
+    }
+
+    // Straight to the document — issuing an invoice is only useful if you
+    // can hand it over, and the panel can't email it (no server). Outside
+    // the try above: the dialog has popped by now, so this State is gone
+    // and its catch block can no longer report anything.
+    try {
+      final saved = await invoiceRef.get();
+      final data = saved.data();
+      if (data != null) await downloadInvoice(data);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text("Invoice saved, but the PDF didn't open: $e")));
     }
   }
 

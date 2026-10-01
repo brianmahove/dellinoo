@@ -772,6 +772,37 @@ class DataSaverNotifier extends Notifier<bool> {
 
 final dataSaverProvider = NotifierProvider<DataSaverNotifier, bool>(DataSaverNotifier.new);
 
+// ---------- Performance toggles ----------
+
+/// Frosted-glass blur. Off swaps every blur for a plain translucent fill
+/// (GlassBox.enabled), which low-end phones handle far better. main() mirrors
+/// this onto the static and remounts the tree so it takes effect at once.
+class GlassEffectsNotifier extends Notifier<bool> {
+  @override
+  bool build() => ref.read(prefsProvider)?.getBool('glass_effects') ?? true;
+
+  void set(bool on) {
+    state = on;
+    ref.read(prefsProvider)?.setBool('glass_effects', on);
+  }
+}
+
+final glassEffectsProvider = NotifierProvider<GlassEffectsNotifier, bool>(GlassEffectsNotifier.new);
+
+/// An in-app "reduce motion", on top of the phone's own setting: decorative
+/// animations (confetti, shimmer, heart burst) stop either way.
+class ReduceMotionNotifier extends Notifier<bool> {
+  @override
+  bool build() => ref.read(prefsProvider)?.getBool('reduce_motion') ?? false;
+
+  void set(bool on) {
+    state = on;
+    ref.read(prefsProvider)?.setBool('reduce_motion', on);
+  }
+}
+
+final reduceMotionProvider = NotifierProvider<ReduceMotionNotifier, bool>(ReduceMotionNotifier.new);
+
 // ---------- Onboarding ----------
 
 bool hasSeenWelcome(SharedPreferences? prefs) => prefs?.getBool('seen_welcome') ?? false;

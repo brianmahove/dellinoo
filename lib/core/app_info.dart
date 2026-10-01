@@ -8,4 +8,9 @@ abstract final class AppInfo {
   static const developer = 'vizion';
   static const developerUrl = 'https://viziontechnologies.vercel.app/';
   static const copyright = '© 2026 Dellinoo. All rights reserved.';
+
+  /// Legal pages on Firebase Hosting (also what Play Store / Facebook App
+  /// Review point at — keep in sync with hosting/).
+  static const privacyUrl = 'https://mobile-billing-system-d2bfb.web.app/privacy.html';
+  static const dataDeletionUrl = 'https://mobile-billing-system-d2bfb.web.app/data-deletion.html';
 }
