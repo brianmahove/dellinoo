@@ -116,7 +116,17 @@ class _NudgingIcon extends StatefulWidget {
 }
 
 class _NudgingIconState extends State<_NudgingIcon> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+  // Built in initState, not as a `late` field: when this widget skips its
+  // animation (reduce motion) build never touches the controller, and a lazy
+  // field would then be created for the first time inside dispose() — which
+  // makes a Ticker look up TickerMode on an already-deactivated element.
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+  }
 
   @override
   void dispose() {

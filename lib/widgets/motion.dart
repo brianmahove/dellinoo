@@ -92,7 +92,17 @@ class ShimmerSweep extends StatefulWidget {
 }
 
 class _ShimmerSweepState extends State<ShimmerSweep> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: widget.period)..repeat();
+  // Built in initState, not as a `late` field: when this widget skips its
+  // animation (reduce motion) build never touches the controller, and a lazy
+  // field would then be created for the first time inside dispose() — which
+  // makes a Ticker look up TickerMode on an already-deactivated element.
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: widget.period)..repeat();
+  }
 
   @override
   void dispose() {
@@ -277,12 +287,17 @@ class ConfettiBurst extends StatefulWidget {
 }
 
 class _ConfettiBurstState extends State<ConfettiBurst> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 2800))..forward();
+  // Built in initState, not as a `late` field: when this widget skips its
+  // animation (reduce motion) build never touches the controller, and a lazy
+  // field would then be created for the first time inside dispose() — which
+  // makes a Ticker look up TickerMode on an already-deactivated element.
+  late final AnimationController _c;
   late final List<_Piece> _pieces;
 
   @override
   void initState() {
     super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 2800))..forward();
     final r = math.Random();
     const colors = [AppColors.primary, AppColors.accentOrange, AppColors.gold, Colors.white, Color(0xFF1E8E52)];
     _pieces = List.generate(
@@ -436,7 +451,18 @@ class ThemeReveal extends StatefulWidget {
 
 class ThemeRevealState extends State<ThemeReveal> with SingleTickerProviderStateMixin {
   final _boundary = GlobalKey();
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 650));
+  // Built in initState, not as a `late` field: when this widget skips its
+  // animation (reduce motion) build never touches the controller, and a lazy
+  // field would then be created for the first time inside dispose() — which
+  // makes a Ticker look up TickerMode on an already-deactivated element.
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 650));
+  }
+
   ui.Image? _snapshot;
   Offset _origin = Offset.zero;
 
