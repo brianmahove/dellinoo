@@ -1,4 +1,3 @@
-import 'mock_data.dart';
 import 'models.dart';
 
 /// The UI only talks to this interface (via `orderRepositoryProvider`), so
@@ -28,11 +27,14 @@ abstract class OrderRepository {
   });
 }
 
+/// Test-only stand-in: keeps the orders placed during a test in memory and
+/// never talks to Firestore. It starts empty — the canned demo history it used
+/// to return went away with the real `orders` collection.
 class MockOrderRepository implements OrderRepository {
   int _placedCount = 0;
 
   @override
-  Future<List<Order>> fetchOrders(String uid) async => buildMockOrders();
+  Future<List<Order>> fetchOrders(String uid) async => const [];
 
   @override
   Future<Order> placeOrder({
@@ -46,7 +48,7 @@ class MockOrderRepository implements OrderRepository {
     Coupon? coupon,
   }) async {
     final now = DateTime.now();
-    final id = 'DL${10232 + buildMockOrders().length + _placedCount}';
+    final id = 'DL${10300 + _placedCount}';
     final order = Order(
       id: id,
       docId: id,

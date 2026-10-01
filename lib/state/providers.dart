@@ -14,7 +14,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/catalog_repository.dart';
 import '../data/firestore_catalog_repository.dart';
 import '../data/firestore_order_repository.dart';
-import '../data/mock_products.dart';
 import '../data/models.dart';
 import '../data/order_repository.dart';
 
@@ -456,10 +455,9 @@ class WishlistNotifier extends Notifier<Map<String, double>> {
       final decoded = jsonDecode(raw) as Map<String, dynamic>;
       return decoded.map((id, price) => MapEntry(id, (price as num).toDouble()));
     }
-    // No save yet (fresh install, or prefs unavailable in tests): demo seed.
-    // The Prada bag was saved when it cost $50 more.
-    double price(String id) => mockProducts.firstWhere((p) => p.id == id).price;
-    return {'p174': price('p174') + 50, 'p133': price('p133')};
+    // Nothing saved yet (fresh install, or prefs unavailable in tests): the
+    // wishlist starts empty — the customer fills it themselves.
+    return {};
   }
 
   void toggle(String productId, double currentPrice) {

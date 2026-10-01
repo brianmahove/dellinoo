@@ -31,10 +31,8 @@ void main() {
 
   test('placing an order adds it first with paid status', () async {
     // Uses the mock repositories directly — no live Firebase/network in unit
-    // tests. (The initial mock-orders fetch triggered by build() races with
-    // this call; OrdersNotifier merges rather than overwrites, so that's
-    // safe, but it does mean we only assert on the order just placed here,
-    // not on the fetched list's length.)
+    // tests. MockOrderRepository starts with no orders, so the only one in
+    // the list is the one placed here.
     final container = ProviderContainer(
       overrides: [
         authProvider.overrideWith(_FakeAuthNotifier.new),
@@ -79,9 +77,15 @@ void main() {
     );
     addTearDown(container.dispose);
     await container.read(productsProvider.future);
-    // p174 is seeded as saved when it cost $50 more; p133 at today's price.
-    expect(container.read(priceDropProvider('p174')), closeTo(50, 0.001));
-    expect(container.read(priceDropProvider('p133')), isNull);
+    final dropped = mockProducts.firstWhere((p) => p.id == 'p174');
+    final steady = mockProducts.firstWhere((p) => p.id == 'p133');
+    final wishlist = container.read(wishlistProvider.notifier);
+    // Saved when it cost $50 more, vs saved at today's price.
+    wishlist.toggle(dropped.id, dropped.price + 50);
+    wishlist.toggle(steady.id, steady.price);
+
+    expect(container.read(priceDropProvider(dropped.id)), closeTo(50, 0.001));
+    expect(container.read(priceDropProvider(steady.id)), isNull);
   });
 
   test('China legs only appear for orders with China items', () {

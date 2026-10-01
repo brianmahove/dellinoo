@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'mock_products.dart';
 import 'models.dart';
 import '../core/iconly.dart';
 
@@ -26,79 +25,3 @@ const mockDeliveryAreas = <DeliveryArea>[
   DeliveryArea(id: 'byo', name: 'Bulawayo', fee: 10, eta: '2–4 days'),
   DeliveryArea(id: 'other', name: 'Other towns (courier)', fee: 12, eta: '3–5 days'),
 ];
-
-const mockUser = AppUser(
-  uid: 'mock-user',
-  name: 'Tatenda Moyo',
-  phone: '+263 77 123 4567',
-  email: 'tatenda.moyo@example.com',
-);
-
-const mockAddress = Address(
-  fullName: 'Tatenda Moyo',
-  phone: '+263 77 123 4567',
-  street: '12 Samora Machel Ave',
-  city: 'Harare',
-);
-
-List<Order> buildMockOrders() {
-  Product p(String id) => mockProducts.firstWhere((x) => x.id == id);
-  final now = DateTime.now();
-  final fromChina = mockProducts.where((p) => p.stockStatus == StockStatus.preorder).toList();
-  return [
-    Order(
-      id: 'DL10227',
-      docId: 'DL10227',
-      items: [CartItem(product: fromChina[1], options: const {}, quantity: 1)],
-      address: mockAddress,
-      area: mockDeliveryAreas[2],
-      payment: PaymentMethod.innbucks,
-      history: [
-        StatusEvent(OrderStatus.placed, now.subtract(const Duration(days: 9))),
-        StatusEvent(OrderStatus.paid, now.subtract(const Duration(days: 9))),
-        StatusEvent(OrderStatus.processing, now.subtract(const Duration(days: 8))),
-        StatusEvent(
-          OrderStatus.boughtInChina,
-          now.subtract(const Duration(days: 6)),
-          'Packed at our Guangzhou warehouse',
-        ),
-        StatusEvent(OrderStatus.inTransit, now.subtract(const Duration(days: 1)), 'Air cargo · Guangzhou → Harare'),
-      ],
-    ),
-    Order(
-      id: 'DL10231',
-      docId: 'DL10231',
-      items: [
-        CartItem(product: p('p88'), options: const {'Size (EU)': '42'}, quantity: 1),
-        CartItem(product: p('p100'), options: const {}, quantity: 1),
-      ],
-      address: mockAddress,
-      area: mockDeliveryAreas[2],
-      payment: PaymentMethod.ecocash,
-      history: [
-        StatusEvent(OrderStatus.placed, now.subtract(const Duration(days: 2, hours: 3))),
-        StatusEvent(OrderStatus.paid, now.subtract(const Duration(days: 2, hours: 3))),
-        StatusEvent(OrderStatus.processing, now.subtract(const Duration(days: 1))),
-        StatusEvent(OrderStatus.outForDelivery, now.subtract(const Duration(hours: 2)), 'Driver: Farai · 0772 000 111'),
-      ],
-    ),
-    Order(
-      id: 'DL10198',
-      docId: 'DL10198',
-      items: [CartItem(product: fromChina[0], options: const {}, quantity: 1)],
-      address: mockAddress,
-      area: mockDeliveryAreas[0],
-      payment: PaymentMethod.onemoney,
-      history: [
-        StatusEvent(OrderStatus.placed, now.subtract(const Duration(days: 20))),
-        StatusEvent(OrderStatus.paid, now.subtract(const Duration(days: 20))),
-        StatusEvent(OrderStatus.processing, now.subtract(const Duration(days: 19)), 'Ordered from supplier in China'),
-        StatusEvent(OrderStatus.boughtInChina, now.subtract(const Duration(days: 16))),
-        StatusEvent(OrderStatus.inTransit, now.subtract(const Duration(days: 10))),
-        StatusEvent(OrderStatus.arrivedZim, now.subtract(const Duration(days: 5))),
-        StatusEvent(OrderStatus.outForDelivery, now.subtract(const Duration(days: 4)), 'Ready for pickup'),
-        StatusEvent(OrderStatus.delivered, now.subtract(const Duration(days: 3))),
-      ],
-    ),
-  ];
-}
