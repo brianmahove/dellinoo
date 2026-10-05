@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/push.dart';
 import '../data/catalog_repository.dart';
 import '../data/firestore_catalog_repository.dart';
 import '../data/firestore_order_repository.dart';
@@ -205,7 +206,7 @@ class AuthNotifier extends Notifier<AppUser?> {
     await user.reauthenticateWithCredential(credential);
   }
 
-  /// Deletes the account's own Firestore data (saved addresses) and then the
+  /// Deletes the account's own Firestore data (saved addresses, push tokens) and then the
   /// Firebase Auth account itself. Orders are deliberately *not* deleted
   /// here — they're kept as business records, matching the Data Deletion
   /// page's stated policy (and `firestore.rules`, which never lets a client
@@ -214,10 +215,13 @@ class AuthNotifier extends Notifier<AppUser?> {
   Future<void> deleteAccount() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final addresses = await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('addresses').get();
-    if (addresses.docs.isNotEmpty) {
+    final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final addresses = await userDoc.collection('addresses').get();
+    final pushTokens = await userDoc.collection('fcmTokens').get();
+    final docs = [...addresses.docs, ...pushTokens.docs];
+    if (docs.isNotEmpty) {
       final batch = FirebaseFirestore.instance.batch();
-      for (final doc in addresses.docs) {
+      for (final doc in docs) {
         batch.delete(doc.reference);
       }
       await batch.commit();
@@ -293,6 +297,7 @@ class AuthNotifier extends Notifier<AppUser?> {
   }
 
   Future<void> signOut() async {
+    await Push.unregister();
     await FirebaseAuth.instance.signOut();
     try {
       await GoogleSignIn.instance.disconnect();
@@ -530,12 +535,14 @@ class OrdersNotifier extends Notifier<List<Order>> {
     final fetched = await ref.read(orderRepositoryProvider).fetchOrders(uid);
     // Merge rather than overwrite: an order placed (optimistically added to
     // state) while this fetch was still in flight must not be dropped if the
-    // fetch resolves after it.
-    final existingIds = state.map((o) => o.id).toSet();
+    // fetch resolves after it. Fetched copies win for orders in both lists,
+    // so a refresh (e.g. after a status push, see core/push.dart) actually
+    // picks up the admin's new status.
+    final fetchedIds = fetched.map((o) => o.id).toSet();
     final merged = [
-      ...state,
-      for (final o in fetched)
-        if (!existingIds.contains(o.id)) o,
+      ...fetched,
+      for (final o in state)
+        if (!fetchedIds.contains(o.id)) o,
     ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     state = merged;
   }

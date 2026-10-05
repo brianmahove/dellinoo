@@ -30,6 +30,12 @@ function base64UrlDecodeToString(input: string): string {
 }
 
 export async function verifyFirebaseIdToken(request: Request, env: Env): Promise<string> {
+  return (await verifyFirebaseIdTokenClaims(request, env)).uid;
+}
+
+// Same check, but also returns the verified email — the admin allowlist
+// (`admins/{email}`, see ../firestore.rules' isAdmin()) is keyed by it.
+export async function verifyFirebaseIdTokenClaims(request: Request, env: Env): Promise<{ uid: string; email?: string }> {
   const authHeader = request.headers.get('Authorization') ?? '';
   const match = /^Bearer (.+)$/.exec(authHeader);
   if (!match) throw new AuthError('Missing bearer token');
@@ -47,6 +53,7 @@ export async function verifyFirebaseIdToken(request: Request, env: Env): Promise
     iss?: string;
     exp?: number;
     sub?: string;
+    email?: string;
   };
 
   const now = Math.floor(Date.now() / 1000);
@@ -74,5 +81,5 @@ export async function verifyFirebaseIdToken(request: Request, env: Env): Promise
   const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', publicKey, signature, signedData);
   if (!valid) throw new AuthError('Invalid signature');
 
-  return payload.sub;
+  return { uid: payload.sub, email: payload.email };
 }

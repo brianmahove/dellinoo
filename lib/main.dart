@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/push.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
 import 'firebase_options.dart';
@@ -35,6 +36,7 @@ Future<void> _main() async {
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   // Must be called exactly once, before any other GoogleSignIn method.
   await GoogleSignIn.instance.initialize(serverClientId: _googleServerClientId);
+  await Push.init();
   // Iconly fonts are vendored (not a package), so add their licence by hand.
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks(['Iconly'], await rootBundle.loadString('assets/fonts/ICONLY_LICENSE'));
@@ -55,11 +57,13 @@ class _DellinooAppState extends ConsumerState<DellinooApp> with WidgetsBindingOb
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    Push.onOrderUpdate = () => ref.read(ordersProvider.notifier).refresh();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    Push.onOrderUpdate = null;
     super.dispose();
   }
 

@@ -1,10 +1,36 @@
 import type { Env } from './types';
-import { AuthError, verifyFirebaseIdToken } from './auth';
-import { AmountError, getAccessToken, getOrder, computeAmount, patchFields, appendPaidAndPatch } from './firestore';
+import { AuthError, verifyFirebaseIdToken, verifyFirebaseIdTokenClaims } from './auth';
+import {
+  AmountError,
+  getAccessToken,
+  getOrder,
+  getDocFields,
+  computeAmount,
+  patchFields,
+  appendPaidAndPatch,
+} from './firestore';
+import { orderStatusMessage, sendToUser } from './fcm';
 import { initiateRedirect, initiateExpress, parseForm, verifyHash } from './paynow';
 
-function json(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
+function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', ...headers } });
+}
+
+// The admin panel is a web app on another origin, so /notify/* needs CORS.
+// The customer app is native (no CORS) and Paynow calls server-to-server.
+const ADMIN_ORIGINS = ['https://dellinoo-admin.web.app', 'https://dellinoo-admin.firebaseapp.com'];
+
+function corsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get('Origin') ?? '';
+  const allowed = ADMIN_ORIGINS.includes(origin) || /^http:\/\/localhost:\d+$/.test(origin);
+  if (!allowed) return {};
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Max-Age': '86400',
+    Vary: 'Origin',
+  };
 }
 
 const RETURN_PAGE = `<!doctype html><html><body style="font-family:sans-serif;text-align:center;padding:48px 16px">
@@ -25,6 +51,12 @@ export default {
     }
     if (request.method === 'POST' && url.pathname === '/paynow/webhook') {
       return handleWebhook(request, env);
+    }
+    if (request.method === 'OPTIONS' && url.pathname.startsWith('/notify/')) {
+      return new Response(null, { status: 204, headers: corsHeaders(request) });
+    }
+    if (request.method === 'POST' && url.pathname === '/notify/order-status') {
+      return handleNotifyOrderStatus(request, env);
     }
     return new Response('Not found', { status: 404 });
   },
@@ -198,6 +230,18 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
 
     await appendPaidAndPatch(orderId, env, token, obj.paynowreference ?? '');
     console.log(`webhook: order ${orderId} marked paid`);
+
+    // Best effort: the payment is already recorded, so a push failure must
+    // never surface as a webhook error.
+    try {
+      const message = orderStatusMessage('paid', order.displayId);
+      if (message) {
+        const sent = await sendToUser(order.userId, message, env, token);
+        console.log(`webhook: order ${orderId} paid push sent to ${sent} device(s)`);
+      }
+    } catch (err) {
+      console.error(`webhook: order ${orderId} paid push failed`, err);
+    }
   } catch (err) {
     // This is the dangerous failure mode: Paynow confirmed the customer
     // paid, but we failed to record it. There's no retry here (Paynow will
@@ -207,4 +251,49 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
     console.error(`webhook: order ${orderId} failed to record payment`, err);
   }
   return new Response('OK');
+}
+
+async function handleNotifyOrderStatus(request: Request, env: Env): Promise<Response> {
+  // Called by the admin panel right after it appends a status event (see
+  // admin/lib/orders_screen.dart). Spark has no Firestore triggers, so this
+  // explicit call stands in for an onUpdate Cloud Function. The message is
+  // derived from the order doc's own latest status, never from the request,
+  // so the endpoint can't be used to push arbitrary text.
+  const cors = corsHeaders(request);
+  let email: string | undefined;
+  try {
+    ({ email } = await verifyFirebaseIdTokenClaims(request, env));
+  } catch (err) {
+    return json({ ok: false, error: 'unauthorized', message: err instanceof AuthError ? err.message : 'Unauthorized' }, 401, cors);
+  }
+
+  let body: { orderId?: string };
+  try {
+    body = (await request.json()) as { orderId?: string };
+  } catch {
+    return json({ ok: false, error: 'bad_request', message: 'Invalid JSON body' }, 400, cors);
+  }
+  const orderId = body.orderId;
+  if (!orderId) return json({ ok: false, error: 'bad_request', message: 'orderId is required' }, 400, cors);
+
+  const token = await getAccessToken(env);
+  // Same allowlist firestore.rules' isAdmin() enforces.
+  if (!email || !(await getDocFields(`admins/${email}`, env, token))) {
+    return json({ ok: false, error: 'forbidden', message: 'Admins only' }, 403, cors);
+  }
+
+  const order = await getOrder(orderId, env, token);
+  if (!order) return json({ ok: false, error: 'not_found', message: 'Order not found' }, 404, cors);
+  const latest = order.history.at(-1);
+  const message = latest && orderStatusMessage(latest.status, order.displayId, latest.note);
+  if (!message) return json({ ok: true, sent: 0 }, 200, cors);
+
+  try {
+    const sent = await sendToUser(order.userId, message, env, token);
+    console.log(`notify: order ${orderId} status=${latest!.status} by ${email} -> ${sent} device(s)`);
+    return json({ ok: true, sent }, 200, cors);
+  } catch (err) {
+    console.error(`notify: order ${orderId} push failed`, err);
+    return json({ ok: false, error: 'push_failed', message: err instanceof Error ? err.message : 'Push failed' }, 502, cors);
+  }
 }

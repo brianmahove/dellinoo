@@ -122,5 +122,12 @@ service cloud.firestore {
     match /users/{uid}/addresses/{addressId} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+
+    // Push notification device tokens (doc id = the FCM token itself; see
+    // lib/core/push.dart). Written by the customer's own device, read only
+    // by the payments Worker, which bypasses these rules as a service account.
+    match /users/{uid}/fcmTokens/{token} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }

@@ -57,7 +57,9 @@ export async function getAccessToken(env: Env): Promise<string> {
   const header = { alg: 'RS256', typ: 'JWT' };
   const claims = {
     iss: serviceAccount.client_email,
-    scope: 'https://www.googleapis.com/auth/datastore',
+    // One token covers both Firestore (orders) and FCM (push notifications,
+    // see fcm.ts) — the service account already has both roles.
+    scope: 'https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/firebase.messaging',
     aud: 'https://oauth2.googleapis.com/token',
     iat: now,
     exp: now + 3600,
@@ -114,7 +116,7 @@ export interface LoadedOrder {
   area: { id: string; name: string; fee: number; eta: string };
   items: Array<{ productId: string; price: number; quantity: number }>;
   coupon: { code: string } | null;
-  history: Array<{ status: string; at: string }>;
+  history: Array<{ status: string; at: string; note?: string }>;
 }
 
 export async function getOrder(orderId: string, env: Env, token: string): Promise<LoadedOrder | null> {
@@ -148,7 +150,7 @@ export class AmountError extends Error {
   }
 }
 
-async function getDocFields(path: string, env: Env, token: string): Promise<Record<string, unknown> | null> {
+export async function getDocFields(path: string, env: Env, token: string): Promise<Record<string, unknown> | null> {
   const res = await fetch(`${FIRESTORE_BASE}/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   });

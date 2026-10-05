@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'glass_dialog.dart';
 import 'invoice_pdf.dart';
 import 'invoices_screen.dart';
+import 'notify.dart';
 import 'theme.dart';
 import 'iconly.dart';
 
@@ -456,7 +457,25 @@ class _StatusDialogState extends State<_StatusDialog> {
     await widget.doc.reference.update({
       'history': FieldValue.arrayUnion([event]),
     });
-    if (mounted) Navigator.pop(context);
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.pop(context);
+    // The status is saved either way; this only reports whether the
+    // customer's phone was pinged.
+    try {
+      final sent = await notifyOrderStatus(widget.doc.id);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            sent > 0
+                ? 'Status saved · customer notified'
+                : 'Status saved · customer has no notifications set up on the app',
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text("Status saved, but the customer couldn't be notified: $e")));
+    }
   }
 
   @override

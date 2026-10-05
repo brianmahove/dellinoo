@@ -45,6 +45,7 @@ dependencies:
   # regenerated on demand. See invoice_pdf.dart.
   pdf: ^3.11.3
   printing: ^5.14.2
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

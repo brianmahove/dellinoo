@@ -24,6 +24,12 @@ those already ignore `../admin/`'s separate package.
   `status === "Paid"`, appends a `paid` entry to the order's `history` in
   Firestore. The Flutter app never polls anything — it just listens to the
   order doc in Firestore and reacts when this shows up.
+- **`POST /notify/order-status`**: called by the admin panel (with an
+  admin's Firebase ID token, checked against `admins/{email}`) after it
+  changes an order's status. Sends the customer a push notification via FCM,
+  built from the order's latest status (see `src/fcm.ts`). The webhook above
+  also sends a "Payment received" push. FCM is free on Spark, so this Worker
+  does the triggering a Cloud Function would otherwise do.
 - **`GET /paynow/return`** — a static "you can switch back to the app" page
   for the card/browser flow's redirect-back target.
 

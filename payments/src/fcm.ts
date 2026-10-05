@@ -1,0 +1,106 @@
+import type { Env } from './types';
+
+// Sends push notifications through Firebase Cloud Messaging's HTTP v1 API.
+// FCM itself is free on the Spark plan — what Spark lacks is Cloud
+// Functions to *trigger* a send, so this Worker sends them instead: from
+// the Paynow webhook (payment received) and from /notify/order-status (the
+// admin panel calls it after changing an order's status).
+//
+// Device tokens live at `users/{uid}/fcmTokens/{token}`, written by the
+// customer app (lib/core/push.dart). The doc id *is* the token.
+
+const FIRESTORE_BASE = 'https://firestore.googleapis.com/v1';
+
+export interface PushMessage {
+  title: string;
+  body: string;
+  // Delivered to the app as RemoteMessage.data — `route` is the go_router
+  // location to open when the notification is tapped.
+  data?: Record<string, string>;
+}
+
+function tokensPath(env: Env, uid: string): string {
+  return `projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}/fcmTokens`;
+}
+
+async function listTokens(uid: string, env: Env, accessToken: string): Promise<string[]> {
+  const res = await fetch(`${FIRESTORE_BASE}/${tokensPath(env, uid)}?pageSize=50&mask.fieldPaths=updatedAt`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`Firestore list fcmTokens failed: ${res.status} ${await res.text()}`);
+  const json = (await res.json()) as { documents?: Array<{ name: string }> };
+  return (json.documents ?? []).map((d) => decodeURIComponent(d.name.split('/').pop()!));
+}
+
+async function deleteToken(uid: string, token: string, env: Env, accessToken: string): Promise<void> {
+  await fetch(`${FIRESTORE_BASE}/${tokensPath(env, uid)}/${encodeURIComponent(token)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+// Sends [message] to every device [uid] is signed in on. Never throws for a
+// single bad token: tokens FCM reports as gone (app uninstalled, data
+// cleared) are deleted so they stop costing a request on every send.
+// Returns how many devices accepted it.
+export async function sendToUser(uid: string, message: PushMessage, env: Env, accessToken: string): Promise<number> {
+  const tokens = await listTokens(uid, env, accessToken);
+  let sent = 0;
+  for (const token of tokens) {
+    const res = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: {
+          token,
+          notification: { title: message.title, body: message.body },
+          data: message.data ?? {},
+          android: {
+            priority: 'high',
+            // Channel created natively in MainActivity.kt; the icon/colour
+            // defaults come from AndroidManifest.xml.
+            notification: { channel_id: 'order_updates' },
+          },
+        },
+      }),
+    });
+    if (res.ok) {
+      sent++;
+      continue;
+    }
+    const text = await res.text();
+    // UNREGISTERED (404) = token no longer valid; INVALID_ARGUMENT (400) on
+    // a token we stored ourselves means the same in practice.
+    if (res.status === 404 || (res.status === 400 && text.includes('INVALID_ARGUMENT'))) {
+      console.log(`fcm: dropping dead token for uid=${uid}`);
+      await deleteToken(uid, token, env, accessToken);
+    } else {
+      console.error(`fcm: send failed for uid=${uid}: ${res.status} ${text}`);
+    }
+  }
+  return sent;
+}
+
+// What the customer sees for each order status. `null` = no push (the
+// customer just did it themselves). Statuses mirror OrderStatus in the app's
+// lib/data/models.dart and _statuses in admin/lib/orders_screen.dart.
+export function orderStatusMessage(status: string, displayId: string, note?: string): PushMessage | null {
+  const copy: Record<string, [string, string] | null> = {
+    placed: null,
+    paid: ['Payment received', `Thanks! We've got your payment for order ${displayId}.`],
+    processing: ['Order being prepared', `We're getting order ${displayId} ready.`],
+    boughtInChina: ['Bought in China', `Your items for order ${displayId} have been bought and are getting ready to fly.`],
+    inTransit: ['Flying to Zimbabwe', `Order ${displayId} is on its way from China.`],
+    arrivedZim: ['Arrived in Harare', `Order ${displayId} has landed in Zimbabwe.`],
+    outForDelivery: ['Out for delivery', `Order ${displayId} is on its way to you.`],
+    delivered: ['Delivered', `Order ${displayId} has been delivered. Enjoy!`],
+  };
+  const entry = copy[status];
+  if (!entry) return null;
+  const [title, body] = entry;
+  return {
+    title,
+    body: note ? `${body} ${note}` : body,
+    data: { route: `/orders/${displayId}` },
+  };
+}
