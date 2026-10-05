@@ -180,6 +180,7 @@ String _paymentLabel(String p) => switch (p) {
   'onemoney' => 'OneMoney',
   'innbucks' => 'InnBucks',
   'card' => 'Visa / Mastercard',
+  'manual' => 'Manual transfer',
   _ => p,
 };
 

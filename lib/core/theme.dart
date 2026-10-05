@@ -100,6 +100,20 @@ abstract final class AppColors {
         ];
 
   static Color tintFor(String id) => tints[id.hashCode.abs() % tints.length];
+
+  /// Reads colours from the light palette when [light] is true, whatever the
+  /// app's mode — for overlays drawn on a light photo background (e.g. a
+  /// white-background product photo in dark mode, where dark glass and
+  /// near-white text would vanish). Pair with `OnLightBackdrop.of(context)`.
+  static T lightIf<T>(bool light, T Function() read) {
+    if (!light || !dark) return read();
+    dark = false;
+    try {
+      return read();
+    } finally {
+      dark = true;
+    }
+  }
 }
 
 final _stadium = WidgetStatePropertyAll<OutlinedBorder>(const StadiumBorder());

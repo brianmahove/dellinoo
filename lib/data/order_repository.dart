@@ -25,6 +25,13 @@ abstract class OrderRepository {
     required PaymentMethod payment,
     Coupon? coupon,
   });
+
+  /// Records the customer's manual payment reference on order [docId] (and
+  /// switches its `payment` to manual). The admin confirms or rejects it.
+  Future<void> submitManualPayment(String docId, ManualPayment payment);
+
+  /// The client's accounts for manual payment (`meta/paymentDetails`).
+  Future<PaymentDetails> fetchPaymentDetails();
 }
 
 /// Test-only stand-in: keeps the orders placed during a test in memory and
@@ -63,4 +70,11 @@ class MockOrderRepository implements OrderRepository {
     _placedCount++;
     return order;
   }
+
+  @override
+  Future<void> submitManualPayment(String docId, ManualPayment payment) async {}
+
+  @override
+  Future<PaymentDetails> fetchPaymentDetails() async =>
+      const PaymentDetails(ecocashNumber: '0771234567', ecocashName: 'Dellinoo');
 }

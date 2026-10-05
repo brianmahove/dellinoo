@@ -2,6 +2,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Android 13+ runtime permission for push notifications (lib/core/push.dart). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Runs the EcoCash USSD code for manual payment (MainActivity, lib/core/ussd.dart).
+         Optional telephony so tablets without a SIM can still install. -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <application
         android:label="@string/app_name"
         android:enableOnBackInvokedCallback="true"

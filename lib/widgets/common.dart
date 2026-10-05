@@ -83,6 +83,8 @@ class CircleIconButton extends StatelessWidget {
     final ShapeBorder shape = square
         ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(size * 0.32))
         : const CircleBorder();
+    final light = glass && OnLightBackdrop.of(context);
+    final (ink, glassTint) = AppColors.lightIf(light, () => (AppColors.ink, AppColors.glass(0.55)));
     final button = Material(
       color: glass ? Colors.transparent : (color ?? AppColors.surface),
       shape: shape,
@@ -103,7 +105,7 @@ class CircleIconButton extends StatelessWidget {
                   duration: const Duration(milliseconds: 350),
                   switchInCurve: Curves.elasticOut,
                   transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
-                  child: Icon(icon, key: ValueKey(icon), size: size * 0.46, color: iconColor ?? AppColors.ink),
+                  child: Icon(icon, key: ValueKey(icon), size: size * 0.46, color: iconColor ?? ink),
                 ),
               ),
             ),
@@ -114,7 +116,7 @@ class CircleIconButton extends StatelessWidget {
     if (!glass) return button;
     return GlassBox(
       borderRadius: BorderRadius.circular(square ? size * 0.32 : size / 2),
-      tint: AppColors.glass(0.55),
+      tint: glassTint,
       child: button,
     );
   }
@@ -340,7 +342,8 @@ class PriceText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Prices are violet, like the brand mark (a lighter violet in dark mode).
-    final color = this.color ?? AppColors.accent;
+    final (accent, muted) = AppColors.lightIf(OnLightBackdrop.of(context), () => (AppColors.accent, AppColors.muted));
+    final color = this.color ?? accent;
     final onDark = this.color != null;
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.end,
@@ -355,9 +358,9 @@ class PriceText extends StatelessWidget {
             money(product.oldPrice!),
             style: TextStyle(
               fontSize: size * 0.72,
-              color: onDark ? color.withValues(alpha: 0.75) : AppColors.muted,
+              color: onDark ? color.withValues(alpha: 0.75) : muted,
               decoration: TextDecoration.lineThrough,
-              decorationColor: onDark ? color : AppColors.muted,
+              decorationColor: onDark ? color : muted,
             ),
           ),
       ],
@@ -377,7 +380,7 @@ class WishlistButton extends ConsumerWidget {
     final saved = ref.watch(wishlistProvider.select((s) => s.containsKey(productId)));
     return CircleIconButton(
       icon: saved ? IconlyBold.heart : IconlyLight.heart,
-      iconColor: saved ? AppColors.danger : AppColors.ink,
+      iconColor: saved ? AppColors.danger : null,
       size: size,
       glass: glass,
       onTap: () {
@@ -399,16 +402,20 @@ class RatingPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final (tint, ink) = AppColors.lightIf(OnLightBackdrop.of(context), () => (AppColors.glass(0.55), AppColors.ink));
     return GlassBox(
       borderRadius: BorderRadius.circular(13),
-      tint: AppColors.glass(0.55),
+      tint: tint,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(IconlyBold.star, size: 16, color: AppColors.gold),
           const SizedBox(width: 2),
-          Text(rating.toStringAsFixed(1), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          Text(
+            rating.toStringAsFixed(1),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ink),
+          ),
         ],
       ),
     );
@@ -434,7 +441,12 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final heroTag = 'product-$heroScope-${product.id}';
     final inStock = product.stockStatus == StockStatus.inStock;
-    final stockColor = inStock ? AppColors.inStock : AppColors.preorder;
+    final backdrop = productBackdrop(product, radius: BorderRadius.circular(22));
+    final light = isLightBackdrop(backdrop);
+    final (stockColor, stripTint, ink) = AppColors.lightIf(
+      light,
+      () => (inStock ? AppColors.inStock : AppColors.preorder, AppColors.glass(0.6), AppColors.ink),
+    );
     return SizedBox(
       width: width,
       child: PressScale(
@@ -446,101 +458,110 @@ class ProductCard extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: () => context.push('/product/${product.id}', extra: heroTag),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: ProductBackdrop(decoration: productBackdrop(product, radius: BorderRadius.circular(22))),
-                  ),
-                  Positioned.fill(
-                    // Photo runs under the glass strip so the blur has something to frost.
-                    bottom: 24,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 34, 12, 0),
-                      child: ProductPhotoHero(
-                        tag: heroTag,
-                        child: NetImage(product.thumbnail, fit: BoxFit.contain),
-                      ),
-                    ),
-                  ),
-                  Positioned(left: 10, top: 10, child: RatingPill(product.rating)),
-                  Positioned(right: 10, top: 10, child: WishlistButton(product.id, glass: true)),
-                  if (product.onSale)
-                    Positioned(
-                      left: 10,
-                      top: 42,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentOrange,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '-${product.discountPercent}%',
-                          style: const TextStyle(color: AppColors.onPrimary, fontSize: 11, fontWeight: FontWeight.w800),
+              child: OnLightBackdrop(
+                light: light,
+                child: Stack(
+                  children: [
+                    Positioned.fill(child: ProductBackdrop(decoration: backdrop)),
+                    Positioned.fill(
+                      // Photo runs under the glass strip so the blur has something to frost.
+                      bottom: 24,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 34, 12, 0),
+                        child: ProductPhotoHero(
+                          tag: heroTag,
+                          child: NetImage(product.thumbnail, fit: BoxFit.contain),
                         ),
                       ),
                     ),
-                  if (showPriceDrop)
-                    Positioned(
-                      left: 10,
-                      top: product.onSale ? 68 : 42,
-                      child: Consumer(
-                        builder: (_, ref, _) {
-                          final drop = ref.watch(priceDropProvider(product.id));
-                          if (drop == null) return const SizedBox.shrink();
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppColors.inStock,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '↓ ${money(drop)} cheaper',
-                              style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  Positioned(
-                    left: 8,
-                    right: 8,
-                    bottom: 8,
-                    child: GlassBox(
-                      padding: const EdgeInsets.fromLTRB(10, 7, 10, 8),
-                      borderRadius: BorderRadius.circular(16),
-                      tint: AppColors.glass(0.6),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            product.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: AppColors.ink, fontSize: 14, fontWeight: FontWeight.w700),
+                    Positioned(left: 10, top: 10, child: RatingPill(product.rating)),
+                    Positioned(right: 10, top: 10, child: WishlistButton(product.id, glass: true)),
+                    if (product.onSale)
+                      Positioned(
+                        left: 10,
+                        top: 42,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentOrange,
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          const SizedBox(height: 1),
-                          PriceText(product, size: 17),
-                          const SizedBox(height: 1),
-                          () {
-                            final line = Row(
-                              children: [
-                                Icon(inStock ? IconlyBold.tick_square : IconlyBold.send, size: 12, color: stockColor),
-                                const SizedBox(width: 3),
-                                Text(
-                                  arrivalShort(product.stockStatus),
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: stockColor),
+                          child: Text(
+                            '-${product.discountPercent}%',
+                            style: const TextStyle(
+                              color: AppColors.onPrimary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (showPriceDrop)
+                      Positioned(
+                        left: 10,
+                        top: product.onSale ? 68 : 42,
+                        child: Consumer(
+                          builder: (_, ref, _) {
+                            final drop = ref.watch(priceDropProvider(product.id));
+                            if (drop == null) return const SizedBox.shrink();
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.inStock,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '↓ ${money(drop)} cheaper',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w800,
                                 ),
-                              ],
+                              ),
                             );
-                            // A soft shine draws the eye to fast-delivery items.
-                            return inStock ? ShimmerSweep(child: line) : line;
-                          }(),
-                        ],
+                          },
+                        ),
+                      ),
+                    Positioned(
+                      left: 8,
+                      right: 8,
+                      bottom: 8,
+                      child: GlassBox(
+                        padding: const EdgeInsets.fromLTRB(10, 7, 10, 8),
+                        borderRadius: BorderRadius.circular(16),
+                        tint: stripTint,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              product.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: ink, fontSize: 14, fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 1),
+                            PriceText(product, size: 17),
+                            const SizedBox(height: 1),
+                            () {
+                              final line = Row(
+                                children: [
+                                  Icon(inStock ? IconlyBold.tick_square : IconlyBold.send, size: 12, color: stockColor),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    arrivalShort(product.stockStatus),
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: stockColor),
+                                  ),
+                                ],
+                              );
+                              // A soft shine draws the eye to fast-delivery items.
+                              return inStock ? ShimmerSweep(child: line) : line;
+                            }(),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1080,6 +1101,29 @@ BoxDecoration productBackdrop(Product p, {int photo = 0, BorderRadius? radius}) 
     gradient: bg?.gradient,
     borderRadius: radius,
   );
+}
+
+/// True if [d] (a [productBackdrop]) is light — mostly a white or pale photo
+/// background. Overlays on it then need the light palette even in dark mode.
+bool isLightBackdrop(BoxDecoration d) {
+  final colors = d.gradient?.colors ?? [if (d.color != null) d.color!];
+  if (colors.isEmpty) return false;
+  return colors.map((c) => c.computeLuminance()).reduce((a, b) => a + b) / colors.length > 0.5;
+}
+
+/// Marks widgets drawn over a light photo background, so the glass pills and
+/// buttons on it (RatingPill, CircleIconButton(glass), PriceText, …) use the
+/// light palette via [AppColors.lightIf] — dark glass and near-white text
+/// would disappear on white in dark mode.
+class OnLightBackdrop extends InheritedWidget {
+  const OnLightBackdrop({super.key, required this.light, required super.child});
+
+  final bool light;
+
+  static bool of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<OnLightBackdrop>()?.light ?? false;
+
+  @override
+  bool updateShouldNotify(OnLightBackdrop old) => old.light != light;
 }
 
 class ProductBackdrop extends StatelessWidget {

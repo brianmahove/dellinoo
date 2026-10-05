@@ -111,23 +111,69 @@ enum PaymentMethod {
   ecocash('EcoCash', 'Pay with your EcoCash wallet', true, 'assets/payments/ecocash.png'),
   onemoney('OneMoney', 'Pay with your OneMoney wallet', true, 'assets/payments/onemoney.png'),
   innbucks('InnBucks', 'Pay with an InnBucks code', false, 'assets/payments/innbucks.png'),
-  card('Card', 'Visa, Mastercard or ZimSwitch', false, 'assets/payments/zimswitch.png');
+  card('Card', 'Visa, Mastercard or ZimSwitch', false, 'assets/payments/zimswitch.png'),
 
-  const PaymentMethod(this.label, this.subtitle, this.needsPhone, this.logo);
+  /// The customer sends the money themselves (EcoCash, InnBucks or bank
+  /// transfer to the accounts in `meta/paymentDetails`) and types in the
+  /// transaction reference; the admin matches it against their statement and
+  /// confirms. No gateway involved — see lib/widgets/manual_payment.dart.
+  manual('Pay manually', 'Send via EcoCash, InnBucks or bank, then enter the reference', false, null);
+
+  const PaymentMethod(this.label, this._subtitle, this._needsPhone, this.logo);
   final String label;
-  final String subtitle;
-  final bool needsPhone;
+  final String _subtitle;
+  final bool _needsPhone;
 
   /// Brand logo shown on a white tile (stays white in dark mode so logos read).
-  final String logo;
+  /// Null for [manual], which shows an icon instead.
+  final String? logo;
 
-  /// Methods offered in the checkout / retry pickers. OneMoney isn't supported
-  /// by the Paynow integration, and Card is inactive on the merchant account
-  /// (pending Paynow approval) — flip [cardEnabled] once it's live.
+  /// Whether Paynow's integration ID is live. While false (Oct 2026: the
+  /// merchant account is live but the integration is still in test mode, so
+  /// real wallets can't be charged through it), nothing goes through Paynow:
+  /// - EcoCash dials the EcoCash "Send money" USSD code to the client's number
+  ///   with the order total, so the customer only enters their PIN;
+  /// - InnBucks shows the client's InnBucks number and the amount to send
+  ///   (InnBucks has no one-shot USSD code);
+  /// - Card is hidden (it can only work through Paynow);
+  /// and the customer then enters the SMS reference for the admin to confirm
+  /// (lib/widgets/manual_payment.dart). Set to true once Paynow sets the
+  /// integration live to go back to Paynow for EcoCash, InnBucks and Card.
+  static const paynowLive = false;
+
+  /// Card is inactive on the merchant account until Paynow activates
+  /// Visa/Mastercard — it only shows once [paynowLive] too.
   static const cardEnabled = true;
+
+  /// The manual channel this method pays through when it isn't [viaPaynow].
+  ManualChannel? get manualChannel => switch (this) {
+    PaymentMethod.ecocash when !paynowLive => ManualChannel.ecocash,
+    PaymentMethod.innbucks when !paynowLive => ManualChannel.innbucks,
+    PaymentMethod.manual when !paynowLive => ManualChannel.bank,
+    _ => null,
+  };
+
+  /// EcoCash without Paynow: the app runs the USSD code for the customer.
+  bool get dialsUssd => manualChannel == ManualChannel.ecocash;
+
+  String get subtitle => switch (this) {
+    PaymentMethod.ecocash when !paynowLive => 'Opens EcoCash. Just enter your PIN to confirm',
+    PaymentMethod.innbucks when !paynowLive => 'Send from InnBucks, then enter the reference',
+    PaymentMethod.manual when !paynowLive => 'Bank transfer or ZIPIT, then enter the reference',
+    _ => _subtitle,
+  };
+
+  /// Paynow's Express Checkout needs the wallet number; manual payment doesn't.
+  bool get needsPhone => _needsPhone && viaPaynow;
+
+  /// Whether this method goes through Paynow (and so the payments Worker).
+  bool get viaPaynow => this != PaymentMethod.manual && paynowLive;
+
+  /// Methods offered in the checkout / retry pickers. OneMoney has no account
+  /// configured on the Paynow side.
   bool get selectable => switch (this) {
     PaymentMethod.onemoney => false,
-    PaymentMethod.card => cardEnabled,
+    PaymentMethod.card => cardEnabled && paynowLive,
     _ => true,
   };
   static List<PaymentMethod> get selectableValues => [
@@ -152,6 +198,129 @@ enum OrderStatus {
 
   /// Steps that only apply when the order has items coming from China.
   final bool chinaLeg;
+}
+
+/// Where a manual payment was sent (see [PaymentMethod.manual]).
+enum ManualChannel {
+  ecocash('EcoCash', 'The reference in your EcoCash SMS, e.g. MP231005.1423.H12345'),
+  innbucks('InnBucks', 'The transaction ID from the InnBucks app or SMS'),
+  bank('Bank transfer', "The bank's transaction or reference number");
+
+  const ManualChannel(this.label, this.referenceHint);
+  final String label;
+  final String referenceHint;
+}
+
+enum ManualPaymentStatus { submitted, confirmed, rejected }
+
+/// The customer's own report of a manual payment, stored on the order doc as
+/// `manualPayment`. The customer writes it as `submitted`; only the admin
+/// moves it to `confirmed` (together with a `paid` status event) or
+/// `rejected` (with a [note] saying why) — see firestore.rules.
+class ManualPayment {
+  const ManualPayment({
+    required this.channel,
+    required this.reference,
+    required this.submittedAt,
+    this.sender,
+    this.status = ManualPaymentStatus.submitted,
+    this.note,
+  });
+
+  final ManualChannel channel;
+
+  /// Transaction reference the admin matches against their statement.
+  final String reference;
+
+  /// Number or account name the money came from, to help the match.
+  final String? sender;
+  final DateTime submittedAt;
+  final ManualPaymentStatus status;
+
+  /// Admin's reason when [status] is rejected.
+  final String? note;
+}
+
+/// The client's own accounts customers pay into manually (Firestore
+/// `meta/paymentDetails`, edited on the admin panel's Payment details
+/// screen). Blank fields mean that channel isn't offered.
+class PaymentDetails {
+  const PaymentDetails({
+    this.ecocashNumber = '',
+    this.ecocashName = '',
+    this.innbucksNumber = '',
+    this.innbucksName = '',
+    this.bankName = '',
+    this.bankAccountName = '',
+    this.bankAccountNumber = '',
+    this.bankBranch = '',
+    this.instructions = '',
+    this.ecocashUssd = '',
+  });
+
+  factory PaymentDetails.fromMap(Map<String, dynamic> m) {
+    String s(String key) => (m[key] as String? ?? '').trim();
+    return PaymentDetails(
+      ecocashNumber: s('ecocashNumber'),
+      ecocashName: s('ecocashName'),
+      innbucksNumber: s('innbucksNumber'),
+      innbucksName: s('innbucksName'),
+      bankName: s('bankName'),
+      bankAccountName: s('bankAccountName'),
+      bankAccountNumber: s('bankAccountNumber'),
+      bankBranch: s('bankBranch'),
+      instructions: s('instructions'),
+      ecocashUssd: s('ecocashUssd'),
+    );
+  }
+
+  final String ecocashNumber;
+  final String ecocashName;
+  final String innbucksNumber;
+  final String innbucksName;
+  final String bankName;
+  final String bankAccountName;
+  final String bankAccountNumber;
+  final String bankBranch;
+
+  /// Extra free text from the admin, shown above the accounts.
+  final String instructions;
+
+  /// USSD template the app dials for EcoCash, with {number} and {amount}
+  /// placeholders. Blank = [defaultEcocashUssd] (EcoCash USD "Send money").
+  final String ecocashUssd;
+
+  static const defaultEcocashUssd = '*153*1*1*{number}*{amount}#';
+
+  /// The full code to dial to send [amount] to the client's EcoCash, e.g.
+  /// `*153*1*1*0771234567*25#`. Whole amounts drop the ".00".
+  String ecocashUssdFor(double amount) {
+    final amountText = amount == amount.roundToDouble() ? amount.toStringAsFixed(0) : amount.toStringAsFixed(2);
+    return (ecocashUssd.isEmpty ? defaultEcocashUssd : ecocashUssd)
+        .replaceAll('{number}', ecocashNumber.replaceAll(RegExp(r'[\s-]'), ''))
+        .replaceAll('{amount}', amountText);
+  }
+
+  List<ManualChannel> get channels => [
+    if (ecocashNumber.isNotEmpty) ManualChannel.ecocash,
+    if (innbucksNumber.isNotEmpty) ManualChannel.innbucks,
+    if (bankAccountNumber.isNotEmpty) ManualChannel.bank,
+  ];
+
+  /// (label, value) rows to show for [channel]; empty values are skipped.
+  List<(String, String)> linesFor(ManualChannel channel) => [
+    for (final (label, value) in switch (channel) {
+      ManualChannel.ecocash => [('EcoCash number', ecocashNumber), ('Name', ecocashName)],
+      ManualChannel.innbucks => [('InnBucks number', innbucksNumber), ('Name', innbucksName)],
+      ManualChannel.bank => [
+        ('Bank', bankName),
+        ('Account name', bankAccountName),
+        ('Account number', bankAccountNumber),
+        ('Branch', bankBranch),
+      ],
+    })
+      if (value.isNotEmpty) (label, value),
+  ];
 }
 
 class StatusEvent {
@@ -207,6 +376,7 @@ class Order {
     required this.history,
     this.couponCode,
     this.discount = 0,
+    this.manualPayment,
   });
 
   /// Promo code applied at checkout and the amount it took off the
@@ -214,16 +384,29 @@ class Order {
   final String? couponCode;
   final double discount;
 
-  Order withHistory(List<StatusEvent> history) => Order(
+  /// The customer's reported manual payment, if they paid that way.
+  final ManualPayment? manualPayment;
+
+  /// A manual payment reference is in and the admin hasn't checked it yet.
+  bool get awaitingManualCheck =>
+      status == OrderStatus.placed && manualPayment?.status == ManualPaymentStatus.submitted;
+
+  Order withHistory(List<StatusEvent> history) => _copy(history: history);
+
+  Order withManualPayment(ManualPayment manualPayment) =>
+      _copy(payment: PaymentMethod.manual, manualPayment: manualPayment);
+
+  Order _copy({List<StatusEvent>? history, PaymentMethod? payment, ManualPayment? manualPayment}) => Order(
     id: id,
     docId: docId,
     items: items,
     address: address,
     area: area,
-    payment: payment,
-    history: history,
+    payment: payment ?? this.payment,
+    history: history ?? this.history,
     couponCode: couponCode,
     discount: discount,
+    manualPayment: manualPayment ?? this.manualPayment,
   );
 
   /// Human-friendly "DL#####" id, shown in the UI and used in routes.

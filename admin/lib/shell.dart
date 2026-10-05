@@ -12,6 +12,7 @@ import 'delivery_areas_screen.dart';
 import 'invoices_screen.dart';
 import 'notifications_screen.dart';
 import 'orders_screen.dart';
+import 'payment_details_screen.dart';
 import 'products_screen.dart';
 import 'theme.dart';
 import 'user_avatar.dart';
@@ -43,6 +44,7 @@ const _destinations = [
   _Destination(IconlyLight.discovery, IconlyBold.discovery, 'Requests'),
   _Destination(IconlyLight.document, IconlyBold.document, 'Invoices'),
   _Destination(IconlyLight.notification, IconlyBold.notification, 'Notifications'),
+  _Destination(IconlyLight.wallet, IconlyBold.wallet, 'Payment details'),
   _Destination(IconlyLight.shield_done, IconlyBold.shield_done, 'Admins'),
 ];
 const _screens = [
@@ -55,16 +57,17 @@ const _screens = [
   RequestsScreen(),
   InvoicesScreen(),
   NotificationsScreen(),
+  PaymentDetailsScreen(),
   AdminsScreen(),
   AccountScreen(), // not in the nav; opened from the avatar
   SizedBox.shrink(), // placeholder for the mobile "More" page, built in _body()
 ];
 
 /// Index of [AccountScreen] in [_screens] (one past the nav destinations).
-const _accountIndex = 10;
+const _accountIndex = 11;
 
 /// Index of the mobile-only "More" page (a menu of the destinations without a bottom-bar tab).
-const _moreIndex = 11;
+const _moreIndex = 12;
 
 /// Signed-in shell: checks the `admins/{email}` allowlist (mirrors
 /// firestore.rules' `isAdmin()`) before showing any admin screen — this is a
@@ -384,6 +387,7 @@ class _MorePage extends StatelessWidget {
     'Coupons': 'Discount codes for checkout',
     'Requests': 'Items customers asked you to source',
     'Notifications': 'Promo pushes and price-drop alerts',
+    'Payment details': 'Accounts for manual payments',
     'Admins': 'Who can use this panel',
   };
 

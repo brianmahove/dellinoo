@@ -47,7 +47,10 @@ export async function runPaymentReminders(env: Env, accessToken: string): Promis
   for (const order of orders) {
     const history = (order.fields.history as Array<{ status?: string }> | undefined) ?? [];
     const awaitingPayment = history.at(-1)?.status === 'placed';
-    if (!awaitingPayment || order.fields.reminderSentAt) continue;
+    // A manual payment reference is waiting for the admin to check it — the
+    // customer has already paid, so don't nudge them to pay again.
+    const manualStatus = (order.fields.manualPayment as { status?: string } | undefined)?.status;
+    if (!awaitingPayment || order.fields.reminderSentAt || manualStatus === 'submitted') continue;
     const uid = order.fields.userId as string | undefined;
     const displayId = String(order.fields.displayId ?? '');
     if (!uid || !displayId) continue;

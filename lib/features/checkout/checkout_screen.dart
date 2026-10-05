@@ -10,6 +10,7 @@ import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/motion.dart';
+import '../../widgets/manual_payment.dart';
 import '../../widgets/payment_dialog.dart';
 import '../../widgets/payment_logos.dart';
 import '../../core/iconly.dart';
@@ -32,7 +33,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// from providers itself without triggering an extra rebuild mid-callback.
   Address _currentAddress = const Address(fullName: '', phone: '', street: '', city: '');
   DeliveryArea? _area;
-  PaymentMethod _payment = PaymentMethod.ecocash;
+  PaymentMethod _payment = PaymentMethod.selectableValues.first;
 
   /// Defaults to the delivery address's phone once that resolves (see
   /// build()) — left blank until then rather than a hardcoded placeholder
@@ -79,11 +80,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     // The order now exists (unpaid) in Firestore either way — payment
     // outcome only decides whether it's already paid when we get to order
     // detail, which offers "Complete payment" if not (see PaymentWaitDialog).
-    await showGlassDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => PaymentWaitDialog(orderId: order.docId, method: _payment, phone: _walletPhone.text),
-    );
+    // Manual payment (and EcoCash while it runs by USSD — see
+    // PaymentMethod.paynowLive): the customer sends the money themselves
+    // and enters the reference (manual_payment.dart); closing the sheet
+    // without it leaves the order unpaid, same as a failed Paynow attempt.
+    if (_payment.viaPaynow) {
+      await showGlassDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => PaymentWaitDialog(orderId: order.docId, method: _payment, phone: _walletPhone.text),
+      );
+    } else {
+      await showManualPaymentSheet(context, order, channel: _payment.manualChannel, autoDial: _payment.dialsUssd);
+    }
     if (!mounted) return;
     context.go('/order-success/${order.id}');
   }

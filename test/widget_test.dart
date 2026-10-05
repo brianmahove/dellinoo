@@ -113,4 +113,39 @@ void main() {
     expect(order(china).journey, contains(OrderStatus.inTransit));
     expect(order(local).journey.any((s) => s.chinaLeg), isFalse);
   });
+
+  test('manual payment: only configured channels are offered, and a reference awaits checking', () {
+    final details = PaymentDetails.fromMap(const {'ecocashNumber': ' 0771234567 ', 'bankName': 'NMB'});
+    // Bank has a name but no account number, so it isn't offered.
+    expect(details.channels, [ManualChannel.ecocash]);
+    expect(details.linesFor(ManualChannel.ecocash), [('EcoCash number', '0771234567')]);
+    expect(details.ecocashUssdFor(25), '*153*1*1*0771234567*25#');
+    expect(details.ecocashUssdFor(49.9), '*153*1*1*0771234567*49.90#');
+    expect(
+      PaymentDetails.fromMap(const {
+        'ecocashNumber': '077 123 4567',
+        'ecocashUssd': '*153*2*1*{number}*{amount}#',
+      }).ecocashUssdFor(10),
+      '*153*2*1*0771234567*10#',
+    );
+
+    final placed = Order(
+      id: 'DL1',
+      docId: 'd1',
+      items: const [],
+      address: const Address(fullName: 'A', phone: '1', street: 's', city: 'Harare'),
+      area: const DeliveryArea(id: 'x', name: 'X', fee: 0, eta: ''),
+      payment: PaymentMethod.ecocash,
+      history: [StatusEvent(OrderStatus.placed, DateTime(2026))],
+    );
+    expect(placed.awaitingManualCheck, isFalse);
+    final submitted = placed.withManualPayment(
+      ManualPayment(channel: ManualChannel.ecocash, reference: 'MP1', submittedAt: DateTime(2026)),
+    );
+    expect(submitted.payment, PaymentMethod.manual);
+    expect(submitted.awaitingManualCheck, isTrue);
+    final paid = submitted.withHistory([...submitted.history, StatusEvent(OrderStatus.paid, DateTime(2026))]);
+    expect(paid.awaitingManualCheck, isFalse);
+    expect(paid.manualPayment?.reference, 'MP1');
+  });
 }

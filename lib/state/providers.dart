@@ -695,9 +695,25 @@ class OrdersNotifier extends Notifier<List<Order>> {
           o,
     ];
   }
+
+  /// Saves the customer's manual payment reference for the order with
+  /// Firestore id [docId], then reflects it locally.
+  Future<void> submitManualPayment(String docId, ManualPayment payment) async {
+    await ref.read(orderRepositoryProvider).submitManualPayment(docId, payment);
+    state = [
+      for (final o in state)
+        if (o.docId == docId) o.withManualPayment(payment) else o,
+    ];
+  }
 }
 
 final ordersProvider = NotifierProvider<OrdersNotifier, List<Order>>(OrdersNotifier.new);
+
+/// The client's accounts for manual payment, fetched whenever the manual
+/// payment sheet opens (so an admin edit shows up straight away).
+final paymentDetailsProvider = FutureProvider.autoDispose<PaymentDetails>(
+  (ref) => ref.watch(orderRepositoryProvider).fetchPaymentDetails(),
+);
 
 // ---------- Coupons ----------
 

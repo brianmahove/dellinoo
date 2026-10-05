@@ -298,13 +298,17 @@ class _PaySlide extends StatelessWidget {
           Positioned(
             top: 50,
             left: 16,
-            child: Transform.rotate(angle: -0.1, child: chip(PaymentMethod.ecocash.logo, width: 110)),
+            child: Transform.rotate(angle: -0.1, child: chip(PaymentMethod.ecocash.logo!, width: 110)),
           ),
-          Positioned(top: 34, right: 18, child: Transform.rotate(angle: 0.1, child: chip(PaymentMethod.onemoney.logo))),
+          Positioned(
+            top: 34,
+            right: 18,
+            child: Transform.rotate(angle: 0.1, child: chip(PaymentMethod.onemoney.logo!)),
+          ),
           Positioned(
             bottom: 70,
             left: 26,
-            child: Transform.rotate(angle: 0.06, child: chip(PaymentMethod.innbucks.logo, width: 64)),
+            child: Transform.rotate(angle: 0.06, child: chip(PaymentMethod.innbucks.logo!, width: 64)),
           ),
           Positioned(
             bottom: 90,
@@ -312,7 +316,11 @@ class _PaySlide extends StatelessWidget {
             child: Transform.rotate(
               angle: -0.08,
               child: Column(
-                children: [chip(PaymentMethod.card.logo, width: 88), const SizedBox(height: 8), const CardBrandsChip()],
+                children: [
+                  chip(PaymentMethod.card.logo!, width: 88),
+                  const SizedBox(height: 8),
+                  const CardBrandsChip(),
+                ],
               ),
             ),
           ),

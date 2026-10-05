@@ -84,7 +84,9 @@ class PaymentLogo extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE6E0D9)),
       ),
-      child: Image.asset(method.logo, fit: BoxFit.contain, filterQuality: FilterQuality.medium),
+      child: method.logo == null
+          ? const Icon(Icons.account_balance_wallet_outlined, color: AppColors.primary, size: 22)
+          : Image.asset(method.logo!, fit: BoxFit.contain, filterQuality: FilterQuality.medium),
     );
   }
 }

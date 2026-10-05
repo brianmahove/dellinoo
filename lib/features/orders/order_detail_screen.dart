@@ -10,6 +10,7 @@ import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
+import '../../widgets/manual_payment.dart';
 import '../../widgets/payment_dialog.dart';
 import 'invoice_section.dart';
 import 'orders_screen.dart';
@@ -140,7 +141,13 @@ class OrderDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 _Info(IconlyLight.location, order.address.fullName, '${order.address.phone}\n${order.address.oneLine}'),
                 _Info(Icons.local_shipping_outlined, order.area.name, order.area.eta),
-                _Info(IconlyLight.wallet, 'Paid with ${order.payment.label}', dateTime(order.createdAt)),
+                _Info(
+                  IconlyLight.wallet,
+                  order.manualPayment != null
+                      ? '${order.manualPayment!.channel.label} (manual)'
+                      : 'Paid with ${order.payment.label}',
+                  dateTime(order.createdAt),
+                ),
                 const Divider(height: 24),
                 _Row('Subtotal', money(order.subtotal)),
                 if (order.discount > 0) _Row('Promo ${order.couponCode ?? ''}', '-${money(order.discount)}'),
@@ -150,16 +157,14 @@ class OrderDetailScreen extends ConsumerWidget {
             ),
           ),
           InvoiceSection(order),
-          if (order.status == OrderStatus.placed)
+          ManualPaymentStatusCard(order),
+          // Hidden while a manual reference waits for the admin, so the
+          // customer doesn't pay twice.
+          if (order.status == OrderStatus.placed && !order.awaitingManualCheck)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
               child: GradientButton(
-                onPressed: () => retryPayment(
-                  context,
-                  orderId: order.docId,
-                  initialMethod: order.payment,
-                  initialPhone: order.address.phone,
-                ),
+                onPressed: () => retryPayment(context, order),
                 icon: IconlyLight.wallet,
                 child: const Text('Complete payment'),
               ),

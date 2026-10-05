@@ -24,6 +24,8 @@ class OrderSuccessScreen extends ConsumerWidget {
     // below — an order we haven't loaded yet defaults to the celebratory
     // copy rather than flashing a scary state during a brief load.
     final unpaid = order?.status == OrderStatus.placed;
+    // Paid manually and waiting for the admin to match the reference.
+    final checking = order?.awaitingManualCheck ?? false;
 
     return Scaffold(
       body: Stack(
@@ -37,7 +39,11 @@ class OrderSuccessScreen extends ConsumerWidget {
                   unpaid ? Icon(IconlyBold.time_circle, size: 64, color: AppColors.accentOrange) : const DrawnCheck(),
                   const SizedBox(height: 24),
                   Text(
-                    unpaid ? 'Order saved' : 'Order placed!',
+                    checking
+                        ? 'Order received'
+                        : unpaid
+                        ? 'Order saved'
+                        : 'Order placed!',
                     style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
@@ -49,6 +55,9 @@ class OrderSuccessScreen extends ConsumerWidget {
                   Text(
                     order == null
                         ? 'Thanks for shopping with Dellinoo.'
+                        : checking
+                        ? 'Thanks! We got your payment reference ${order.manualPayment!.reference} and are '
+                              "checking it now. We'll notify you as soon as your payment is confirmed."
                         : unpaid
                         ? "We couldn't confirm your payment. Your order is saved and nothing's lost — "
                               'you can complete payment any time from below.'
@@ -64,14 +73,9 @@ class OrderSuccessScreen extends ConsumerWidget {
                     style: const TextStyle(height: 1.5),
                   ),
                   const Spacer(),
-                  if (unpaid && order != null) ...[
+                  if (unpaid && !checking && order != null) ...[
                     GradientButton(
-                      onPressed: () => retryPayment(
-                        context,
-                        orderId: order.docId,
-                        initialMethod: order.payment,
-                        initialPhone: order.address.phone,
-                      ),
+                      onPressed: () => retryPayment(context, order),
                       child: const Text('Complete payment'),
                     ),
                     const SizedBox(height: 12),

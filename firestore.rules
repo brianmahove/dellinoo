@@ -94,8 +94,34 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update: if isAdmin();
+      // Manual payment: the owner may record (or correct) the transaction
+      // reference they paid with, only while the order is still unpaid, and
+      // only as `submitted` — confirming it (and appending `paid`) is the
+      // admin's job. See lib/widgets/manual_payment.dart.
+      allow update: if isAdmin() || (
+        request.auth != null && request.auth.uid == resource.data.userId &&
+        resource.data.history[resource.data.history.size() - 1].status == 'placed' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['manualPayment', 'payment']) &&
+        request.resource.data.payment == 'manual' &&
+        request.resource.data.manualPayment.keys().hasOnly(['channel', 'reference', 'sender', 'status', 'submittedAt']) &&
+        request.resource.data.manualPayment.status == 'submitted' &&
+        request.resource.data.manualPayment.channel in ['ecocash', 'innbucks', 'bank'] &&
+        request.resource.data.manualPayment.reference is string &&
+        request.resource.data.manualPayment.reference.size() >= 4 &&
+        request.resource.data.manualPayment.reference.size() <= 60 &&
+        (!('sender' in request.resource.data.manualPayment) ||
+          (request.resource.data.manualPayment.sender is string && request.resource.data.manualPayment.sender.size() <= 60)) &&
+        request.resource.data.manualPayment.submittedAt is timestamp
+      );
       allow delete: if false;
+    }
+
+    // The client's own accounts customers pay into manually (EcoCash /
+    // InnBucks numbers, bank details) — edited on the admin panel's Payment
+    // details screen, shown in the customer app's manual payment sheet.
+    match /meta/paymentDetails {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     // Generates the human-friendly "DL#####" order numbers. Any signed-in

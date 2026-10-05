@@ -14,6 +14,7 @@ import '../data/payments_api.dart';
 import '../state/providers.dart';
 import 'common.dart';
 import 'glass.dart';
+import 'manual_payment.dart';
 import 'payment_logos.dart';
 
 const _logName = 'payments';
@@ -22,23 +23,28 @@ const _logName = 'payments';
 /// checkout (e.g. EcoCash didn't go through, try InnBucks instead) before
 /// retrying an unpaid order, then runs [PaymentWaitDialog] with that choice.
 /// Used by order_success_screen.dart/order_detail_screen.dart's "Complete
-/// payment" button.
-Future<void> retryPayment(
-  BuildContext context, {
-  required String orderId,
-  required PaymentMethod initialMethod,
-  required String initialPhone,
-}) async {
+/// payment" button. Choosing "Pay manually" opens the manual payment sheet
+/// (manual_payment.dart) instead.
+Future<void> retryPayment(BuildContext context, Order order) async {
   final choice = await showGlassBottomSheet<_PaymentChoice>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _PaymentMethodPicker(initialMethod: initialMethod, initialPhone: initialPhone),
+    builder: (_) => _PaymentMethodPicker(initialMethod: order.payment, initialPhone: order.address.phone),
   );
   if (choice == null || !context.mounted) return;
+  if (!choice.method.viaPaynow) {
+    await showManualPaymentSheet(
+      context,
+      order,
+      channel: choice.method.manualChannel,
+      autoDial: choice.method.dialsUssd,
+    );
+    return;
+  }
   await showGlassDialog<bool>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => PaymentWaitDialog(orderId: orderId, method: choice.method, phone: choice.phone),
+    builder: (_) => PaymentWaitDialog(orderId: order.docId, method: choice.method, phone: choice.phone),
   );
 }
 
@@ -296,6 +302,7 @@ class _PaymentWaitDialogState extends ConsumerState<PaymentWaitDialog> {
         'Check your phone (${widget.phone}) and enter your ${widget.method.label} PIN to approve the payment.',
       PaymentMethod.innbucks => 'Generating your InnBucks payment code…',
       PaymentMethod.card => 'Complete your payment in the browser, then come back here.',
+      PaymentMethod.manual => '', // never shown: manual payment doesn't use this dialog
     };
   }
 }

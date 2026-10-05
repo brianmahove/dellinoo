@@ -117,6 +117,7 @@ export interface LoadedOrder {
   items: Array<{ productId: string; price: number; quantity: number }>;
   coupon: { code: string } | null;
   history: Array<{ status: string; at: string; note?: string }>;
+  manualPayment: { status?: string; reference?: string; note?: string } | null;
 }
 
 export async function getOrder(orderId: string, env: Env, token: string): Promise<LoadedOrder | null> {
@@ -138,6 +139,7 @@ export async function getOrder(orderId: string, env: Env, token: string): Promis
     items: (get('items') as LoadedOrder['items']) ?? [],
     coupon: (get('coupon') as LoadedOrder['coupon']) ?? null,
     history: (get('history') as LoadedOrder['history']) ?? [],
+    manualPayment: (get('manualPayment') as LoadedOrder['manualPayment']) ?? null,
   };
 }
 

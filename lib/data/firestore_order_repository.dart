@@ -88,6 +88,29 @@ class FirestoreOrderRepository implements OrderRepository {
     );
   }
 
+  @override
+  Future<void> submitManualPayment(String docId, ManualPayment payment) {
+    // firestore.rules lets the owner touch only these two fields, only while
+    // the order is unpaid, and only as `submitted`.
+    return _db.collection('orders').doc(docId).update({
+      'payment': PaymentMethod.manual.name,
+      'manualPayment': {
+        'channel': payment.channel.name,
+        'reference': payment.reference,
+        if (payment.sender != null && payment.sender!.isNotEmpty) 'sender': payment.sender,
+        'status': ManualPaymentStatus.submitted.name,
+        'submittedAt': Timestamp.fromDate(payment.submittedAt),
+      },
+    });
+  }
+
+  @override
+  Future<PaymentDetails> fetchPaymentDetails() async {
+    // Set by the admin on the Payment details screen; nothing is built in.
+    final snap = await _db.collection('meta').doc('paymentDetails').get();
+    return PaymentDetails.fromMap(snap.data() ?? const {});
+  }
+
   Map<String, dynamic> _orderToMap({
     required String displayId,
     required String uid,
@@ -152,6 +175,7 @@ class FirestoreOrderRepository implements OrderRepository {
       payment: PaymentMethod.values.byName(data['payment'] as String),
       couponCode: coupon?['code'] as String?,
       discount: (coupon?['discount'] as num?)?.toDouble() ?? 0,
+      manualPayment: _manualPaymentFromMap(data['manualPayment'] as Map<String, dynamic>?),
       history: [
         for (final e in (data['history'] as List))
           StatusEvent(
@@ -160,6 +184,21 @@ class FirestoreOrderRepository implements OrderRepository {
             e['note'] as String?,
           ),
       ],
+    );
+  }
+
+  ManualPayment? _manualPaymentFromMap(Map<String, dynamic>? m) {
+    if (m == null) return null;
+    final channel = ManualChannel.values.asNameMap()[m['channel']];
+    final status = ManualPaymentStatus.values.asNameMap()[m['status']];
+    if (channel == null || status == null) return null;
+    return ManualPayment(
+      channel: channel,
+      reference: m['reference'] as String? ?? '',
+      sender: m['sender'] as String?,
+      submittedAt: (m['submittedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      status: status,
+      note: m['note'] as String?,
     );
   }
 

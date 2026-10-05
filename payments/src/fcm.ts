@@ -146,3 +146,13 @@ export function orderStatusMessage(status: string, displayId: string, note?: str
     kind: status === 'paid' ? 'payment' : 'order',
   };
 }
+
+// Sent when the admin rejects a customer's manual payment reference.
+export function manualPaymentRejectedMessage(displayId: string, reference: string, note?: string): PushMessage {
+  return {
+    title: "We couldn't confirm your payment",
+    body: `Reference ${reference} for order ${displayId} didn't match our records.${note ? ` ${note}` : ''} Tap to check it and send it again.`,
+    data: { route: `/orders/${displayId}` },
+    kind: 'payment',
+  };
+}

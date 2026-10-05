@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'glass_dialog.dart';
 import 'invoice_pdf.dart';
 import 'invoices_screen.dart';
+import 'manual_payment_panel.dart';
 import 'notify.dart';
 import 'theme.dart';
 import 'iconly.dart';
@@ -44,6 +45,16 @@ String _statusLabel(String s) => switch (s) {
   'outForDelivery' || 'arrivedZim' => (AppColors.accentOrange, AppColors.preorderSoft),
   'boughtInChina' || 'inTransit' || 'processing' => (AppColors.preorder, AppColors.preorderSoft),
   _ => (AppColors.accent, AppColors.primarySoft),
+};
+
+/// Matches PaymentMethod in the customer app's lib/data/models.dart.
+String _paymentLabel(String? p) => switch (p) {
+  'ecocash' => 'EcoCash',
+  'onemoney' => 'OneMoney',
+  'innbucks' => 'InnBucks',
+  'card' => 'Card',
+  'manual' => 'Manual transfer',
+  _ => p ?? '',
 };
 
 String _fmtTimestamp(Timestamp? t) => t == null ? '' : DateFormat.yMMMd().add_jm().format(t.toDate());
@@ -228,7 +239,9 @@ class _OrderRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              StatusPill(label: _statusLabel(status), color: color, background: background),
+              awaitingManualCheck(d)
+                  ? checkPaymentPill
+                  : StatusPill(label: _statusLabel(status), color: color, background: background),
             ],
           ),
         ),
@@ -276,7 +289,9 @@ class _OrderDetailCard extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
                   ),
                 ),
-                StatusPill(label: _statusLabel(status), color: color, background: background),
+                awaitingManualCheck(d)
+                    ? checkPaymentPill
+                    : StatusPill(label: _statusLabel(status), color: color, background: background),
               ],
             ),
             const SizedBox(height: 4),
@@ -297,9 +312,10 @@ class _OrderDetailCard extends StatelessWidget {
               'Deliver to: ${address?['fullName']} · ${address?['street']}, ${address?['city']} · ${address?['phone']}',
             ),
             const SizedBox(height: 4),
-            Text('Payment: ${d['payment']}'),
+            Text('Payment: ${_paymentLabel(d['payment'] as String?)}'),
             const SizedBox(height: 4),
             Text('Total: \$${(subtotal + fee).toStringAsFixed(2)}'),
+            ManualPaymentPanel(doc: doc),
             const SizedBox(height: 20),
             Text(
               'History',
@@ -366,7 +382,9 @@ class _OrderTile extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-            StatusPill(label: _statusLabel(status), color: color, background: background),
+            awaitingManualCheck(d)
+                ? checkPaymentPill
+                : StatusPill(label: _statusLabel(status), color: color, background: background),
           ],
         ),
         subtitle: Padding(
@@ -395,7 +413,8 @@ class _OrderTile extends StatelessWidget {
                 Text(
                   'Deliver to: ${address?['fullName']} · ${address?['street']}, ${address?['city']} · ${address?['phone']}',
                 ),
-                Text('Payment: ${d['payment']}'),
+                Text('Payment: ${_paymentLabel(d['payment'] as String?)}'),
+                ManualPaymentPanel(doc: doc),
                 const SizedBox(height: 12),
                 Text(
                   'History',

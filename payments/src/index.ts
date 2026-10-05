@@ -10,7 +10,7 @@ import {
   appendPaidAndPatch,
   createDoc,
 } from './firestore';
-import { PROMOS_TOPIC, orderStatusMessage, sendToTopic, sendToUser } from './fcm';
+import { PROMOS_TOPIC, manualPaymentRejectedMessage, orderStatusMessage, sendToTopic, sendToUser } from './fcm';
 import { runPriceDrops } from './pricedrops';
 import { runPaymentReminders } from './reminders';
 import { initiateRedirect, initiateExpress, parseForm, verifyHash } from './paynow';
@@ -371,12 +371,17 @@ async function handleNotifyOrderStatus(request: Request, env: Env): Promise<Resp
   const order = await getOrder(orderId, env, token);
   if (!order) return json({ ok: false, error: 'not_found', message: 'Order not found' }, 404, cors);
   const latest = order.history.at(-1);
-  const message = latest && orderStatusMessage(latest.status, order.displayId, latest.note);
+  // Still unpaid with a rejected manual payment: the admin couldn't match the
+  // customer's reference (admin/lib/orders_screen.dart "Reject").
+  const rejected = latest?.status === 'placed' && order.manualPayment?.status === 'rejected';
+  const message = rejected
+    ? manualPaymentRejectedMessage(order.displayId, order.manualPayment?.reference ?? '', order.manualPayment?.note)
+    : latest && orderStatusMessage(latest.status, order.displayId, latest.note);
   if (!message) return json({ ok: true, sent: 0 }, 200, cors);
 
   try {
     const sent = await sendToUser(order.userId, message, env, token);
-    console.log(`notify: order ${orderId} status=${latest!.status} by ${email} -> ${sent} device(s)`);
+    console.log(`notify: order ${orderId} status=${latest?.status}${rejected ? ' (manual payment rejected)' : ''} by ${email} -> ${sent} device(s)`);
     return json({ ok: true, sent }, 200, cors);
   } catch (err) {
     console.error(`notify: order ${orderId} push failed`, err);
