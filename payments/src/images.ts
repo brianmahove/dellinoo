@@ -1,5 +1,5 @@
 import type { Env } from './types';
-import { getDocFields, incrementFields } from './firestore';
+import { getDocFields, incrementFields, queryDocs } from './firestore';
 
 // Image storage on Supabase's free tier, so Firebase can stay on Spark
 // (Firebase Storage needs Blaze). The bucket is public-read — the app loads
@@ -208,4 +208,127 @@ export async function keepSupabaseAwake(env: Env): Promise<void> {
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/keepalive?select=id&limit=1`, { headers: supabaseHeaders(env) });
   if (!res.ok) throw new Error(`Supabase keep-alive failed: ${res.status} ${await res.text()}`);
   console.log('keepalive: Supabase ok');
+}
+
+// ---------- Weekly orphan clean-up ----------
+//
+// Photos are never deleted the moment something stops using them: past
+// orders keep a link to the product photo they were bought with, so the
+// admin panel leaves a removed/deleted product's photos alone and this job
+// (wrangler.toml's weekly cron) deletes only files that NO product, order,
+// review or item request mentions any more. Without it, deleted products'
+// photos would slowly fill the 800 MB cap.
+
+const DAY = 24 * 60 * 60 * 1000;
+// Uploads younger than this are never touched: an admin may be mid-edit,
+// with photos uploaded but the product not saved yet.
+const ORPHAN_GRACE_DAYS = 7;
+const MAX_ORPHAN_DELETES = 500;
+// Every Firestore collection that can hold one of our photo URLs.
+const PHOTO_SOURCES = ['products', 'orders', 'reviews', 'item_requests'];
+
+interface StoredObject {
+  path: string;
+  size: number;
+  createdAt: number;
+}
+
+// Supabase lists one folder level at a time; folders come back with id null.
+async function listObjects(env: Env, prefix: string, depth = 0): Promise<StoredObject[]> {
+  const out: StoredObject[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const res = await fetch(`${env.SUPABASE_URL}/storage/v1/object/list/${env.SUPABASE_BUCKET}`, {
+      method: 'POST',
+      headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefix, limit: 1000, offset, sortBy: { column: 'name', order: 'asc' } }),
+    });
+    if (!res.ok) throw new Error(`Supabase list ${prefix || '/'} failed: ${res.status} ${await res.text()}`);
+    const items = (await res.json()) as Array<{
+      name: string;
+      id: string | null;
+      created_at?: string;
+      metadata?: { size?: number };
+    }>;
+    for (const item of items) {
+      if (item.name.startsWith('.')) continue; // e.g. .emptyFolderPlaceholder
+      const path = prefix ? `${prefix}/${item.name}` : item.name;
+      if (item.id === null) {
+        if (depth < 3) out.push(...(await listObjects(env, path, depth + 1)));
+      } else {
+        out.push({ path, size: item.metadata?.size ?? 0, createdAt: Date.parse(item.created_at ?? '') || Date.now() });
+      }
+    }
+    if (items.length < 1000) return out;
+  }
+}
+
+export interface OrphanSummary {
+  stored: number;
+  storedBytes: number;
+  referenced: number;
+  orphans: number;
+  deleted: number;
+  deletedBytes: number;
+}
+
+export async function cleanupOrphanPhotos(env: Env, token: string): Promise<OrphanSummary> {
+  const prefix = publicPrefix(env);
+  const referenced = new Set<string>();
+  const collect = (value: unknown): void => {
+    if (typeof value === 'string') {
+      if (value.startsWith(prefix)) referenced.add(value.slice(prefix.length));
+    } else if (Array.isArray(value)) {
+      value.forEach(collect);
+    } else if (value && typeof value === 'object') {
+      Object.values(value).forEach(collect);
+    }
+  };
+  let productDocs = 0;
+  for (const collection of PHOTO_SOURCES) {
+    const docs = await queryDocs({ from: [{ collectionId: collection }] }, env, token);
+    if (collection === 'products') productDocs = docs.length;
+    for (const d of docs) collect(d.fields);
+  }
+
+  const objects = await listObjects(env, '');
+  const summary: OrphanSummary = {
+    stored: objects.length,
+    storedBytes: objects.reduce((sum, o) => sum + o.size, 0),
+    referenced: referenced.size,
+    orphans: 0,
+    deleted: 0,
+    deletedBytes: 0,
+  };
+  // Safety: an empty catalogue almost certainly means a failed read, not a
+  // shop with nothing in it — never treat every photo as unused.
+  if (productDocs === 0) {
+    console.error('photos: no products found, skipping orphan clean-up');
+    return summary;
+  }
+
+  const graceCutoff = Date.now() - ORPHAN_GRACE_DAYS * DAY;
+  const orphans = objects.filter((o) => !referenced.has(o.path) && o.createdAt < graceCutoff);
+  summary.orphans = orphans.length;
+  // Second safety net: if most of the bucket looks unused, the reference
+  // scan is far more likely broken (a renamed field, a new collection not in
+  // PHOTO_SOURCES) than the shop really orphaning that much. Stop and shout.
+  if (objects.length >= 20 && orphans.length > objects.length / 2) {
+    console.error(`photos: ${orphans.length} of ${objects.length} files look unused, refusing to delete — check PHOTO_SOURCES`);
+    return summary;
+  }
+  const toDelete = orphans.slice(0, MAX_ORPHAN_DELETES).map((o) => o.path);
+  for (let i = 0; i < toDelete.length; i += 100) {
+    const { files, bytes } = await deleteObjects(env, toDelete.slice(i, i + 100));
+    summary.deleted += files;
+    summary.deletedBytes += bytes;
+  }
+  if (summary.deleted > 0) {
+    await incrementFields(USAGE_DOC, env, token, { bytes: -summary.deletedBytes, files: -summary.deleted });
+  }
+  const usage = await getDocFields(USAGE_DOC, env, token);
+  console.log(
+    `photos: ${JSON.stringify(summary)}; bucket now ${summary.storedBytes - summary.deletedBytes} bytes, ` +
+      `counter says ${usage?.bytes ?? 0}`,
+  );
+  return summary;
 }

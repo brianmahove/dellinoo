@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
+import 'catalog_version.dart';
 import 'glass_dialog.dart';
 import 'photo_cropper.dart';
 import 'photos.dart';
@@ -377,7 +378,11 @@ class _ProductCard extends StatelessWidget {
     );
     if (ok != true) return;
     await doc.reference.delete();
-    await deletePhotos(photosOf(doc.data()));
+    await bumpCatalogVersion();
+    // Photos are NOT deleted here: past orders keep a link to the product's
+    // photo, so deleting it would break their pictures. The Worker's weekly
+    // clean-up (payments/src/images.ts) removes photos no product or order
+    // uses any more.
   }
 
   @override
@@ -416,7 +421,10 @@ class _ProductCard extends StatelessWidget {
                         icon: isNew ? IconlyBold.heart : IconlyLight.heart,
                         iconColor: isNew ? AppColors.accentOrange : AppColors.ink,
                         tooltip: 'Toggle "New" badge',
-                        onTap: () => doc.reference.update({'isNew': !isNew}),
+                        onTap: () async {
+                          await doc.reference.update({'isNew': !isNew});
+                          await bumpCatalogVersion();
+                        },
                       ),
                     ),
                     if (!inStock)
@@ -796,9 +804,14 @@ class _ProductFormState extends State<_ProductForm> {
     } else {
       await products.add(data);
     }
+    await bumpCatalogVersion();
     _saved = true;
+    // Only photos uploaded in this session and then removed again are
+    // deleted now — nothing can point at those. A previously saved photo the
+    // admin removed may still be in past orders, so it's left for the
+    // Worker's weekly clean-up (payments/src/images.ts), which checks.
     final kept = {for (final p in _photos) p.url};
-    deletePhotos([..._original, ..._uploadedHere].where((p) => !kept.contains(p.url)));
+    deletePhotos(_uploadedHere.where((p) => !kept.contains(p.url)));
     if (mounted) Navigator.pop(context);
   }
 

@@ -108,6 +108,14 @@ service cloud.firestore {
       allow update: if request.auth != null && request.resource.data.next == resource.data.next + 1;
     }
 
+    // Catalogue version stamp: bumped by the admin panel on every product
+    // write (admin/lib/catalog_version.dart), read by every app launch to
+    // decide whether its cached product list is still current.
+    match /meta/catalog {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Generates the sequential "INV-00001" invoice numbers. Unlike
     // meta/orderCounter, only admins ever touch this one — invoices are
     // issued from the panel, never by a customer.

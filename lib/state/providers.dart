@@ -35,7 +35,9 @@ void _logSafely(Future<void> Function() action) {
 /// in which case settings simply aren't persisted.
 final prefsProvider = Provider<SharedPreferences?>((ref) => null);
 
-final catalogRepositoryProvider = Provider<CatalogRepository>((ref) => FirestoreCatalogRepository());
+final catalogRepositoryProvider = Provider<CatalogRepository>(
+  (ref) => FirestoreCatalogRepository(prefs: ref.watch(prefsProvider)),
+);
 
 final categoriesProvider = FutureProvider<List<Category>>(
   (ref) => ref.watch(catalogRepositoryProvider).fetchCategories(),
@@ -461,6 +463,7 @@ final cartSubtotalProvider = Provider<double>((ref) => ref.watch(cartProvider).f
 /// and what follows the customer to a new phone.
 class WishlistNotifier extends Notifier<Map<String, double>> {
   static const _prefsKey = 'wishlist_v1';
+  static const _syncedAtKey = 'wishlist_synced_at_';
   String? _uid;
 
   CollectionReference<Map<String, dynamic>> _remote(String uid) =>
@@ -514,7 +517,19 @@ class WishlistNotifier extends Notifier<Map<String, double>> {
       if (previous != null) {
         state = {};
         _persist();
+        ref.read(prefsProvider)?.remove('$_syncedAtKey$previous');
       }
+      return;
+    }
+    // Every toggle while signed in already writes through, so the local list
+    // only drifts from the account when another phone changes it. Re-merging
+    // on every launch would cost a read per wishlist item each time; once a
+    // day is plenty (and a fresh sign-in always merges, since sign-out clears
+    // this stamp).
+    final prefs = ref.read(prefsProvider);
+    final syncedAt = prefs?.getInt('$_syncedAtKey$uid');
+    if (syncedAt != null &&
+        DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(syncedAt)) < const Duration(hours: 24)) {
       return;
     }
     try {
@@ -538,6 +553,7 @@ class WishlistNotifier extends Notifier<Map<String, double>> {
       }
       state = {...state, ...remote};
       _persist();
+      await prefs?.setInt('$_syncedAtKey$uid', DateTime.now().millisecondsSinceEpoch);
     } catch (_) {
       // Offline or similar — the local list keeps working; the next sign-in
       // (or app start) tries again.

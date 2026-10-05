@@ -386,3 +386,17 @@ export async function incrementFields(
   names.forEach((f, i) => (out[f] = Number(fromFirestoreValue(results[i]) ?? 0)));
   return out;
 }
+
+// Deletes docs by path (relative to the database root), up to 400 per
+// commit (Firestore's limit is 500 writes).
+export async function deleteDocs(paths: string[], env: Env, token: string): Promise<void> {
+  for (let i = 0; i < paths.length; i += 400) {
+    const writes = paths.slice(i, i + 400).map((p) => ({ delete: `${documentsRoot(env)}/${p}` }));
+    const res = await fetch(`${FIRESTORE_BASE}/${documentsRoot(env)}:commit`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ writes }),
+    });
+    if (!res.ok) throw new Error(`Firestore delete failed: ${res.status} ${await res.text()}`);
+  }
+}

@@ -14,7 +14,11 @@ import { PROMOS_TOPIC, orderStatusMessage, sendToTopic, sendToUser } from './fcm
 import { runPriceDrops } from './pricedrops';
 import { runPaymentReminders } from './reminders';
 import { initiateRedirect, initiateExpress, parseForm, verifyHash } from './paynow';
-import { type Caller, handleImageDelete, handleImageUpload, keepSupabaseAwake } from './images';
+import { type Caller, cleanupOrphanPhotos, handleImageDelete, handleImageUpload, keepSupabaseAwake } from './images';
+import { pruneOldNotifications } from './housekeeping';
+
+// Must match the second entry in wrangler.toml's [triggers] crons.
+const WEEKLY_CRON = '0 3 * * SUN';
 
 function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', ...headers } });
@@ -89,7 +93,19 @@ export default {
   // Cron trigger (wrangler.toml [triggers]): wishlist price-drop alerts,
   // unpaid-order reminders and the Supabase keep-alive (see images.ts).
   // Independent: one failing doesn't stop the others.
-  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    // Weekly cron (wrangler.toml): housekeeping only. Independent jobs, so
+    // one failing doesn't stop the other.
+    if (controller.cron === WEEKLY_CRON) {
+      ctx.waitUntil(
+        getAccessToken(env).then((token) =>
+          Promise.allSettled([pruneOldNotifications(env, token), cleanupOrphanPhotos(env, token)]).then((results) => {
+            for (const r of results) if (r.status === 'rejected') console.error('weekly: job failed', r.reason);
+          }),
+        ),
+      );
+      return;
+    }
     ctx.waitUntil(keepSupabaseAwake(env).catch((err) => console.error('scheduled: keep-alive failed', err)));
     ctx.waitUntil(
       getAccessToken(env).then((token) =>

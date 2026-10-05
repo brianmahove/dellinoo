@@ -14,7 +14,12 @@ FIREBASE_PROJECT_ID = "mobile-billing-system-d2bfb"
 SUPABASE_URL = "https://fjrbtgomeffbxcztkbwe.supabase.co"
 SUPABASE_BUCKET = "dellinoo-images"
 
-# Wishlist price-drop alerts (src/pricedrops.ts), every 6 hours. Free on
+# Every 6 hours: wishlist price-drop alerts (src/pricedrops.ts), unpaid-order
+# reminders (src/reminders.ts) and the Supabase keep-alive. Free on
 # Cloudflare's plan, unlike scheduled Cloud Functions on Firebase.
 [triggers]
-crons = ["0 */6 * * *"]
+# The second one (Sundays 03:00 UTC) is weekly housekeeping: prunes inbox
+# items/promos older than 90 days (src/housekeeping.ts) and deletes photos no
+# product, order, review or request uses (src/images.ts). index.ts's
+# WEEKLY_CRON must match it.
+crons = ["0 */6 * * *", "0 3 * * SUN"]

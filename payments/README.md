@@ -44,6 +44,12 @@ those already ignore `../admin/`'s separate package.
   nudge per order left at `placed` for 24–48 hours.
 - Every personal push is also recorded in `users/{uid}/notifications` (the
   app's inbox); broadcasts write one public `promos` doc instead.
+- A second, **weekly** cron (Sundays 03:00 UTC) does housekeeping: prunes
+  inbox items and `promos` older than 90 days (`src/housekeeping.ts`) and
+  deletes photos nothing references any more (`cleanupOrphanPhotos` in
+  `src/images.ts`). Test locally with
+  `curl "http://localhost:8787/__scheduled?cron=0+3+*+*+SUN"` under
+  `npx wrangler dev --test-scheduled`.
 - **`GET /paynow/return`** — a static "you can switch back to the app" page
   for the card/browser flow's redirect-back target.
 
