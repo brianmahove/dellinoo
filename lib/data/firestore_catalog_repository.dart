@@ -52,6 +52,7 @@ class FirestoreCatalogRepository implements CatalogRepository {
       soldCount: (data['soldCount'] as num?)?.toInt() ?? 0,
       isNew: data['isNew'] as bool? ?? false,
       saleEndsAt: (data['saleEndsAt'] as Timestamp?)?.toDate(),
+      photoBgs: [for (final v in (data['photoBgs'] as List? ?? const [])) PhotoBg.parse(v)],
     );
   }
 

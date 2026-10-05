@@ -20,6 +20,7 @@ import '../features/catalog/search_screen.dart';
 import '../features/checkout/checkout_screen.dart';
 import '../features/checkout/order_success_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/notifications/notifications_screen.dart';
 import '../features/orders/order_detail_screen.dart';
 import '../features/orders/orders_screen.dart';
 import '../features/product/product_detail_screen.dart';
@@ -65,6 +66,7 @@ final appRouter = GoRouter(
     GoRoute(path: '/help', builder: (_, _) => const HelpScreen()),
     GoRoute(path: '/delivery-info', builder: (_, _) => const DeliveryInfoScreen()),
     GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
+    GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
     GoRoute(
       path: '/account',
       // The profile header only makes it tappable when signed in, but guard

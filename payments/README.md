@@ -37,6 +37,13 @@ those already ignore `../admin/`'s separate package.
   `wrangler.toml` (every 6 hours), via the Worker's `scheduled` handler.
   Test it locally with `npx wrangler dev --test-scheduled`, then
   `curl "http://localhost:8787/__scheduled?cron=0+*/6+*+*+*"`.
+- **`POST /notify/item-request`** / **`POST /notify/invoice`** (admin):
+  "Your quote is ready" / "Your invoice is ready" pushes, built from the
+  `item_requests` / `invoices` doc.
+- The cron also runs **unpaid-order reminders** (`src/reminders.ts`): one
+  nudge per order left at `placed` for 24–48 hours.
+- Every personal push is also recorded in `users/{uid}/notifications` (the
+  app's inbox); broadcasts write one public `promos` doc instead.
 - **`GET /paynow/return`** — a static "you can switch back to the app" page
   for the card/browser flow's redirect-back target.
 
@@ -95,3 +102,27 @@ Integration ID starts in test mode; fixed test identifiers simulate outcomes:
 Once all four payment methods pass a real end-to-end test (order created →
 `PaymentWaitDialog` shown → Firestore listener sees `paid`), ask Paynow
 support to "Set Live" on the integration.
+
+## Image uploads (Supabase Storage)
+
+Photos live in a **Supabase** free-tier bucket, not Firebase Storage (which
+needs Blaze). Supabase project `dellinoo` (`fjrbtgomeffbxcztkbwe`), bucket
+`dellinoo-images`: public read, 2 MB file limit, JPEG/PNG/WebP only. The app
+loads photos straight from Supabase's public URLs; only this Worker can write
+(`SUPABASE_SECRET_KEY`, set with `wrangler secret put`). See `src/images.ts`.
+
+- `POST /images?kind=product|review|request` — Firebase ID token required;
+  `product` is admin-only. Multipart form: `file` plus optional `thumb` (the
+  app uploads its own grid-sized copy — free Supabase can't resize). Returns
+  `{ url, thumbUrl }`. Limits: 2 MB/file for admins, 1 MB and 20 files/day for
+  customers (`upload_quota/{uid}_{date}`).
+- `DELETE /images` — JSON `{ urls: [...] }`. Admins: anything; customers: only
+  their own `reviews/{uid}/` / `requests/{uid}/` photos.
+- **Free-tier guard:** `meta/imageStorage` (`bytes`, `files`) tracks bucket
+  usage; uploads are refused past **800 MB** of the 1 GB. Egress (5 GB/month)
+  is protected by small uploads, a separate thumb for grids, and year-long
+  `cache-control` on every object (names are never reused).
+- **Keep-alive:** a free Supabase project pauses after ~7 idle days and then
+  serves no images. The 6-hourly cron reads one row of `public.keepalive`
+  (created once in the SQL editor: one-row table, RLS on, public `select`
+  policy). A failure logs `scheduled: keep-alive failed` in `wrangler tail`.

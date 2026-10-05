@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 /// which also sends push notifications — see payments/src/fcm.ts. Spark has
 /// no Cloud Functions, so the panel calls it explicitly. Every /notify/*
 /// route checks the caller is in `admins/`.
-const _workerUrl = 'https://dellinoo-payments.dellinoo.workers.dev';
+const workerUrl = 'https://dellinoo-payments.dellinoo.workers.dev';
 
 /// POSTs [body] to [path] as the signed-in admin; returns the JSON reply.
 /// Throws with the Worker's message on any failure.
@@ -15,7 +15,7 @@ Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> body) async
   final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
   if (idToken == null) throw StateError('Not signed in');
   final res = await http.post(
-    Uri.parse('$_workerUrl$path'),
+    Uri.parse('$workerUrl$path'),
     headers: {'Authorization': 'Bearer $idToken', 'Content-Type': 'application/json'},
     body: jsonEncode(body),
   );
@@ -46,3 +46,26 @@ Future<void> sendBroadcast({required String title, required String body, String?
 /// its own). Returns the Worker's summary: wishlistItems, drops,
 /// customersNotified, devicesReached.
 Future<Map<String, dynamic>> runPriceDropsNow() => _post('/notify/price-drops', {});
+
+/// "Your quote is ready" for an `item_requests` doc the admin just quoted.
+Future<int> notifyItemRequest(String requestId) async {
+  final reply = await _post('/notify/item-request', {'requestId': requestId});
+  return (reply['sent'] as num?)?.toInt() ?? 0;
+}
+
+/// "Your invoice is ready" for an `invoices` doc the admin just issued.
+Future<int> notifyInvoice(String invoiceId) async {
+  final reply = await _post('/notify/invoice', {'invoiceId': invoiceId});
+  return (reply['sent'] as num?)?.toInt() ?? 0;
+}
+
+/// The snackbar line after a save that also notifies the customer — the
+/// save itself has already succeeded by the time this runs.
+Future<String> notifyOutcome(String saved, Future<int> Function() notify) async {
+  try {
+    final sent = await notify();
+    return sent > 0 ? '$saved · customer notified' : '$saved · customer has no notifications set up on the app';
+  } catch (e) {
+    return "$saved, but the customer couldn't be notified: $e";
+  }
+}

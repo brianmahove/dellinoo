@@ -432,7 +432,6 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tint = AppColors.tintFor(product.id);
     final heroTag = 'product-$heroScope-${product.id}';
     final inStock = product.stockStatus == StockStatus.inStock;
     final stockColor = inStock ? AppColors.inStock : AppColors.preorder;
@@ -450,7 +449,7 @@ class ProductCard extends StatelessWidget {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: ProductBackdrop(color: tint, radius: BorderRadius.circular(22)),
+                    child: ProductBackdrop(decoration: productBackdrop(product, radius: BorderRadius.circular(22))),
                   ),
                   Positioned.fill(
                     // Photo runs under the glass strip so the blur has something to frost.
@@ -1070,16 +1069,29 @@ class ProductPhotoHero extends StatelessWidget {
 }
 
 /// Rounded tinted background behind a product photo.
-class ProductBackdrop extends StatelessWidget {
-  const ProductBackdrop({super.key, required this.color, required this.radius});
-
-  final Color color;
-  final BorderRadius radius;
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(color: color, borderRadius: radius),
+/// The fill behind photo [i] of [p]: the admin-set photo background (a flat
+/// colour or fade matching the photo's own, so a white-background photo
+/// doesn't show as a white box), else the product's usual tint. Kept in dark
+/// mode too — a white photo needs a white frame either way.
+BoxDecoration productBackdrop(Product p, {int photo = 0, BorderRadius? radius}) {
+  final bg = p.photoBg(photo);
+  return BoxDecoration(
+    color: bg == null ? AppColors.tintFor(p.id) : bg.color,
+    gradient: bg?.gradient,
+    borderRadius: radius,
   );
+}
+
+class ProductBackdrop extends StatelessWidget {
+  const ProductBackdrop({super.key, required this.decoration});
+
+  final BoxDecoration decoration;
+
+  // Animated so the product page's header fades between photos' backgrounds
+  // while swiping; a no-op everywhere the background doesn't change.
+  @override
+  Widget build(BuildContext context) =>
+      AnimatedContainer(duration: const Duration(milliseconds: 300), decoration: decoration);
 }
 
 /// Fades a widget in while it rises a little. Plays once when first built.

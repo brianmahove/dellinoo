@@ -179,7 +179,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     children: [
                       // Tinted header in the product's colour; fades in with the page.
                       Positioned.fill(
-                        child: ProductBackdrop(color: AppColors.tintFor(product.id), radius: _headerRadius),
+                        child: ProductBackdrop(
+                          decoration: productBackdrop(product, photo: _image, radius: _headerRadius),
+                        ),
                       ),
                       Positioned.fill(
                         top: top + 60,

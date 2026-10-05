@@ -47,6 +47,7 @@ class Product {
     this.soldCount = 0,
     this.isNew = false,
     this.saleEndsAt,
+    this.photoBgs = const [],
   });
 
   final String id;
@@ -66,6 +67,14 @@ class Product {
 
   /// When a flash sale ends (set by the admin); null for an open-ended sale.
   final DateTime? saleEndsAt;
+
+  /// What to show behind each photo (parallel to [images]), set by the admin
+  /// — usually matching the photo's own background, so a white-background
+  /// photo sits on white instead of showing as a white box on the tint. Null
+  /// (or missing) means the usual tint; see `productBackdrop` in common.dart.
+  final List<PhotoBg?> photoBgs;
+
+  PhotoBg? photoBg(int i) => i < photoBgs.length ? photoBgs[i] : null;
 
   /// Flash sale still running — drives the countdown.
   bool get flashSaleActive => onSale && saleEndsAt != null && saleEndsAt!.isAfter(DateTime.now());
@@ -289,4 +298,40 @@ class AppUser {
   /// Profile photo from the sign-in provider (Google/Facebook) — null for
   /// email/password accounts, or any provider that didn't supply one.
   final String? photoUrl;
+}
+
+/// A photo's background, one entry of a product's `photoBgs` — stored as a
+/// string by the admin panel (admin/lib/photos.dart `PhotoBg`, kept in sync
+/// by hand): `#rrggbb` (flat); `linear:#from,#to` (top-to-bottom fade) or
+/// `linear@right|down-right|down-left:#from,#to`; or `radial:#centre,#edge`
+/// (vignette: lighter middle, darker corners).
+class PhotoBg {
+  const PhotoBg({this.color, this.gradient});
+
+  final Color? color;
+  final Gradient? gradient;
+
+  static Color _hex(String hex) => Color(0xFF000000 | int.parse(hex.substring(1), radix: 16));
+
+  /// Null for anything unrecognised, so the app falls back to the tint.
+  static PhotoBg? parse(Object? value) {
+    if (value is! String) return null;
+    final v = value.trim().toLowerCase();
+    if (RegExp(r'^#[0-9a-f]{6}$').hasMatch(v)) return PhotoBg(color: _hex(v));
+    final m = RegExp(r'^(linear(?:@([a-z-]+))?|radial):(#[0-9a-f]{6}),(#[0-9a-f]{6})$').firstMatch(v);
+    if (m == null) return null;
+    final colors = [_hex(m[3]!), _hex(m[4]!)];
+    if (m[1] == 'radial') return PhotoBg(gradient: RadialGradient(radius: 0.9, colors: colors));
+    final (begin, end) = switch (m[2]) {
+      null || 'down' => (Alignment.topCenter, Alignment.bottomCenter),
+      'right' => (Alignment.centerLeft, Alignment.centerRight),
+      'down-right' => (Alignment.topLeft, Alignment.bottomRight),
+      'down-left' => (Alignment.topRight, Alignment.bottomLeft),
+      _ => (null, null),
+    };
+    if (begin == null || end == null) return null;
+    return PhotoBg(
+      gradient: LinearGradient(begin: begin, end: end, colors: colors),
+    );
+  }
 }

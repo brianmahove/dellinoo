@@ -207,9 +207,9 @@ class AuthNotifier extends Notifier<AppUser?> {
   }
 
   /// Deletes the account's own Firestore data (saved addresses, push tokens,
-  /// wishlist, notification prefs) and then the Firebase Auth account itself. Orders are deliberately *not* deleted
-  /// here — they're kept as business records, matching the Data Deletion
-  /// page's stated policy (and `firestore.rules`, which never lets a client
+  /// wishlist, notification inbox and prefs) and then the Firebase Auth
+  /// account itself. Orders are deliberately *not* deleted here — they're
+  /// kept as business records, matching the Data Deletion page's stated policy (and `firestore.rules`, which never lets a client
   /// delete an order anyway). Throws `requires-recent-login` if the session
   /// is stale — call [reauthenticate] first when that happens.
   Future<void> deleteAccount() async {
@@ -219,12 +219,19 @@ class AuthNotifier extends Notifier<AppUser?> {
     final addresses = await userDoc.collection('addresses').get();
     final pushTokens = await userDoc.collection('fcmTokens').get();
     final wishlist = await userDoc.collection('wishlist').get();
-    final batch = FirebaseFirestore.instance.batch();
-    for (final doc in [...addresses.docs, ...pushTokens.docs, ...wishlist.docs]) {
-      batch.delete(doc.reference);
+    final inbox = await userDoc.collection('notifications').get();
+    final refs = [
+      for (final d in [...addresses.docs, ...pushTokens.docs, ...wishlist.docs, ...inbox.docs]) d.reference,
+      userDoc,
+    ];
+    // Firestore caps a batch at 500 writes; an old inbox could pass that.
+    for (var i = 0; i < refs.length; i += 400) {
+      final batch = FirebaseFirestore.instance.batch();
+      for (final ref in refs.skip(i).take(400)) {
+        batch.delete(ref);
+      }
+      await batch.commit();
     }
-    batch.delete(userDoc);
-    await batch.commit();
     await user.delete();
   }
 
@@ -931,6 +938,166 @@ class DealsAlertsNotifier extends Notifier<bool> {
 }
 
 final dealsAlertsProvider = NotifierProvider<DealsAlertsNotifier, bool>(DealsAlertsNotifier.new);
+
+// ---------- Notification inbox ----------
+
+/// One row in the in-app inbox (lib/features/notifications/). Personal ones
+/// come from `users/{uid}/notifications`, written by the payments Worker for
+/// every push it sends this customer; promos from the public `promos`
+/// collection (one doc per broadcast, so no per-customer copies).
+class InboxItem {
+  const InboxItem({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.route,
+    required this.kind,
+    required this.at,
+    required this.read,
+    this.promo = false,
+  });
+
+  final String id;
+  final String title;
+  final String body;
+
+  /// go_router location to open on tap; empty for none.
+  final String route;
+
+  /// order, payment, reminder, price_drop, quote, invoice or promo.
+  final String kind;
+  final DateTime at;
+  final bool read;
+  final bool promo;
+
+  factory InboxItem.personal(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data();
+    return InboxItem(
+      id: doc.id,
+      title: d['title'] as String? ?? '',
+      body: d['body'] as String? ?? '',
+      route: d['route'] as String? ?? '',
+      kind: d['kind'] as String? ?? 'order',
+      at: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      read: d['read'] as bool? ?? false,
+    );
+  }
+
+  factory InboxItem.promoFrom(QueryDocumentSnapshot<Map<String, dynamic>> doc, DateTime seenAt) {
+    final d = doc.data();
+    final at = (d['sentAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+    return InboxItem(
+      id: doc.id,
+      title: d['title'] as String? ?? '',
+      body: d['body'] as String? ?? '',
+      route: d['route'] as String? ?? '',
+      kind: 'promo',
+      at: at,
+      read: !at.isAfter(seenAt),
+      promo: true,
+    );
+  }
+}
+
+CollectionReference<Map<String, dynamic>> _inbox(String uid) =>
+    FirebaseFirestore.instance.collection('users').doc(uid).collection('notifications');
+
+/// When the customer last opened the inbox, for promo "unread" state
+/// (promos are shared docs, so read state lives on the phone). A fresh
+/// install starts at "now" so old promos don't all show as new.
+class PromosSeenNotifier extends Notifier<DateTime> {
+  static const _prefsKey = 'promos_seen_at';
+
+  @override
+  DateTime build() {
+    final prefs = ref.read(prefsProvider);
+    final millis = prefs?.getInt(_prefsKey);
+    if (millis != null) return DateTime.fromMillisecondsSinceEpoch(millis);
+    final now = DateTime.now();
+    prefs?.setInt(_prefsKey, now.millisecondsSinceEpoch);
+    return now;
+  }
+
+  void markSeen() {
+    state = DateTime.now();
+    ref.read(prefsProvider)?.setInt(_prefsKey, state.millisecondsSinceEpoch);
+  }
+}
+
+final promosSeenProvider = NotifierProvider<PromosSeenNotifier, DateTime>(PromosSeenNotifier.new);
+
+/// Badge count for the Home bell. Deliberately two small queries for
+/// *unread* items only (usually none, so ~1 read each) rather than the full
+/// list — Home is open a lot and this counts against Spark's read quota.
+final _personalUnreadProvider = StreamProvider<int>((ref) {
+  final uid = ref.watch(authProvider)?.uid;
+  if (uid == null) return Stream.value(0);
+  return _inbox(uid).where('read', isEqualTo: false).limit(20).snapshots().map((s) => s.docs.length);
+});
+
+final _promosUnreadProvider = StreamProvider<int>((ref) {
+  if (!ref.watch(dealsAlertsProvider)) return Stream.value(0);
+  final seenAt = ref.watch(promosSeenProvider);
+  return FirebaseFirestore.instance
+      .collection('promos')
+      .where('sentAt', isGreaterThan: Timestamp.fromDate(seenAt))
+      .limit(10)
+      .snapshots()
+      .map((s) => s.docs.length);
+});
+
+final inboxUnreadCountProvider = Provider<int>(
+  (ref) => (ref.watch(_personalUnreadProvider).value ?? 0) + (ref.watch(_promosUnreadProvider).value ?? 0),
+);
+
+/// The full inbox, only while the inbox screen is open (autoDispose).
+final personalInboxProvider = StreamProvider.autoDispose<List<InboxItem>>((ref) {
+  final uid = ref.watch(authProvider)?.uid;
+  if (uid == null) return Stream.value(const []);
+  return _inbox(uid)
+      .orderBy('createdAt', descending: true)
+      .limit(50)
+      .snapshots()
+      .map((s) => [for (final d in s.docs) InboxItem.personal(d)]);
+});
+
+final promosInboxProvider = StreamProvider.autoDispose<List<InboxItem>>((ref) {
+  // Hidden along with the pushes when "Deals & offers" is off.
+  if (!ref.watch(dealsAlertsProvider)) return Stream.value(const []);
+  // Read, not watched: opening the inbox marks promos seen, and the list
+  // shouldn't flip them all to "read" while the customer is looking at it.
+  final seenAt = ref.read(promosSeenProvider);
+  return FirebaseFirestore.instance
+      .collection('promos')
+      .orderBy('sentAt', descending: true)
+      .limit(10)
+      .snapshots()
+      .map((s) => [for (final d in s.docs) InboxItem.promoFrom(d, seenAt)]);
+});
+
+/// Marks everything read: personal docs in Firestore (only the `read` field,
+/// per firestore.rules) and promos via [PromosSeenNotifier].
+Future<void> markInboxRead(WidgetRef ref) async {
+  ref.read(promosSeenProvider.notifier).markSeen();
+  final uid = ref.read(authProvider)?.uid;
+  if (uid == null) return;
+  try {
+    final unread = await _inbox(uid).where('read', isEqualTo: false).get();
+    if (unread.docs.isEmpty) return;
+    final batch = FirebaseFirestore.instance.batch();
+    for (final d in unread.docs) {
+      batch.update(d.reference, {'read': true});
+    }
+    await batch.commit();
+  } catch (_) {
+    // Offline — the badge just clears next time.
+  }
+}
+
+Future<void> deleteInboxItem(WidgetRef ref, String id) async {
+  final uid = ref.read(authProvider)?.uid;
+  if (uid != null) await _inbox(uid).doc(id).delete();
+}
 
 // ---------- Onboarding ----------
 

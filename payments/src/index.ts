@@ -12,13 +12,16 @@ import {
 } from './firestore';
 import { PROMOS_TOPIC, orderStatusMessage, sendToTopic, sendToUser } from './fcm';
 import { runPriceDrops } from './pricedrops';
+import { runPaymentReminders } from './reminders';
 import { initiateRedirect, initiateExpress, parseForm, verifyHash } from './paynow';
+import { type Caller, handleImageDelete, handleImageUpload, keepSupabaseAwake } from './images';
 
 function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', ...headers } });
 }
 
-// The admin panel is a web app on another origin, so /notify/* needs CORS.
+// The admin panel is a web app on another origin, so /notify/* and /images
+// need CORS.
 // The customer app is native (no CORS) and Paynow calls server-to-server.
 const ADMIN_ORIGINS = ['https://dellinoo-admin.web.app', 'https://dellinoo-admin.firebaseapp.com'];
 
@@ -28,7 +31,7 @@ function corsHeaders(request: Request): Record<string, string> {
   if (!allowed) return {};
   return {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
@@ -54,7 +57,7 @@ export default {
     if (request.method === 'POST' && url.pathname === '/paynow/webhook') {
       return handleWebhook(request, env);
     }
-    if (request.method === 'OPTIONS' && url.pathname.startsWith('/notify/')) {
+    if (request.method === 'OPTIONS' && (url.pathname.startsWith('/notify/') || url.pathname === '/images')) {
       return new Response(null, { status: 204, headers: corsHeaders(request) });
     }
     if (request.method === 'POST' && url.pathname === '/notify/order-status') {
@@ -66,12 +69,35 @@ export default {
     if (request.method === 'POST' && url.pathname === '/notify/broadcast') {
       return handleNotifyBroadcast(request, env);
     }
+    if (request.method === 'POST' && url.pathname === '/notify/item-request') {
+      return handleNotifyItemRequest(request, env);
+    }
+    if (request.method === 'POST' && url.pathname === '/notify/invoice') {
+      return handleNotifyInvoice(request, env);
+    }
+    if ((request.method === 'POST' || request.method === 'DELETE') && url.pathname === '/images') {
+      const cors = corsHeaders(request);
+      const caller = await identify(request, env, cors);
+      if (caller instanceof Response) return caller;
+      return request.method === 'POST'
+        ? handleImageUpload(request, env, caller, cors)
+        : handleImageDelete(request, env, caller, cors);
+    }
     return new Response('Not found', { status: 404 });
   },
 
-  // Cron trigger (wrangler.toml [triggers]): wishlist price-drop alerts.
+  // Cron trigger (wrangler.toml [triggers]): wishlist price-drop alerts,
+  // unpaid-order reminders and the Supabase keep-alive (see images.ts).
+  // Independent: one failing doesn't stop the others.
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(getAccessToken(env).then((token) => runPriceDrops(env, token)));
+    ctx.waitUntil(keepSupabaseAwake(env).catch((err) => console.error('scheduled: keep-alive failed', err)));
+    ctx.waitUntil(
+      getAccessToken(env).then((token) =>
+        Promise.allSettled([runPriceDrops(env, token), runPaymentReminders(env, token)]).then((results) => {
+          for (const r of results) if (r.status === 'rejected') console.error('scheduled: job failed', r.reason);
+        }),
+      ),
+    );
   },
 };
 
@@ -288,6 +314,21 @@ async function requireAdmin(
   return { email, token };
 }
 
+// Any signed-in user, plus whether they're an admin — for /images, where
+// customers and admins share the endpoint with different permissions.
+async function identify(request: Request, env: Env, cors: Record<string, string>): Promise<Caller | Response> {
+  let uid: string;
+  let email: string | undefined;
+  try {
+    ({ uid, email } = await verifyFirebaseIdTokenClaims(request, env));
+  } catch (err) {
+    return json({ ok: false, error: 'unauthorized', message: err instanceof AuthError ? err.message : 'Unauthorized' }, 401, cors);
+  }
+  const token = await getAccessToken(env);
+  const isAdmin = !!email && !!(await getDocFields(`admins/${email}`, env, token));
+  return { uid, isAdmin, token };
+}
+
 async function readJson<T>(request: Request): Promise<T | null> {
   try {
     return (await request.json()) as T;
@@ -361,13 +402,16 @@ async function handleNotifyBroadcast(request: Request, env: Env): Promise<Respon
     return json({ ok: false, error: 'bad_request', message: 'Invalid productId' }, 400, cors);
   }
 
+  const route = productId ? `/product/${productId}` : '/home';
   try {
     await sendToTopic(
       PROMOS_TOPIC,
-      { title, body: text, data: { route: productId ? `/product/${productId}` : '/home' }, channel: 'deals' },
+      { title, body: text, data: { route }, channel: 'deals', kind: 'promo' },
       env,
       token,
     );
+    // Public copy for the app's notification inbox (no admin email in it).
+    await createDoc('promos', env, token, { title, body: text, route, sentAt: new Date() });
     await createDoc('broadcasts', env, token, {
       title,
       body: text,
@@ -380,5 +424,83 @@ async function handleNotifyBroadcast(request: Request, env: Env): Promise<Respon
   } catch (err) {
     console.error('broadcast: failed', err);
     return json({ ok: false, error: 'push_failed', message: err instanceof Error ? err.message : 'Broadcast failed' }, 502, cors);
+  }
+}
+
+// "Your quote is ready", after the admin quotes an "Request an item" request
+// (admin/lib/requests_screen.dart). Built from the request doc itself.
+async function handleNotifyItemRequest(request: Request, env: Env): Promise<Response> {
+  const cors = corsHeaders(request);
+  const admin = await requireAdmin(request, env, cors);
+  if (admin instanceof Response) return admin;
+  const body = await readJson<{ requestId?: string }>(request);
+  const requestId = body?.requestId;
+  if (!requestId || !/^[A-Za-z0-9_-]+$/.test(requestId)) {
+    return json({ ok: false, error: 'bad_request', message: 'requestId is required' }, 400, cors);
+  }
+  const doc = await getDocFields(`item_requests/${requestId}`, env, admin.token);
+  if (!doc) return json({ ok: false, error: 'not_found', message: 'Request not found' }, 404, cors);
+  if (doc.status !== 'quoted' || typeof doc.quotePrice !== 'number' || typeof doc.userId !== 'string') {
+    return json({ ok: true, sent: 0 }, 200, cors);
+  }
+  const link = String(doc.link ?? '');
+  const what = link.length > 50 ? `${link.slice(0, 47)}...` : link;
+  return sendAndReply(
+    doc.userId,
+    {
+      title: 'Your quote is ready',
+      body: `We can get ${what || 'your item'} for $${doc.quotePrice.toFixed(2)}. Tap to see it.`,
+      data: { route: '/request-item' },
+      kind: 'quote',
+    },
+    env,
+    admin.token,
+    cors,
+  );
+}
+
+// "Your invoice is ready", after the admin issues one
+// (admin/lib/invoices_screen.dart). Built from the invoice doc itself.
+async function handleNotifyInvoice(request: Request, env: Env): Promise<Response> {
+  const cors = corsHeaders(request);
+  const admin = await requireAdmin(request, env, cors);
+  if (admin instanceof Response) return admin;
+  const body = await readJson<{ invoiceId?: string }>(request);
+  const invoiceId = body?.invoiceId;
+  if (!invoiceId || !/^[A-Za-z0-9_-]+$/.test(invoiceId)) {
+    return json({ ok: false, error: 'bad_request', message: 'invoiceId is required' }, 400, cors);
+  }
+  const doc = await getDocFields(`invoices/${invoiceId}`, env, admin.token);
+  if (!doc) return json({ ok: false, error: 'not_found', message: 'Invoice not found' }, 404, cors);
+  if (typeof doc.userId !== 'string') return json({ ok: true, sent: 0 }, 200, cors);
+  const orderId = String(doc.orderId ?? '');
+  return sendAndReply(
+    doc.userId,
+    {
+      title: doc.number ? `Invoice ${doc.number} is ready` : 'Your invoice is ready',
+      body: `Your invoice for order ${orderId} is ready. Tap to view it.`,
+      data: { route: `/orders/${orderId}` },
+      kind: 'invoice',
+    },
+    env,
+    admin.token,
+    cors,
+  );
+}
+
+async function sendAndReply(
+  uid: string,
+  message: Parameters<typeof sendToUser>[1],
+  env: Env,
+  token: string,
+  cors: Record<string, string>,
+): Promise<Response> {
+  try {
+    const sent = await sendToUser(uid, message, env, token);
+    console.log(`notify: ${message.kind} for uid=${uid} -> ${sent} device(s)`);
+    return json({ ok: true, sent }, 200, cors);
+  } catch (err) {
+    console.error(`notify: ${message.kind} for uid=${uid} failed`, err);
+    return json({ ok: false, error: 'push_failed', message: err instanceof Error ? err.message : 'Push failed' }, 502, cors);
   }
 }

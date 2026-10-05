@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import 'glass_dialog.dart';
 import 'invoice_pdf.dart';
+import 'notify.dart';
 import 'theme.dart';
 import 'iconly.dart';
 
@@ -457,7 +458,11 @@ class _IssueDialogState extends State<_IssueDialog> {
       });
       if (!mounted) return;
       Navigator.pop(context, number);
-      messenger.showSnackBar(SnackBar(content: Text('$number issued')));
+      // Not awaited: the PDF opens below without waiting on the push.
+      notifyOutcome(
+        '$number issued',
+        () => notifyInvoice(invoiceRef.id),
+      ).then((outcome) => messenger.showSnackBar(SnackBar(content: Text(outcome))));
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);

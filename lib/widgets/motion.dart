@@ -37,7 +37,9 @@ class _PressScaleState extends State<PressScale> {
   bool _down = false;
 
   void _set(bool down) {
-    if (_down != down) setState(() => _down = down);
+    // The pointer-up can arrive after this card has left the tree (e.g. the
+    // grid rebuilt under the finger), so the gesture outlives the State.
+    if (mounted && _down != down) setState(() => _down = down);
   }
 
   @override

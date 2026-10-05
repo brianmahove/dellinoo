@@ -6,6 +6,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8090", "--directory", "build/web"],
       "port": 8090
+    },
+    {
+      "name": "dellinoo-admin",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8091", "--directory", "admin/build/web"],
+      "port": 8091
     }
   ]
 }

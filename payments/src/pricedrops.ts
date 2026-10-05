@@ -142,6 +142,7 @@ function priceDropMessage(drops: Array<{ productId: string; name: string; was: n
       body: `${d.name} is now ${money(d.now)} (was ${money(d.was)}).`,
       data: { route: `/product/${d.productId}` },
       channel: 'price_drops',
+      kind: 'price_drop',
     };
   }
   const names = drops.slice(0, 2).map((d) => d.name).join(', ');
@@ -150,5 +151,6 @@ function priceDropMessage(drops: Array<{ productId: string; name: string; was: n
     body: drops.length > 2 ? `${names} and more are on sale.` : `${names} are on sale.`,
     data: { route: '/wishlist' },
     channel: 'price_drops',
+    kind: 'price_drop',
   };
 }

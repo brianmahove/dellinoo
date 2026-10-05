@@ -1,4 +1,5 @@
 import type { Env } from './types';
+import { createDoc } from './firestore';
 
 // Sends push notifications through Firebase Cloud Messaging's HTTP v1 API.
 // FCM itself is free on the Spark plan — what Spark lacks is Cloud
@@ -20,6 +21,9 @@ export interface PushMessage {
   // Android channel, created in MainActivity.kt. Separate channels let a
   // customer mute promos in Android settings without losing order updates.
   channel?: 'order_updates' | 'price_drops' | 'deals';
+  // Picks the icon in the app's notification inbox
+  // (lib/features/notifications/notifications_screen.dart).
+  kind: 'order' | 'payment' | 'reminder' | 'price_drop' | 'quote' | 'invoice' | 'promo';
 }
 
 export const PROMOS_TOPIC = 'promos';
@@ -43,6 +47,9 @@ function fcmUrl(env: Env): string {
   return `https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`;
 }
 
+// Topic pushes have no per-user inbox record (that would be a write per
+// customer); the broadcast handler stores one public `promos` doc instead,
+// which the app's inbox merges in.
 // Sends [message] to every app install subscribed to [topic] (see
 // lib/core/push.dart — every install subscribes to `promos` unless the
 // customer turned "Deals & offers" off).
@@ -75,11 +82,21 @@ async function deleteToken(uid: string, token: string, env: Env, accessToken: st
   });
 }
 
-// Sends [message] to every device [uid] is signed in on. Never throws for a
-// single bad token: tokens FCM reports as gone (app uninstalled, data
-// cleared) are deleted so they stop costing a request on every send.
-// Returns how many devices accepted it.
+// Sends [message] to every device [uid] is signed in on, and records it in
+// their in-app inbox (`users/{uid}/notifications`) first — so it's there
+// even if no device got the push (notifications off, phone offline).
+// Never throws for a single bad token: tokens FCM reports as gone (app
+// uninstalled, data cleared) are deleted so they stop costing a request on
+// every send. Returns how many devices accepted it.
 export async function sendToUser(uid: string, message: PushMessage, env: Env, accessToken: string): Promise<number> {
+  await createDoc(`users/${uid}/notifications`, env, accessToken, {
+    title: message.title,
+    body: message.body,
+    route: message.data?.route ?? '',
+    kind: message.kind,
+    read: false,
+    createdAt: new Date(),
+  });
   const tokens = await listTokens(uid, env, accessToken);
   let sent = 0;
   for (const token of tokens) {
@@ -126,5 +143,6 @@ export function orderStatusMessage(status: string, displayId: string, note?: str
     title,
     body: note ? `${body} ${note}` : body,
     data: { route: `/orders/${displayId}` },
+    kind: status === 'paid' ? 'payment' : 'order',
   };
 }

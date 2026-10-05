@@ -46,6 +46,9 @@ dependencies:
   pdf: ^3.11.3
   printing: ^5.14.2
   http: ^1.6.0
+  # Product photos: file picking and in-browser resizing via the DOM
+  # (canvas), no plugin — see photos.dart.
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:

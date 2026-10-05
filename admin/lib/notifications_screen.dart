@@ -22,13 +22,7 @@ class NotificationsScreen extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 900),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 48),
-          children: const [
-            _BroadcastCard(),
-            SizedBox(height: 16),
-            _PriceDropCard(),
-            SizedBox(height: 24),
-            _History(),
-          ],
+          children: const [_BroadcastCard(), SizedBox(height: 16), _PriceDropCard(), SizedBox(height: 24), _History()],
         ),
       ),
     );

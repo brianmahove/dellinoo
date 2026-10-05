@@ -329,12 +329,22 @@ export async function patchNumbers(path: string, env: Env, token: string, fields
   if (!res.ok) throw new Error(`Firestore patch ${path} failed: ${res.status} ${await res.text()}`);
 }
 
-// Adds a doc with an auto id. Values: strings, plus `sentAt`-style
+// Adds a doc with an auto id. Values: strings, booleans, and `sentAt`-style
 // timestamps passed as Date.
-export async function createDoc(collection: string, env: Env, token: string, fields: Record<string, string | Date>): Promise<void> {
+export async function createDoc(
+  collection: string,
+  env: Env,
+  token: string,
+  fields: Record<string, string | boolean | Date>,
+): Promise<void> {
   const firestoreFields: Record<string, FirestoreValue> = {};
   for (const [k, v] of Object.entries(fields)) {
-    firestoreFields[k] = v instanceof Date ? { timestampValue: v.toISOString() } : { stringValue: v };
+    firestoreFields[k] =
+      v instanceof Date
+        ? { timestampValue: v.toISOString() }
+        : typeof v === 'boolean'
+          ? { booleanValue: v }
+          : { stringValue: v };
   }
   const res = await fetch(`${FIRESTORE_BASE}/${documentsRoot(env)}/${collection}`, {
     method: 'POST',
@@ -342,4 +352,37 @@ export async function createDoc(collection: string, env: Env, token: string, fie
     body: JSON.stringify({ fields: firestoreFields }),
   });
   if (!res.ok) throw new Error(`Firestore create in ${collection} failed: ${res.status} ${await res.text()}`);
+}
+
+// Atomically adds to integer fields (creating the doc if needed) and returns
+// the new values — Firestore's `increment` transform, so two concurrent
+// callers can't lose each other's update the way a read-then-PATCH would.
+export async function incrementFields(
+  path: string,
+  env: Env,
+  token: string,
+  fields: Record<string, number>,
+): Promise<Record<string, number>> {
+  const names = Object.keys(fields);
+  const body = {
+    writes: [
+      {
+        transform: {
+          document: `${documentsRoot(env)}/${path}`,
+          fieldTransforms: names.map((f) => ({ fieldPath: f, increment: { integerValue: String(Math.round(fields[f])) } })),
+        },
+      },
+    ],
+  };
+  const res = await fetch(`${FIRESTORE_BASE}/${documentsRoot(env)}:commit`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Firestore increment ${path} failed: ${res.status} ${await res.text()}`);
+  const json = (await res.json()) as { writeResults?: Array<{ transformResults?: FirestoreValue[] }> };
+  const results = json.writeResults?.[0]?.transformResults ?? [];
+  const out: Record<string, number> = {};
+  names.forEach((f, i) => (out[f] = Number(fromFirestoreValue(results[i]) ?? 0)));
+  return out;
 }

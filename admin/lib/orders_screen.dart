@@ -462,20 +462,8 @@ class _StatusDialogState extends State<_StatusDialog> {
     Navigator.pop(context);
     // The status is saved either way; this only reports whether the
     // customer's phone was pinged.
-    try {
-      final sent = await notifyOrderStatus(widget.doc.id);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            sent > 0
-                ? 'Status saved · customer notified'
-                : 'Status saved · customer has no notifications set up on the app',
-          ),
-        ),
-      );
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text("Status saved, but the customer couldn't be notified: $e")));
-    }
+    final outcome = await notifyOutcome('Status saved', () => notifyOrderStatus(widget.doc.id));
+    messenger.showSnackBar(SnackBar(content: Text(outcome)));
   }
 
   @override

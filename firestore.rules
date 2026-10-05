@@ -143,6 +143,24 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // In-app notification inbox. The payments Worker writes one doc per push
+    // it sends this customer (service account, bypasses these rules). The
+    // customer can read theirs, mark them read (only the `read` field), and
+    // delete them; never create one.
+    match /users/{uid}/notifications/{id} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create: if false;
+    }
+
+    // Public copies of promo broadcasts, merged into every customer's inbox.
+    // Written only by the Worker; no admin details in them.
+    match /promos/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Promo pushes sent from the admin Notifications screen. Written only by
     // the Worker (it logs each broadcast after sending); admins read history.
     match /broadcasts/{id} {

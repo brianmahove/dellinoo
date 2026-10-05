@@ -193,10 +193,7 @@ class _CartTile extends ConsumerWidget {
                     width: 96,
                     height: 96,
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.tintFor(item.product.id),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                    decoration: productBackdrop(item.product, radius: BorderRadius.circular(16)),
                     child: NetImage(item.product.thumbnail, fit: BoxFit.contain),
                   ),
                 ),

@@ -11,7 +11,6 @@ import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/brand.dart';
 import '../../widgets/common.dart';
-import '../../widgets/glass.dart';
 import '../../widgets/motion.dart';
 import '../catalog/product_list_screen.dart';
 import '../../core/iconly.dart';
@@ -56,7 +55,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     CircleIconButton(
                       icon: IconlyLight.notification,
                       color: AppColors.tint,
-                      onTap: () => showGlassToast(context, 'Notifications are coming soon'),
+                      badge: ref.watch(inboxUnreadCountProvider),
+                      onTap: () => context.push('/notifications'),
                     ),
                     const SizedBox(width: 10),
                     CircleIconButton(
@@ -518,10 +518,7 @@ class _RecentRow extends StatelessWidget {
                       width: 104,
                       height: 104,
                       padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.tintFor(p.id),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
+                      decoration: productBackdrop(p, radius: BorderRadius.circular(20)),
                       child: ProductPhotoHero(
                         tag: tag,
                         child: NetImage(p.thumbnail, fit: BoxFit.contain),

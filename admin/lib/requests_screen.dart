@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'notify.dart';
 import 'theme.dart';
 import 'iconly.dart';
 
@@ -90,7 +91,11 @@ class _RequestCardState extends State<_RequestCard> {
       'status': 'quoted',
       'quotedAt': FieldValue.serverTimestamp(),
     });
-    if (mounted) setState(() => _saving = false);
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _saving = false);
+    final outcome = await notifyOutcome('Quote sent', () => notifyItemRequest(widget.doc.id));
+    messenger.showSnackBar(SnackBar(content: Text(outcome)));
   }
 
   @override
