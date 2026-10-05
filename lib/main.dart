@@ -36,12 +36,12 @@ Future<void> _main() async {
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   // Must be called exactly once, before any other GoogleSignIn method.
   await GoogleSignIn.instance.initialize(serverClientId: _googleServerClientId);
-  await Push.init();
   // Iconly fonts are vendored (not a package), so add their licence by hand.
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks(['Iconly'], await rootBundle.loadString('assets/fonts/ICONLY_LICENSE'));
   });
   final prefs = await SharedPreferences.getInstance();
+  await Push.init(promos: prefs.getBool(DealsAlertsNotifier.prefsKey) ?? true);
   runApp(ProviderScope(overrides: [prefsProvider.overrideWithValue(prefs)], child: const DellinooApp()));
 }
 

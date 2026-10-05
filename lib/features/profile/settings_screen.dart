@@ -56,6 +56,27 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ]),
 
+          const _GroupTitle(IconlyLight.notification, 'Notifications'),
+          _Card([
+            // Order updates have no switch: they're about money the customer
+            // already paid. Android's own app settings can still mute them.
+            if (user != null)
+              _SwitchTile(
+                icon: IconlyLight.heart,
+                title: 'Price drop alerts',
+                subtitle: 'When something on your wishlist gets cheaper',
+                value: ref.watch(priceDropAlertsProvider),
+                onChanged: ref.read(priceDropAlertsProvider.notifier).set,
+              ),
+            _SwitchTile(
+              icon: IconlyLight.discount,
+              title: 'Deals & offers',
+              subtitle: 'Sales and new arrivals from Dellinoo',
+              value: ref.watch(dealsAlertsProvider),
+              onChanged: ref.read(dealsAlertsProvider.notifier).set,
+            ),
+          ]),
+
           const _GroupTitle(IconlyLight.download, 'Data'),
           _Card([
             _SwitchTile(

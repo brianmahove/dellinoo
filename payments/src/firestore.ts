@@ -270,3 +270,76 @@ export async function appendPaidAndPatch(orderId: string, env: Env, token: strin
   });
   if (!res.ok) throw new Error(`Firestore commit failed: ${res.status} ${await res.text()}`);
 }
+
+// ---------- Generic helpers (price-drop job, broadcasts) ----------
+
+export interface LoadedDoc {
+  // Path relative to the database root, e.g. `users/abc/wishlist/p174`.
+  path: string;
+  fields: Record<string, unknown>;
+}
+
+function documentsRoot(env: Env): string {
+  return `projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`;
+}
+
+function toLoadedDoc(env: Env, doc: { name: string; fields?: Record<string, FirestoreValue> }): LoadedDoc {
+  const fields: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(doc.fields ?? {})) fields[k] = fromFirestoreValue(v);
+  return { path: doc.name.slice(documentsRoot(env).length + 1), fields };
+}
+
+// Runs a structured query from the database root (so `allDescendants: true`
+// in `from` makes it a collection-group query). Billed one read per doc
+// returned, and one read for an empty result.
+export async function queryDocs(structuredQuery: unknown, env: Env, token: string): Promise<LoadedDoc[]> {
+  const res = await fetch(`${FIRESTORE_BASE}/${documentsRoot(env)}:runQuery`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ structuredQuery }),
+  });
+  if (!res.ok) throw new Error(`Firestore query failed: ${res.status} ${await res.text()}`);
+  const rows = (await res.json()) as Array<{ document?: { name: string; fields?: Record<string, FirestoreValue> } }>;
+  return rows.filter((r) => r.document).map((r) => toLoadedDoc(env, r.document!));
+}
+
+// Sets one timestamp field, creating the doc if needed.
+export async function setTimestamp(path: string, field: string, at: Date, env: Env, token: string): Promise<void> {
+  const res = await fetch(
+    `${FIRESTORE_BASE}/${documentsRoot(env)}/${path}?updateMask.fieldPaths=${encodeURIComponent(field)}`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: { [field]: { timestampValue: at.toISOString() } } }),
+    },
+  );
+  if (!res.ok) throw new Error(`Firestore set ${path}.${field} failed: ${res.status} ${await res.text()}`);
+}
+
+// Sets numeric fields on an existing doc, leaving the rest alone.
+export async function patchNumbers(path: string, env: Env, token: string, fields: Record<string, number>): Promise<void> {
+  const mask = Object.keys(fields).map((f) => `updateMask.fieldPaths=${encodeURIComponent(f)}`).join('&');
+  const firestoreFields: Record<string, FirestoreValue> = {};
+  for (const [k, v] of Object.entries(fields)) firestoreFields[k] = { doubleValue: v };
+  const res = await fetch(`${FIRESTORE_BASE}/${documentsRoot(env)}/${path}?${mask}&currentDocument.exists=true`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: firestoreFields }),
+  });
+  if (!res.ok) throw new Error(`Firestore patch ${path} failed: ${res.status} ${await res.text()}`);
+}
+
+// Adds a doc with an auto id. Values: strings, plus `sentAt`-style
+// timestamps passed as Date.
+export async function createDoc(collection: string, env: Env, token: string, fields: Record<string, string | Date>): Promise<void> {
+  const firestoreFields: Record<string, FirestoreValue> = {};
+  for (const [k, v] of Object.entries(fields)) {
+    firestoreFields[k] = v instanceof Date ? { timestampValue: v.toISOString() } : { stringValue: v };
+  }
+  const res = await fetch(`${FIRESTORE_BASE}/${documentsRoot(env)}/${collection}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: firestoreFields }),
+  });
+  if (!res.ok) throw new Error(`Firestore create in ${collection} failed: ${res.status} ${await res.text()}`);
+}

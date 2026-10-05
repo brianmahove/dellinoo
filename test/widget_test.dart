@@ -13,6 +13,13 @@ class _FakeAuthNotifier extends AuthNotifier {
   AppUser? build() => const AppUser(uid: 'test-uid', name: 'Test User', phone: '', email: null);
 }
 
+/// Signed out, without touching Firebase — for providers that watch
+/// `authProvider` (e.g. the wishlist, which syncs while signed in).
+class _SignedOutAuthNotifier extends AuthNotifier {
+  @override
+  AppUser? build() => null;
+}
+
 void main() {
   test('cart merges identical items and totals correctly', () {
     final container = ProviderContainer();
@@ -73,7 +80,10 @@ void main() {
   test('wishlist reports a price drop only when the price fell', () async {
     // Uses the mock repository directly — no live Firestore/network in unit tests.
     final container = ProviderContainer(
-      overrides: [catalogRepositoryProvider.overrideWithValue(MockCatalogRepository())],
+      overrides: [
+        catalogRepositoryProvider.overrideWithValue(MockCatalogRepository()),
+        authProvider.overrideWith(_SignedOutAuthNotifier.new),
+      ],
     );
     addTearDown(container.dispose);
     await container.read(productsProvider.future);

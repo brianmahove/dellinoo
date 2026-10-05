@@ -8,8 +8,10 @@ import {
   computeAmount,
   patchFields,
   appendPaidAndPatch,
+  createDoc,
 } from './firestore';
-import { orderStatusMessage, sendToUser } from './fcm';
+import { PROMOS_TOPIC, orderStatusMessage, sendToTopic, sendToUser } from './fcm';
+import { runPriceDrops } from './pricedrops';
 import { initiateRedirect, initiateExpress, parseForm, verifyHash } from './paynow';
 
 function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
@@ -58,7 +60,18 @@ export default {
     if (request.method === 'POST' && url.pathname === '/notify/order-status') {
       return handleNotifyOrderStatus(request, env);
     }
+    if (request.method === 'POST' && url.pathname === '/notify/price-drops') {
+      return handleNotifyPriceDrops(request, env);
+    }
+    if (request.method === 'POST' && url.pathname === '/notify/broadcast') {
+      return handleNotifyBroadcast(request, env);
+    }
     return new Response('Not found', { status: 404 });
+  },
+
+  // Cron trigger (wrangler.toml [triggers]): wishlist price-drop alerts.
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(getAccessToken(env).then((token) => runPriceDrops(env, token)));
   },
 };
 
@@ -253,6 +266,36 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
   return new Response('OK');
 }
 
+// Shared gate for the admin panel's /notify/* calls: a valid Firebase ID
+// token whose email is in `admins/` (the same allowlist firestore.rules'
+// isAdmin() enforces). Returns the admin's email and a Google access token,
+// or the error Response to send back.
+async function requireAdmin(
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+): Promise<{ email: string; token: string } | Response> {
+  let email: string | undefined;
+  try {
+    ({ email } = await verifyFirebaseIdTokenClaims(request, env));
+  } catch (err) {
+    return json({ ok: false, error: 'unauthorized', message: err instanceof AuthError ? err.message : 'Unauthorized' }, 401, cors);
+  }
+  const token = await getAccessToken(env);
+  if (!email || !(await getDocFields(`admins/${email}`, env, token))) {
+    return json({ ok: false, error: 'forbidden', message: 'Admins only' }, 403, cors);
+  }
+  return { email, token };
+}
+
+async function readJson<T>(request: Request): Promise<T | null> {
+  try {
+    return (await request.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
 async function handleNotifyOrderStatus(request: Request, env: Env): Promise<Response> {
   // Called by the admin panel right after it appends a status event (see
   // admin/lib/orders_screen.dart). Spark has no Firestore triggers, so this
@@ -260,27 +303,13 @@ async function handleNotifyOrderStatus(request: Request, env: Env): Promise<Resp
   // derived from the order doc's own latest status, never from the request,
   // so the endpoint can't be used to push arbitrary text.
   const cors = corsHeaders(request);
-  let email: string | undefined;
-  try {
-    ({ email } = await verifyFirebaseIdTokenClaims(request, env));
-  } catch (err) {
-    return json({ ok: false, error: 'unauthorized', message: err instanceof AuthError ? err.message : 'Unauthorized' }, 401, cors);
-  }
+  const admin = await requireAdmin(request, env, cors);
+  if (admin instanceof Response) return admin;
+  const { email, token } = admin;
 
-  let body: { orderId?: string };
-  try {
-    body = (await request.json()) as { orderId?: string };
-  } catch {
-    return json({ ok: false, error: 'bad_request', message: 'Invalid JSON body' }, 400, cors);
-  }
-  const orderId = body.orderId;
+  const body = await readJson<{ orderId?: string }>(request);
+  const orderId = body?.orderId;
   if (!orderId) return json({ ok: false, error: 'bad_request', message: 'orderId is required' }, 400, cors);
-
-  const token = await getAccessToken(env);
-  // Same allowlist firestore.rules' isAdmin() enforces.
-  if (!email || !(await getDocFields(`admins/${email}`, env, token))) {
-    return json({ ok: false, error: 'forbidden', message: 'Admins only' }, 403, cors);
-  }
 
   const order = await getOrder(orderId, env, token);
   if (!order) return json({ ok: false, error: 'not_found', message: 'Order not found' }, 404, cors);
@@ -295,5 +324,61 @@ async function handleNotifyOrderStatus(request: Request, env: Env): Promise<Resp
   } catch (err) {
     console.error(`notify: order ${orderId} push failed`, err);
     return json({ ok: false, error: 'push_failed', message: err instanceof Error ? err.message : 'Push failed' }, 502, cors);
+  }
+}
+
+// "Run now" on the admin Notifications screen — the same job the cron runs.
+async function handleNotifyPriceDrops(request: Request, env: Env): Promise<Response> {
+  const cors = corsHeaders(request);
+  const admin = await requireAdmin(request, env, cors);
+  if (admin instanceof Response) return admin;
+  try {
+    const summary = await runPriceDrops(env, admin.token);
+    return json({ ok: true, ...summary }, 200, cors);
+  } catch (err) {
+    console.error('pricedrops: manual run failed', err);
+    return json({ ok: false, error: 'failed', message: err instanceof Error ? err.message : 'Price-drop run failed' }, 502, cors);
+  }
+}
+
+// A promo push to every install subscribed to the `promos` topic, from the
+// admin Notifications screen. Unlike order-status pushes the text comes
+// from the admin, so it's length-checked and logged to `broadcasts`.
+async function handleNotifyBroadcast(request: Request, env: Env): Promise<Response> {
+  const cors = corsHeaders(request);
+  const admin = await requireAdmin(request, env, cors);
+  if (admin instanceof Response) return admin;
+  const { email, token } = admin;
+
+  const body = await readJson<{ title?: string; body?: string; productId?: string }>(request);
+  const title = body?.title?.trim() ?? '';
+  const text = body?.body?.trim() ?? '';
+  const productId = body?.productId?.trim() || undefined;
+  if (!title || title.length > 65 || !text || text.length > 240) {
+    return json({ ok: false, error: 'bad_request', message: 'Title (max 65) and message (max 240) are required' }, 400, cors);
+  }
+  if (productId && !/^[A-Za-z0-9_-]+$/.test(productId)) {
+    return json({ ok: false, error: 'bad_request', message: 'Invalid productId' }, 400, cors);
+  }
+
+  try {
+    await sendToTopic(
+      PROMOS_TOPIC,
+      { title, body: text, data: { route: productId ? `/product/${productId}` : '/home' }, channel: 'deals' },
+      env,
+      token,
+    );
+    await createDoc('broadcasts', env, token, {
+      title,
+      body: text,
+      productId: productId ?? '',
+      sentBy: email,
+      sentAt: new Date(),
+    });
+    console.log(`broadcast: "${title}" by ${email}`);
+    return json({ ok: true }, 200, cors);
+  } catch (err) {
+    console.error('broadcast: failed', err);
+    return json({ ok: false, error: 'push_failed', message: err instanceof Error ? err.message : 'Broadcast failed' }, 502, cors);
   }
 }

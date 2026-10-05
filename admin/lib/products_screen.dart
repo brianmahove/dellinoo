@@ -569,6 +569,13 @@ class _ProductFormState extends State<_ProductForm> {
       'saleEndsAt': _oldPrice.text.trim().isEmpty || _saleEndsAt == null ? null : Timestamp.fromDate(_saleEndsAt!),
     };
     final products = FirebaseFirestore.instance.collection('products');
+    // A price cut is the only change that can trigger a wishlist price-drop
+    // push, and the Worker's job (payments/src/pricedrops.ts) only looks at
+    // products stamped since its last run — so idle runs cost ~1 read.
+    final oldPrice = (_d?['price'] as num?)?.toDouble();
+    if (oldPrice != null && (data['price'] as double) < oldPrice) {
+      data['priceChangedAt'] = FieldValue.serverTimestamp();
+    }
     if (widget.doc != null) {
       await widget.doc!.reference.update(data);
     } else {

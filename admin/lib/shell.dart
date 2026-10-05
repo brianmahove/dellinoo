@@ -10,6 +10,7 @@ import 'dashboard_screen.dart';
 import 'requests_screen.dart';
 import 'delivery_areas_screen.dart';
 import 'invoices_screen.dart';
+import 'notifications_screen.dart';
 import 'orders_screen.dart';
 import 'products_screen.dart';
 import 'theme.dart';
@@ -41,6 +42,7 @@ const _destinations = [
   _Destination(IconlyLight.discount, IconlyBold.discount, 'Coupons'),
   _Destination(IconlyLight.discovery, IconlyBold.discovery, 'Requests'),
   _Destination(IconlyLight.document, IconlyBold.document, 'Invoices'),
+  _Destination(IconlyLight.notification, IconlyBold.notification, 'Notifications'),
   _Destination(IconlyLight.shield_done, IconlyBold.shield_done, 'Admins'),
 ];
 const _screens = [
@@ -52,16 +54,17 @@ const _screens = [
   CouponsScreen(),
   RequestsScreen(),
   InvoicesScreen(),
+  NotificationsScreen(),
   AdminsScreen(),
   AccountScreen(), // not in the nav; opened from the avatar
   SizedBox.shrink(), // placeholder for the mobile "More" page, built in _body()
 ];
 
 /// Index of [AccountScreen] in [_screens] (one past the nav destinations).
-const _accountIndex = 9;
+const _accountIndex = 10;
 
 /// Index of the mobile-only "More" page (a menu of the destinations without a bottom-bar tab).
-const _moreIndex = 10;
+const _moreIndex = 11;
 
 /// Signed-in shell: checks the `admins/{email}` allowlist (mirrors
 /// firestore.rules' `isAdmin()`) before showing any admin screen — this is a
@@ -280,7 +283,7 @@ class _TopNav extends StatelessWidget {
           Image.asset('assets/images/logo_full.png', height: 28),
           const SizedBox(width: 10),
           // Centred while the links fit, horizontally scrollable once they
-          // don't (nine destinations overflow a narrow laptop window).
+          // don't (ten destinations overflow a narrow laptop window).
           Expanded(
             child: LayoutBuilder(
               builder: (context, box) => SingleChildScrollView(
@@ -380,6 +383,7 @@ class _MorePage extends StatelessWidget {
     'Delivery areas': 'Where you deliver and the fees',
     'Coupons': 'Discount codes for checkout',
     'Requests': 'Items customers asked you to source',
+    'Notifications': 'Promo pushes and price-drop alerts',
     'Admins': 'Who can use this panel',
   };
 

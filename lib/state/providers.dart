@@ -206,8 +206,8 @@ class AuthNotifier extends Notifier<AppUser?> {
     await user.reauthenticateWithCredential(credential);
   }
 
-  /// Deletes the account's own Firestore data (saved addresses, push tokens) and then the
-  /// Firebase Auth account itself. Orders are deliberately *not* deleted
+  /// Deletes the account's own Firestore data (saved addresses, push tokens,
+  /// wishlist, notification prefs) and then the Firebase Auth account itself. Orders are deliberately *not* deleted
   /// here — they're kept as business records, matching the Data Deletion
   /// page's stated policy (and `firestore.rules`, which never lets a client
   /// delete an order anyway). Throws `requires-recent-login` if the session
@@ -218,14 +218,13 @@ class AuthNotifier extends Notifier<AppUser?> {
     final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
     final addresses = await userDoc.collection('addresses').get();
     final pushTokens = await userDoc.collection('fcmTokens').get();
-    final docs = [...addresses.docs, ...pushTokens.docs];
-    if (docs.isNotEmpty) {
-      final batch = FirebaseFirestore.instance.batch();
-      for (final doc in docs) {
-        batch.delete(doc.reference);
-      }
-      await batch.commit();
+    final wishlist = await userDoc.collection('wishlist').get();
+    final batch = FirebaseFirestore.instance.batch();
+    for (final doc in [...addresses.docs, ...pushTokens.docs, ...wishlist.docs]) {
+      batch.delete(doc.reference);
     }
+    batch.delete(userDoc);
+    await batch.commit();
     await user.delete();
   }
 
@@ -449,12 +448,26 @@ final cartSubtotalProvider = Provider<double>((ref) => ref.watch(cartProvider).f
 // ---------- Wishlist ----------
 
 /// Saved product id -> the price when it was saved (to spot price drops).
-/// Persisted locally (SharedPreferences), same as [CartNotifier].
+/// Persisted locally (SharedPreferences), same as [CartNotifier], and synced
+/// to `users/{uid}/wishlist/{productId}` while signed in. The synced copy is
+/// what the payments Worker's price-drop job reads (payments/src/pricedrops.ts),
+/// and what follows the customer to a new phone.
 class WishlistNotifier extends Notifier<Map<String, double>> {
   static const _prefsKey = 'wishlist_v1';
+  String? _uid;
+
+  CollectionReference<Map<String, dynamic>> _remote(String uid) =>
+      FirebaseFirestore.instance.collection('users').doc(uid).collection('wishlist');
 
   @override
   Map<String, double> build() {
+    // Deferred a microtask: the listener can fire during build (immediately),
+    // before `state` exists.
+    ref.listen(
+      authProvider.select((u) => u?.uid),
+      (previous, uid) => Future.microtask(() => _onAuthChanged(previous, uid)),
+      fireImmediately: true,
+    );
     final raw = ref.read(prefsProvider)?.getString(_prefsKey);
     if (raw != null) {
       final decoded = jsonDecode(raw) as Map<String, dynamic>;
@@ -466,8 +479,62 @@ class WishlistNotifier extends Notifier<Map<String, double>> {
   }
 
   void toggle(String productId, double currentPrice) {
-    state = state.containsKey(productId) ? (Map.of(state)..remove(productId)) : {...state, productId: currentPrice};
-    ref.read(prefsProvider)?.setString(_prefsKey, jsonEncode(state));
+    final removing = state.containsKey(productId);
+    state = removing ? (Map.of(state)..remove(productId)) : {...state, productId: currentPrice};
+    _persist();
+    final uid = _uid;
+    if (uid == null) return;
+    final doc = _remote(uid).doc(productId);
+    // Fire and forget: Firestore queues writes offline and retries.
+    (removing ? doc.delete() : doc.set(_remoteFields(productId, currentPrice))).catchError((Object _) {});
+  }
+
+  void _persist() => ref.read(prefsProvider)?.setString(_prefsKey, jsonEncode(state));
+
+  // `productId` duplicates the doc id so the Worker's price-drop job can
+  // query all customers' wishlists for just the products that got cheaper.
+  static Map<String, dynamic> _remoteFields(String productId, double price) => {
+    'productId': productId,
+    'savedPrice': price,
+    'savedAt': FieldValue.serverTimestamp(),
+  };
+
+  Future<void> _onAuthChanged(String? previous, String? uid) async {
+    _uid = uid;
+    if (uid == null) {
+      // Signed out: this wishlist belongs to that account (it's safe in
+      // Firestore), so don't leave it on the phone for the next person.
+      if (previous != null) {
+        state = {};
+        _persist();
+      }
+      return;
+    }
+    try {
+      // Merge both ways: items saved while signed out get uploaded, items
+      // from another phone come down. The account's saved price wins for
+      // items in both, since it's the older one.
+      final snapshot = await _remote(uid).get();
+      if (_uid != uid) return;
+      final remote = {
+        for (final d in snapshot.docs)
+          if (d.data()['savedPrice'] is num) d.id: (d.data()['savedPrice'] as num).toDouble(),
+      };
+      final localOnly = {
+        for (final e in state.entries)
+          if (!remote.containsKey(e.key)) e.key: e.value,
+      };
+      if (localOnly.isNotEmpty) {
+        final batch = FirebaseFirestore.instance.batch();
+        localOnly.forEach((id, price) => batch.set(_remote(uid).doc(id), _remoteFields(id, price)));
+        await batch.commit();
+      }
+      state = {...state, ...remote};
+      _persist();
+    } catch (_) {
+      // Offline or similar — the local list keeps working; the next sign-in
+      // (or app start) tries again.
+    }
   }
 }
 
@@ -807,6 +874,63 @@ class ReduceMotionNotifier extends Notifier<bool> {
 }
 
 final reduceMotionProvider = NotifierProvider<ReduceMotionNotifier, bool>(ReduceMotionNotifier.new);
+
+// ---------- Notification preferences ----------
+
+/// Wishlist price-drop pushes. The Worker's price-drop job reads this from
+/// `users/{uid}.priceDropAlerts` (missing = on), so it's an account setting:
+/// only shown while signed in, cached locally for the switch's first frame.
+class PriceDropAlertsNotifier extends Notifier<bool> {
+  static const _prefsKey = 'price_drop_alerts';
+
+  @override
+  bool build() {
+    final uid = ref.watch(authProvider)?.uid;
+    if (uid != null) {
+      FirebaseFirestore.instance.collection('users').doc(uid).get().then((doc) {
+        final value = doc.data()?['priceDropAlerts'];
+        if (value is bool && value != state) _cache(value);
+      }, onError: (Object _) {});
+    }
+    return ref.read(prefsProvider)?.getBool(_prefsKey) ?? true;
+  }
+
+  void _cache(bool on) {
+    state = on;
+    ref.read(prefsProvider)?.setBool(_prefsKey, on);
+  }
+
+  void set(bool on) {
+    _cache(on);
+    final uid = ref.read(authProvider)?.uid;
+    if (uid == null) return;
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .set({'priceDropAlerts': on}, SetOptions(merge: true))
+        .catchError((Object _) {});
+  }
+}
+
+final priceDropAlertsProvider = NotifierProvider<PriceDropAlertsNotifier, bool>(PriceDropAlertsNotifier.new);
+
+/// Promo broadcasts from the admin panel: the FCM `promos` topic, so it's a
+/// per-phone setting that works signed in or not. [Push.init] applies the
+/// saved value at startup.
+class DealsAlertsNotifier extends Notifier<bool> {
+  static const prefsKey = 'deals_alerts';
+
+  @override
+  bool build() => ref.read(prefsProvider)?.getBool(prefsKey) ?? true;
+
+  void set(bool on) {
+    state = on;
+    ref.read(prefsProvider)?.setBool(prefsKey, on);
+    Push.setPromos(on);
+  }
+}
+
+final dealsAlertsProvider = NotifierProvider<DealsAlertsNotifier, bool>(DealsAlertsNotifier.new);
 
 // ---------- Onboarding ----------
 

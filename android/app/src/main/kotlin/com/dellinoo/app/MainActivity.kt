@@ -9,16 +9,21 @@ import io.flutter.embedding.android.FlutterActivity
 class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Push notifications (lib/core/push.dart) post to this channel — the
-        // payments Worker sends with channel_id "order_updates", and it's the
-        // manifest's default. Creating an existing channel is a no-op.
+        // Push notification channels (lib/core/push.dart). The payments Worker
+        // picks one per message (payments/src/fcm.ts); separate channels let a
+        // customer mute promos in Android settings and keep order updates.
+        // "order_updates" is also the manifest's default. Re-creating an
+        // existing channel is a no-op.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                "order_updates",
-                "Order updates",
-                NotificationManager.IMPORTANCE_HIGH,
-            ).apply { description = "Payment confirmations and delivery progress for your orders" }
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            val channels = listOf(
+                NotificationChannel("order_updates", "Order updates", NotificationManager.IMPORTANCE_HIGH)
+                    .apply { description = "Payment confirmations and delivery progress for your orders" },
+                NotificationChannel("price_drops", "Price drops", NotificationManager.IMPORTANCE_DEFAULT)
+                    .apply { description = "When something on your wishlist gets cheaper" },
+                NotificationChannel("deals", "Deals & offers", NotificationManager.IMPORTANCE_DEFAULT)
+                    .apply { description = "Sales and new arrivals from Dellinoo" },
+            )
+            getSystemService(NotificationManager::class.java).createNotificationChannels(channels)
         }
     }
 }

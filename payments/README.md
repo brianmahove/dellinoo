@@ -30,6 +30,13 @@ those already ignore `../admin/`'s separate package.
   built from the order's latest status (see `src/fcm.ts`). The webhook above
   also sends a "Payment received" push. FCM is free on Spark, so this Worker
   does the triggering a Cloud Function would otherwise do.
+- **`POST /notify/broadcast`** (admin): a promo push to the FCM topic
+  `promos`, logged to `broadcasts`.
+- **`POST /notify/price-drops`** (admin): runs the wishlist price-drop check
+  now (`src/pricedrops.ts`). The same job runs on the **cron trigger** in
+  `wrangler.toml` (every 6 hours), via the Worker's `scheduled` handler.
+  Test it locally with `npx wrangler dev --test-scheduled`, then
+  `curl "http://localhost:8787/__scheduled?cron=0+*/6+*+*+*"`.
 - **`GET /paynow/return`** — a static "you can switch back to the app" page
   for the card/browser flow's redirect-back target.
 

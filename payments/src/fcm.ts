@@ -17,6 +17,42 @@ export interface PushMessage {
   // Delivered to the app as RemoteMessage.data — `route` is the go_router
   // location to open when the notification is tapped.
   data?: Record<string, string>;
+  // Android channel, created in MainActivity.kt. Separate channels let a
+  // customer mute promos in Android settings without losing order updates.
+  channel?: 'order_updates' | 'price_drops' | 'deals';
+}
+
+export const PROMOS_TOPIC = 'promos';
+
+function fcmBody(target: { token: string } | { topic: string }, message: PushMessage): string {
+  return JSON.stringify({
+    message: {
+      ...target,
+      notification: { title: message.title, body: message.body },
+      data: message.data ?? {},
+      android: {
+        priority: message.channel === 'deals' ? 'normal' : 'high',
+        // The icon/colour defaults come from AndroidManifest.xml.
+        notification: { channel_id: message.channel ?? 'order_updates' },
+      },
+    },
+  });
+}
+
+function fcmUrl(env: Env): string {
+  return `https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`;
+}
+
+// Sends [message] to every app install subscribed to [topic] (see
+// lib/core/push.dart — every install subscribes to `promos` unless the
+// customer turned "Deals & offers" off).
+export async function sendToTopic(topic: string, message: PushMessage, env: Env, accessToken: string): Promise<void> {
+  const res = await fetch(fcmUrl(env), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: fcmBody({ topic }, message),
+  });
+  if (!res.ok) throw new Error(`FCM topic send failed: ${res.status} ${await res.text()}`);
 }
 
 function tokensPath(env: Env, uid: string): string {
@@ -47,22 +83,10 @@ export async function sendToUser(uid: string, message: PushMessage, env: Env, ac
   const tokens = await listTokens(uid, env, accessToken);
   let sent = 0;
   for (const token of tokens) {
-    const res = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, {
+    const res = await fetch(fcmUrl(env), {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: {
-          token,
-          notification: { title: message.title, body: message.body },
-          data: message.data ?? {},
-          android: {
-            priority: 'high',
-            // Channel created natively in MainActivity.kt; the icon/colour
-            // defaults come from AndroidManifest.xml.
-            notification: { channel_id: 'order_updates' },
-          },
-        },
-      }),
+      body: fcmBody({ token }, message),
     });
     if (res.ok) {
       sent++;

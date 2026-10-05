@@ -14,7 +14,8 @@ import 'router.dart';
 /// because Spark has no Cloud Functions to trigger sends from Firestore.
 ///
 /// This side only keeps the signed-in customer's device token in
-/// `users/{uid}/fcmTokens/{token}` and handles taps: each message carries a
+/// `users/{uid}/fcmTokens/{token}`, subscribes to the `promos` topic, and
+/// handles taps: each message carries a
 /// `route` (e.g. `/orders/DL10301`) to open.
 ///
 /// Background/terminated notifications are drawn by Android itself (channel
@@ -32,10 +33,12 @@ class Push {
   /// so the order screen the customer opens isn't stale.
   static VoidCallback? onOrderUpdate;
 
-  /// Called once from `main()`, after `Firebase.initializeApp`.
-  static Future<void> init() async {
+  /// Called once from `main()`, after `Firebase.initializeApp`. [promos] is
+  /// the saved "Deals & offers" setting (DealsAlertsNotifier).
+  static Future<void> init({required bool promos}) async {
+    setPromos(promos);
     FirebaseMessaging.onMessage.listen(_onForeground);
-    FirebaseMessaging.onMessageOpenedApp.listen((m) => _open(m.data['route']));
+    FirebaseMessaging.onMessageOpenedApp.listen((m) => openRoute(m.data['route']));
     _messaging.onTokenRefresh.listen((token) {
       _token = token;
       final uid = _uid;
@@ -110,14 +113,26 @@ class Push {
       context,
       [notification.title, notification.body].whereType<String>().join(' · '),
       actionLabel: route == null ? null : 'View',
-      onAction: route == null ? null : () => _open(route),
+      onAction: route == null ? null : () => openRoute(route),
       duration: const Duration(seconds: 5),
     );
   }
 
-  static void _open(String? route) {
+  /// Tab roots (a StatefulShellRoute branch) are switched to with `go`;
+  /// anything else (an order, a product) is pushed on top so back works.
+  static const _tabRoutes = {'/home', '/categories', '/cart', '/wishlist', '/profile'};
+
+  static void openRoute(String? route) {
     if (route == null) return;
     onOrderUpdate?.call();
-    appRouter.push(route);
+    _tabRoutes.contains(route) ? appRouter.go(route) : appRouter.push(route);
+  }
+
+  /// Subscribes this install to (or out of) the `promos` topic the admin
+  /// panel's broadcasts go to. Idempotent; best effort.
+  static void setPromos(bool on) {
+    (on ? _messaging.subscribeToTopic('promos') : _messaging.unsubscribeFromTopic('promos')).catchError((Object e) {
+      debugPrint('Push: promos topic update failed: $e');
+    });
   }
 }

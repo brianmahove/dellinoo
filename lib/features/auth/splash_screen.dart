@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/app_info.dart';
 import '../../core/push.dart';
-import '../../core/router.dart';
 import '../../state/providers.dart';
 import '../../widgets/brand.dart';
 import '../../widgets/motion.dart';
@@ -30,7 +29,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         // Launched by tapping a notification: open what it was about on top
         // of Home, so back still lands somewhere sensible.
         final route = Push.takePendingRoute();
-        if (route != null) WidgetsBinding.instance.addPostFrameCallback((_) => appRouter.push(route));
+        if (route != null) WidgetsBinding.instance.addPostFrameCallback((_) => Push.openRoute(route));
         return;
       }
       // First launch: explain how Dellinoo works before asking to sign in.
