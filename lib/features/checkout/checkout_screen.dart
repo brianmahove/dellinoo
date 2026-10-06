@@ -50,10 +50,50 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _placing = false;
   int _step = 0;
 
+  /// The "you already have an unpaid order for this" prompt shows at most
+  /// once per checkout.
+  bool _unpaidChecked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Orders may still be loading when checkout opens, so listen rather than
+    // read once; the prompt fires as soon as a matching unpaid order shows up.
+    ref.listenManual(ordersProvider, (_, orders) => _checkUnpaid(orders), fireImmediately: true);
+  }
+
   @override
   void dispose() {
     _walletPhone.dispose();
     super.dispose();
+  }
+
+  /// Earlier orders still waiting for payment that contain any product being
+  /// checked out now (any colour/size — a blue dress left unpaid still counts
+  /// when the customer comes back for the red one), newest first.
+  List<Order> _unpaidMatches(List<Order> orders, Set<String> ids) {
+    return [
+      for (final o in orders)
+        if (o.status == OrderStatus.placed && !o.awaitingManualCheck && o.items.any((i) => ids.contains(i.product.id)))
+          o,
+    ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  void _checkUnpaid(List<Order> orders) {
+    if (_unpaidChecked || _step != 0) return;
+    final ids = {for (final i in _buyNowItems ?? ref.read(cartProvider)) i.product.id};
+    final matches = _unpaidMatches(orders, ids);
+    if (matches.isEmpty) return;
+    _unpaidChecked = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final openId = await showGlassDialog<String>(
+        context: context,
+        builder: (_) => _UnpaidOrdersDialog(orders: matches, productIds: ids),
+      );
+      if (!mounted || openId == null) return;
+      context.pushReplacement('/orders/$openId');
+    });
   }
 
   Future<void> _placeOrder() async {
@@ -407,6 +447,108 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ? const Text('Continue')
                   : Row(mainAxisSize: MainAxisSize.min, children: [const Text('Pay '), AnimatedMoney(total)]),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown when checkout opens with a product the customer already ordered but
+/// never paid for. Pops with the `DL#####` id to open, or `null` to carry on
+/// with the new order.
+class _UnpaidOrdersDialog extends StatelessWidget {
+  const _UnpaidOrdersDialog({required this.orders, required this.productIds});
+
+  final List<Order> orders;
+  final Set<String> productIds;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = orders.take(3).toList();
+    final single = orders.length == 1;
+    return GlassAlertDialog(
+      title: Text(single ? 'You have an unpaid order' : 'You have unpaid orders'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            single
+                ? "You already ordered this and haven't paid yet:"
+                : "You already ordered some of this and haven't paid yet:",
+            style: TextStyle(color: AppColors.muted, height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          for (final o in shown) _UnpaidOrderTile(order: o, productIds: productIds),
+          if (orders.length > shown.length)
+            Text('+${orders.length - shown.length} more', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+          const SizedBox(height: 6),
+          const Text('Do you want to place another order?', style: TextStyle(fontWeight: FontWeight.w700)),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(single ? orders.first.id : null),
+          child: Text(single ? 'Pay that one' : 'Not now'),
+        ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Yes, new order')),
+      ],
+    );
+  }
+}
+
+class _UnpaidOrderTile extends StatelessWidget {
+  const _UnpaidOrderTile({required this.order, required this.productIds});
+
+  final Order order;
+  final Set<String> productIds;
+
+  @override
+  Widget build(BuildContext context) {
+    final same = order.items.where((i) => productIds.contains(i.product.id)).toList();
+    final first = same.first;
+    final others = order.items.length - 1;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: () => Navigator.of(context).pop(order.id),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: AppColors.glass(0.5), borderRadius: BorderRadius.circular(16)),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(width: 44, height: 44, child: NetImage(first.product.thumbnail)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      first.product.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      [if (first.options.isNotEmpty) first.optionsLabel, if (others > 0) '+$others more'].join('  ·  '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: AppColors.muted),
+                    ),
+                    Text(
+                      '${order.id}  ·  ${money(order.total)}',
+                      style: TextStyle(fontSize: 12, color: AppColors.muted),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(IconlyLight.arrow_right_2, size: 18, color: AppColors.muted),
+            ],
           ),
         ),
       ),
