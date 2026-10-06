@@ -128,11 +128,23 @@ class _ManualPaymentSheetState extends ConsumerState<_ManualPaymentSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  channel == widget.initialChannel && channel != ManualChannel.bank
-                      ? 'Pay ${money(order.total)} with ${channel.label}'
-                      : 'Pay ${money(order.total)} manually',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        channel == widget.initialChannel && channel != ManualChannel.bank
+                            ? 'Pay ${money(order.total)} with ${channel.label}'
+                            : 'Pay ${money(order.total)} manually',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    // Closing leaves the order unpaid; "Complete payment" reopens this later.
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.of(context).pop(false),
+                      icon: Icon(Icons.close_rounded, color: AppColors.muted),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 Text(

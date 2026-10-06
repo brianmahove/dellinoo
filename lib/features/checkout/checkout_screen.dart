@@ -16,13 +16,21 @@ import '../../widgets/payment_logos.dart';
 import '../../core/iconly.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
-  const CheckoutScreen({super.key});
+  const CheckoutScreen({super.key, this.buyNow});
+
+  /// "Buy Now" from a product page: check out only this item, without
+  /// touching the cart. `null` means check out the cart.
+  final CartItem? buyNow;
 
   @override
   ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
+  /// The items being bought in "Buy Now" mode (editable here, never written
+  /// to the cart); `null` in cart mode, where [cartProvider] is the source.
+  late List<CartItem>? _buyNowItems = widget.buyNow == null ? null : [widget.buyNow!];
+
   /// The address chosen this session via "Change" — overrides the saved
   /// default until the user picks another one. `null` means "use whatever
   /// the default saved address (or the blank fallback) resolves to".
@@ -60,7 +68,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       order = await ref
           .read(ordersProvider.notifier)
           .place(
-            items: ref.read(cartProvider),
+            items: _buyNowItems ?? ref.read(cartProvider),
             address: _currentAddress,
             area: _area!,
             payment: _payment,
@@ -74,7 +82,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
     if (!mounted) return;
-    ref.read(cartProvider.notifier).clear();
+    // A "Buy Now" order never came from the cart, so whatever's there stays.
+    if (_buyNowItems == null) ref.read(cartProvider.notifier).clear();
     ref.read(appliedCouponProvider.notifier).set(null);
 
     // The order now exists (unpaid) in Firestore either way — payment
@@ -95,6 +104,43 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
     if (!mounted) return;
     context.go('/order-success/${order.id}');
+  }
+
+  void _setQuantity(CartItem item, int quantity) {
+    final buyNow = _buyNowItems;
+    if (buyNow == null) return ref.read(cartProvider.notifier).setQuantity(item.key, quantity);
+    setState(() => _buyNowItems = [for (final e in buyNow) e.key == item.key ? e.copyWith(quantity: quantity) : e]);
+  }
+
+  void _remove(CartItem item) {
+    HapticFeedback.selectionClick();
+    final buyNow = _buyNowItems;
+    if (buyNow == null) {
+      final cart = ref.read(cartProvider.notifier);
+      final removed = cart.removeForUndo(item.key);
+      if (removed == null) return;
+      final (it, index) = removed;
+      showGlassToast(
+        context,
+        'Removed ${it.product.name}',
+        actionLabel: 'Undo',
+        duration: const Duration(seconds: 4),
+        onAction: () => cart.restore(it, index),
+      );
+    } else {
+      final index = buyNow.indexWhere((e) => e.key == item.key);
+      setState(() => _buyNowItems = [...buyNow]..removeAt(index));
+      showGlassToast(
+        context,
+        'Removed ${item.product.name}',
+        actionLabel: 'Undo',
+        duration: const Duration(seconds: 4),
+        onAction: () {
+          if (!mounted) return;
+          setState(() => _buyNowItems = [..._buyNowItems!]..insert(index.clamp(0, _buyNowItems!.length), item));
+        },
+      );
+    }
   }
 
   static const _steps = ['Address', 'Delivery', 'Payment'];
@@ -130,8 +176,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final items = ref.watch(cartProvider);
-    final subtotal = ref.watch(cartSubtotalProvider);
+    final cartItems = ref.watch(cartProvider);
+    final items = _buyNowItems ?? cartItems;
+    final subtotal = items.fold<double>(0, (s, e) => s + e.total);
     final areas = ref.watch(deliveryAreasProvider).value ?? const [];
     final fee = _area?.fee ?? 0;
     final coupon = ref.watch(appliedCouponProvider);
@@ -159,7 +206,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (items.isEmpty) {
       return Scaffold(
         appBar: const PageHeader(title: 'Checkout'),
-        body: const EmptyState(icon: IconlyLight.bag, title: 'Nothing to check out', message: 'Your cart is empty.'),
+        body: EmptyState(
+          icon: IconlyLight.bag,
+          title: 'Nothing to check out',
+          message: _buyNowItems == null ? 'Your cart is empty.' : 'You removed every item.',
+        ),
       );
     }
 
@@ -273,14 +324,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 13),
                         ),
-                        Text(
-                          [if (i.options.isNotEmpty) i.optionsLabel, 'Qty ${i.quantity}'].join('  ·  '),
-                          style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+                        if (i.options.isNotEmpty)
+                          Text(i.optionsLabel, style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            QuantityStepper(value: i.quantity, small: true, onChanged: (v) => _setQuantity(i, v)),
+                            const Spacer(),
+                            Text(money(i.total), style: const TextStyle(fontWeight: FontWeight.w600)),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  Text(money(i.total), style: const TextStyle(fontWeight: FontWeight.w600)),
+                  IconButton(
+                    tooltip: 'Remove',
+                    onPressed: () => _remove(i),
+                    icon: Icon(IconlyLight.delete, color: AppColors.muted, size: 20),
+                  ),
                 ],
               ),
             ),

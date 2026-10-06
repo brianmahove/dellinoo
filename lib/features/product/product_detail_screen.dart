@@ -534,8 +534,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       final options = _selectedOptions(product);
                       if (options == null) return;
                       HapticFeedback.mediumImpact();
-                      ref.read(cartProvider.notifier).add(product, options, quantity: _qty);
-                      context.push('/checkout');
+                      // Checks out just this item and leaves the cart alone — adding
+                      // it to the cart made earlier cart items ride along unnoticed.
+                      context.push(
+                        '/checkout',
+                        extra: CartItem(product: product, options: options, quantity: _qty),
+                      );
                     },
                     child: const Text('Buy Now'),
                   ),

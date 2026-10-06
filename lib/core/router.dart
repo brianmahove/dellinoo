@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/models.dart';
 import '../features/auth/login_screen.dart';
 import '../features/requests/request_item_screen.dart';
 import '../features/profile/about_screen.dart';
@@ -120,7 +121,8 @@ final appRouter = GoRouter(
       // Orders are scoped to a real Firebase uid, so checkout needs a signed-in
       // user — everything else (browsing, cart) stays available to guests.
       redirect: (_, _) => FirebaseAuth.instance.currentUser == null ? '/login' : null,
-      builder: (_, _) => const CheckoutScreen(),
+      // `extra` is a single CartItem for "Buy Now"; without it, checkout uses the cart.
+      builder: (_, state) => CheckoutScreen(buyNow: state.extra as CartItem?),
     ),
     GoRoute(
       path: '/order-success/:id',
