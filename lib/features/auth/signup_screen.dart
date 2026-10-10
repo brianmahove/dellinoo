@@ -1,7 +1,10 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/app_info.dart';
+import '../../core/contact.dart';
 import '../../core/iconly.dart';
 import '../../core/theme.dart';
 import '../../state/providers.dart';
@@ -23,6 +26,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _confirm = TextEditingController();
   bool _agreed = false;
   bool _submitting = false;
+  late final _termsTap = TapGestureRecognizer()..onTap = () => _openLink(AppInfo.termsUrl);
+  late final _privacyTap = TapGestureRecognizer()..onTap = () => _openLink(AppInfo.privacyUrl);
 
   bool get _valid =>
       _name.text.trim().isNotEmpty &&
@@ -39,11 +44,18 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     _phone.dispose();
     _password.dispose();
     _confirm.dispose();
+    _termsTap.dispose();
+    _privacyTap.dispose();
     super.dispose();
   }
 
   /// Returns to whatever pushed the sign-up screen (e.g. checkout, redirected
   /// there by the router when unauthenticated) rather than always going home.
+  Future<void> _openLink(String url) async {
+    final ok = await openLink(url);
+    if (!ok && mounted) showGlassToast(context, 'Could not open the page');
+  }
+
   void _afterSuccess() => context.canPop() ? context.pop() : context.go('/home');
 
   Future<void> _signUp() async {
@@ -166,14 +178,16 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                             style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.4),
                             children: [
                               const TextSpan(text: 'I agree to the '),
-                              const TextSpan(
+                              TextSpan(
                                 text: 'Terms and Conditions',
-                                style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                                recognizer: _termsTap,
                               ),
                               const TextSpan(text: ' and '),
-                              const TextSpan(
+                              TextSpan(
                                 text: 'Privacy Policy',
-                                style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                                recognizer: _privacyTap,
                               ),
                             ],
                           ),

@@ -157,6 +157,12 @@ class SettingsScreen extends ConsumerWidget {
           const _GroupTitle(IconlyLight.shield_done, 'Privacy & legal'),
           _Card([
             _Tile(
+              icon: IconlyLight.paper,
+              title: 'Terms and conditions',
+              trailing: Icons.open_in_new,
+              onTap: () => _openLink(context, AppInfo.termsUrl),
+            ),
+            _Tile(
               icon: IconlyLight.document,
               title: 'Privacy policy',
               trailing: Icons.open_in_new,

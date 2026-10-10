@@ -11,6 +11,7 @@ abstract final class AppInfo {
 
   /// Legal pages on Firebase Hosting (also what Play Store / Facebook App
   /// Review point at — keep in sync with hosting/).
+  static const termsUrl = 'https://mobile-billing-system-d2bfb.web.app/terms.html';
   static const privacyUrl = 'https://mobile-billing-system-d2bfb.web.app/privacy.html';
   static const dataDeletionUrl = 'https://mobile-billing-system-d2bfb.web.app/data-deletion.html';
 }

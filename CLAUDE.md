@@ -111,6 +111,7 @@ Rebranded (Sep 2026) from the original yellow/black reference mockups to the cli
 - Demo catalogue has no real kids' clothing or video games (Kids = girls' dresses, Games = sports balls).
 - **Invoice seller details** (`admin/lib/invoice_pdf.dart`: `_sellerName`, `_sellerLines`) — currently "Dellinoo · Harare, Zimbabwe · WhatsApp +86 131 6295 2997". A real invoice usually needs the registered trading name, a physical address and a tax/BP number; confirm what the client is registered as before issuing invoices to businesses.
 - **Privacy Policy / Data Deletion pages** (`hosting/privacy.html`, `hosting/data-deletion.html`, deployed to Firebase Hosting for Facebook/Google App Review — see live URLs below): drafted by Claude, not reviewed by the client or a lawyer. Update once "delete my account" is a real feature.
+- **Terms and Conditions** (`hosting/terms.html`, `AppInfo.termsUrl`; linked from the signup checkbox and Settings → Privacy & legal): also a Claude draft. Its delivery times, 7-day returns, 6-month warranty, cancellation rules (free before payment; China orders not after "Bought in China") and the governing-law clause need the client's/a lawyer's sign-off, and must change together with `_TrustBadges` and the Help FAQs.
 
 Resolved: `kWhatsAppNumber` (`lib/core/contact.dart`) is now the client's real WhatsApp number (`+86 131 6295 2997` — a China-based number, since the client sources from there).
 
