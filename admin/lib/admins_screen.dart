@@ -1,10 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'glass_dialog.dart';
+import 'router.dart';
 import 'theme.dart';
-import 'account_screen.dart';
 import 'iconly.dart';
 
 /// Hardcoded protected admin — this account manages the others, so no other
@@ -65,11 +66,7 @@ class AdminsScreen extends StatelessWidget {
                         backgroundColor: AppColors.primarySoft,
                         child: Icon(IconlyLight.shield_done, color: AppColors.accent, size: 20),
                       ),
-                      onTap: isMe
-                          ? () => Navigator.of(
-                              context,
-                            ).push(MaterialPageRoute<void>(builder: (_) => const AccountScreen(showBack: true)))
-                          : null,
+                      onTap: isMe ? () => context.go(accountPath) : null,
                       title: Text(doc.id, style: const TextStyle(fontWeight: FontWeight.w700)),
                       subtitle: isMe
                           ? Text('You · tap to manage your account', style: TextStyle(color: AppColors.muted))

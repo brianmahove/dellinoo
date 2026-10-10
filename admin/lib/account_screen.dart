@@ -6,13 +6,11 @@ import 'theme.dart';
 import 'user_avatar.dart';
 
 /// The signed-in admin's own account: who they are, change password, sign out.
-/// Opened from the avatar in the top bar (in-shell on desktop) or pushed as its
-/// own page (mobile, and from "You" on the Admins list), where [showBack] adds
-/// an app bar with a back button.
+/// Opened from the avatar in the top bar (desktop), from
+/// its own tab under "More" (mobile), and from "You" on the Admins list. Lives
+/// at `/account`; the shell draws the chrome around it.
 class AccountScreen extends StatelessWidget {
-  const AccountScreen({super.key, this.showBack = false});
-
-  final bool showBack;
+  const AccountScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +22,6 @@ class AccountScreen extends StatelessWidget {
     final usesGoogle = user.providerData.any((p) => p.providerId == 'google.com');
 
     return Scaffold(
-      appBar: showBack ? AppBar(title: const Text('Account')) : null,
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
@@ -60,10 +57,7 @@ class AccountScreen extends StatelessWidget {
               _Panel(child: hasPassword ? const _ChangePasswordForm() : _NoPassword(email: email)),
               const SizedBox(height: 16),
               OutlinedButton.icon(
-                onPressed: () async {
-                  if (showBack) Navigator.of(context).pop();
-                  await FirebaseAuth.instance.signOut();
-                },
+                onPressed: () => FirebaseAuth.instance.signOut(),
                 icon: const Icon(IconlyLight.logout, size: 18),
                 label: const Text('Sign out'),
               ),

@@ -1,19 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
-import 'account_screen.dart';
-import 'admins_screen.dart';
-import 'coupons_screen.dart';
-import 'customers_screen.dart';
-import 'dashboard_screen.dart';
-import 'requests_screen.dart';
-import 'delivery_areas_screen.dart';
-import 'invoices_screen.dart';
-import 'notifications_screen.dart';
-import 'orders_screen.dart';
-import 'payment_details_screen.dart';
-import 'products_screen.dart';
+import 'router.dart';
 import 'theme.dart';
 import 'user_avatar.dart';
 import 'iconly.dart';
@@ -27,55 +17,22 @@ const _topNavHeight = 72.0;
 /// Destinations that get their own bottom-bar tab on mobile; the rest go under "More".
 const _mobileTabs = 4;
 
-class _Destination {
-  const _Destination(this.icon, this.selectedIcon, this.label);
-  final IconData icon;
-  final IconData selectedIcon;
-  final String label;
-}
-
-const _destinations = [
-  _Destination(IconlyLight.category, IconlyBold.category, 'Dashboard'),
-  _Destination(IconlyLight.bag, IconlyBold.bag, 'Products'),
-  _Destination(IconlyLight.paper, IconlyBold.paper, 'Orders'),
-  _Destination(IconlyLight.user_1, IconlyBold.user_3, 'Customers'),
-  _Destination(IconlyLight.location, IconlyBold.location, 'Delivery areas'),
-  _Destination(IconlyLight.discount, IconlyBold.discount, 'Coupons'),
-  _Destination(IconlyLight.discovery, IconlyBold.discovery, 'Requests'),
-  _Destination(IconlyLight.document, IconlyBold.document, 'Invoices'),
-  _Destination(IconlyLight.notification, IconlyBold.notification, 'Notifications'),
-  _Destination(IconlyLight.wallet, IconlyBold.wallet, 'Payment details'),
-  _Destination(IconlyLight.shield_done, IconlyBold.shield_done, 'Admins'),
-];
-const _screens = [
-  DashboardScreen(),
-  ProductsScreen(),
-  OrdersScreen(),
-  CustomersScreen(),
-  DeliveryAreasScreen(),
-  CouponsScreen(),
-  RequestsScreen(),
-  InvoicesScreen(),
-  NotificationsScreen(),
-  PaymentDetailsScreen(),
-  AdminsScreen(),
-  AccountScreen(), // not in the nav; opened from the avatar
-  SizedBox.shrink(), // placeholder for the mobile "More" page, built in _body()
-];
-
-/// Index of [AccountScreen] in [_screens] (one past the nav destinations).
-const _accountIndex = 11;
-
-/// Index of the mobile-only "More" page (a menu of the destinations without a bottom-bar tab).
-const _moreIndex = 12;
-
 /// Signed-in shell: checks the `admins/{email}` allowlist (mirrors
 /// firestore.rules' `isAdmin()`) before showing any admin screen — this is a
 /// UX check only, the real enforcement is the security rules themselves, so
 /// this can never be the only thing standing between a stranger and the data.
+///
+/// The pages themselves are the router's branches (see `router.dart`): each has
+/// its own URL, and `StatefulShellRoute.indexedStack` keeps a visited branch
+/// alive, so switching tabs doesn't rebuild the screen or reload its Firestore
+/// stream (which is what made pages flash back to a spinner).
 class AdminShell extends StatefulWidget {
-  const AdminShell({super.key, required this.user});
+  const AdminShell({super.key, required this.navigationShell, required this.user});
 
+  final StatefulNavigationShell navigationShell;
+
+  /// The signed-in account. Passed in rather than read from FirebaseAuth here,
+  /// because the router only builds this once the session has been restored.
   final User user;
 
   @override
@@ -83,43 +40,21 @@ class AdminShell extends StatefulWidget {
 }
 
 class _AdminShellState extends State<AdminShell> {
-  int _index = 0;
-
   /// Fetched once. Creating this future inside build() restarted it on every
-  /// setState (each tab click), flashing the spinner and discarding the pages.
+  /// navigation, flashing the spinner and discarding the pages.
   late final Future<DocumentSnapshot<Map<String, dynamic>>>? _adminCheck = widget.user.email == null
       ? null
       : FirebaseFirestore.instance.collection('admins').doc(widget.user.email).get();
 
-  /// Tabs opened so far. Each is built on first visit and then kept alive in an
-  /// IndexedStack, so switching tabs doesn't rebuild the screen or reload its
-  /// Firestore stream (which is what made pages flash back to a spinner).
-  final _visited = <int>{0};
+  int get _index => widget.navigationShell.currentIndex;
 
-  Widget _body() {
-    _visited.add(_index);
-    return IndexedStack(
-      index: _index,
-      children: [
-        for (var i = 0; i < _screens.length; i++)
-          if (i == _moreIndex)
-            _MorePage(
-              onSelect: (i) => setState(() => _index = i),
-              onAccount: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute<void>(builder: (_) => const AccountScreen(showBack: true))),
-            )
-          else if (_visited.contains(i))
-            _screens[i]
-          else
-            const SizedBox.shrink(),
-      ],
-    );
-  }
+  /// Tapping the tab you are already on goes back to that branch's own start.
+  void _select(int i) => widget.navigationShell.goBranch(i, initialLocation: i == _index);
 
   @override
   Widget build(BuildContext context) {
-    final email = widget.user.email;
+    final user = widget.user;
+    final email = user.email;
     if (email == null) return _denied('This account has no email address.');
 
     return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -133,26 +68,21 @@ class _AdminShellState extends State<AdminShell> {
         return LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= _wideBreakpoint;
-            return wide ? _wideLayout(context) : _narrowLayout(context);
+            return wide ? _wideLayout(user) : _narrowLayout(user);
           },
         );
       },
     );
   }
 
-  Widget _wideLayout(BuildContext context) {
+  Widget _wideLayout(User user) {
     return Scaffold(
       backgroundColor: AppColors.tint,
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            _TopNav(
-              index: _index,
-              onSelect: (i) => setState(() => _index = i),
-              onAccount: () => setState(() => _index = _accountIndex),
-              user: widget.user,
-            ),
+            _TopNav(index: _index, onSelect: _select, onAccount: () => _select(accountBranch), user: user),
             const SizedBox(height: 16),
             Expanded(
               child: Container(
@@ -164,7 +94,7 @@ class _AdminShellState extends State<AdminShell> {
                   ],
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: _body(),
+                child: widget.navigationShell,
               ),
             ),
           ],
@@ -173,51 +103,49 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 
-  Widget _narrowLayout(BuildContext context) {
+  Widget _narrowLayout(User user) {
+    // Pages without a bottom-bar tab of their own are reached through "More",
+    // so that is where their back arrow goes.
+    final underMore = _index >= _mobileTabs && _index != moreBranch;
     return Scaffold(
       appBar: AppBar(
-        // From a page that lives under "More", the arrow goes back to that menu.
         automaticallyImplyLeading: false,
-        leading: _index >= _mobileTabs && _index < _destinations.length
+        leading: underMore
             ? IconButton(
                 tooltip: 'Back',
-                onPressed: () => setState(() => _index = _moreIndex),
+                onPressed: () => _select(moreBranch),
                 icon: const Icon(IconlyLight.arrow_left_2),
               )
             : null,
         title: Row(
           children: [
-            if (_index < _mobileTabs || _index >= _destinations.length) ...[
+            if (!underMore) ...[
               Image.asset('assets/images/logo_icon.png', width: 28, height: 28),
               const SizedBox(width: 10),
             ],
             // No per-screen titles any more, so the bar says where you are.
-            Text(
-              _index == _moreIndex
-                  ? 'More'
-                  : _index < _destinations.length
-                  ? _destinations[_index].label
-                  : 'Account',
-            ),
+            Text(switch (_index) {
+              moreBranch => 'More',
+              accountBranch => 'Account',
+              _ => adminDestinations[_index].label,
+            }),
           ],
         ),
         actions: [
           IconButton(
             tooltip: 'Account',
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute<void>(builder: (_) => const AccountScreen(showBack: true))),
+            onPressed: () => _select(accountBranch),
             icon: const Icon(IconlyLight.profile),
           ),
         ],
       ),
-      body: _body(),
+      body: widget.navigationShell,
       bottomNavigationBar: NavigationBar(
         // Eight labels don't fit a phone: the first few get a tab, the rest live under "More".
         selectedIndex: _index < _mobileTabs ? _index : _mobileTabs,
-        onDestinationSelected: (i) => setState(() => _index = i == _mobileTabs ? _moreIndex : i),
+        onDestinationSelected: (i) => _select(i == _mobileTabs ? moreBranch : i),
         destinations: [
-          for (final d in _destinations.take(_mobileTabs))
+          for (final d in adminDestinations.take(_mobileTabs))
             NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: d.label),
           const NavigationDestination(
             icon: Icon(IconlyLight.more_square),
@@ -296,9 +224,9 @@ class _TopNav extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      for (var i = 0; i < _destinations.length; i++) ...[
+                      for (var i = 0; i < adminDestinations.length; i++) ...[
                         if (i != 0) const SizedBox(width: 28),
-                        _NavLink(destination: _destinations[i], selected: i == index, onTap: () => onSelect(i)),
+                        _NavLink(destination: adminDestinations[i], selected: i == index, onTap: () => onSelect(i)),
                       ],
                     ],
                   ),
@@ -306,7 +234,7 @@ class _TopNav extends StatelessWidget {
               ),
             ),
           ),
-          _UserMenu(user: user, selected: index == _accountIndex, onTap: onAccount),
+          _UserMenu(user: user, selected: index == accountBranch, onTap: onAccount),
         ],
       ),
     );
@@ -316,7 +244,7 @@ class _TopNav extends StatelessWidget {
 class _NavLink extends StatelessWidget {
   const _NavLink({required this.destination, required this.selected, required this.onTap});
 
-  final _Destination destination;
+  final AdminDestination destination;
   final bool selected;
   final VoidCallback onTap;
 
@@ -374,13 +302,10 @@ class _UserMenu extends StatelessWidget {
   }
 }
 
-/// Mobile "More" tab: a full page listing the destinations that don't fit in the
-/// bottom bar, plus the account and sign-out.
-class _MorePage extends StatelessWidget {
-  const _MorePage({required this.onSelect, required this.onAccount});
-
-  final ValueChanged<int> onSelect;
-  final VoidCallback onAccount;
+/// Mobile "More" tab (`/more`): a full page listing the destinations that don't
+/// fit in the bottom bar, plus the account and sign-out.
+class MorePage extends StatelessWidget {
+  const MorePage({super.key});
 
   static const _hints = {
     'Delivery areas': 'Where you deliver and the fees',
@@ -396,17 +321,17 @@ class _MorePage extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        for (var i = _mobileTabs; i < _destinations.length; i++) ...[
-          _MoreTile(
-            icon: _destinations[i].icon,
-            label: _destinations[i].label,
-            hint: _hints[_destinations[i].label],
-            onTap: () => onSelect(i),
-          ),
+        for (final d in adminDestinations.skip(_mobileTabs)) ...[
+          _MoreTile(icon: d.icon, label: d.label, hint: _hints[d.label], onTap: () => context.go(d.path)),
           const SizedBox(height: 10),
         ],
         const SizedBox(height: 6),
-        _MoreTile(icon: IconlyLight.profile, label: 'My account', hint: 'Profile and password', onTap: onAccount),
+        _MoreTile(
+          icon: IconlyLight.profile,
+          label: 'My account',
+          hint: 'Profile and password',
+          onTap: () => context.go(accountPath),
+        ),
         const SizedBox(height: 10),
         _MoreTile(
           icon: IconlyLight.logout,
