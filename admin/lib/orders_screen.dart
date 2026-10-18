@@ -305,7 +305,9 @@ class _OrderDetailCard extends StatelessWidget {
             for (final i in items)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text('${i['quantity']}× ${i['name']}  (\$${i['price']})'),
+                child: Text(
+                  '${i['quantity']}× ${i['name']}  (\$${((i['price'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)})',
+                ),
               ),
             Divider(color: AppColors.line, height: 28),
             Text(
@@ -407,7 +409,9 @@ class _OrderTile extends StatelessWidget {
                 for (final i in items)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Text('${i['quantity']}× ${i['name']}  (\$${i['price']})'),
+                    child: Text(
+                      '${i['quantity']}× ${i['name']}  (\$${((i['price'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)})',
+                    ),
                   ),
                 Divider(color: AppColors.line),
                 Text(

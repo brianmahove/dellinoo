@@ -456,13 +456,13 @@ class _ProductCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          '\$${price.toStringAsFixed(0)}',
+                          '\$${price.toStringAsFixed(2)}',
                           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: accent),
                         ),
                         if (oldPrice != null) ...[
                           const SizedBox(width: 6),
                           Text(
-                            '\$${oldPrice.toStringAsFixed(0)}',
+                            '\$${oldPrice.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontSize: 12.5,
                               color: AppColors.muted,
