@@ -1,19 +1,25 @@
-import 'package:flutter/material.dart';
 
+import 'category_icons.dart';
 import 'models.dart';
-import '../core/iconly.dart';
 
-const mockCategories = <Category>[
-  Category(id: 'women', name: 'Women', icon: Icons.woman_outlined),
-  Category(id: 'men', name: 'Men', icon: Icons.man_outlined),
-  Category(id: 'kids', name: 'Kids', icon: Icons.child_care_outlined),
-  Category(id: 'shoes', name: 'Shoes', icon: Icons.ice_skating_outlined),
-  Category(id: 'handbags', name: 'Handbags', icon: IconlyLight.bag),
-  Category(id: 'phones', name: 'Phones', icon: Icons.smartphone_outlined),
-  Category(id: 'watches', name: 'Watches', icon: Icons.watch_outlined),
-  Category(id: 'laptops', name: 'Laptops', icon: Icons.laptop_outlined),
-  Category(id: 'games', name: 'Games', icon: IconlyLight.game),
-  Category(id: 'electronics', name: 'Electronics', icon: Icons.headphones_outlined),
+/// The categories the app falls back to when the admin hasn't set any up yet
+/// (an empty `categories` collection) and the list unit tests run against.
+/// The real list lives in Firestore and is edited in the admin panel.
+final mockCategories = <Category>[
+  for (final e in const [
+    ('women', 'Women'),
+    ('men', 'Men'),
+    ('kids', 'Kids'),
+    ('shoes', 'Shoes'),
+    ('handbags', 'Handbags'),
+    ('wigs', 'Wigs'),
+    ('phones', 'Phones'),
+    ('watches', 'Watches'),
+    ('laptops', 'Laptops'),
+    ('games', 'Games'),
+    ('electronics', 'Electronics'),
+  ])
+    Category(id: e.$1, name: e.$2, icon: categoryIcon(e.$1)),
 ];
 
 /// Managed by the admin once the backend is in place.

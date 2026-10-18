@@ -7,38 +7,12 @@ import 'package:web/web.dart' as web;
 
 import 'catalog_version.dart';
 import 'glass_dialog.dart';
+import 'categories_screen.dart' show AdminCategory, categoriesStream, kDefaultCategories;
 import 'photo_cropper.dart';
 import 'photos.dart';
 import 'theme.dart';
 import 'iconly.dart';
 
-/// The same 10 fixed category ids the customer app uses (see mockCategories
-/// in the main app's lib/data/mock_data.dart) — categories aren't their own
-/// Firestore collection, so this list has to be kept in sync by hand.
-const _categoryIds = [
-  'women',
-  'men',
-  'kids',
-  'shoes',
-  'handbags',
-  'phones',
-  'watches',
-  'laptops',
-  'games',
-  'electronics',
-];
-const _categoryLabels = {
-  'women': 'Women',
-  'men': 'Men',
-  'kids': 'Kids',
-  'shoes': 'Shoes',
-  'handbags': 'Handbags',
-  'phones': 'Phones',
-  'watches': 'Watches',
-  'laptops': 'Laptops',
-  'games': 'Games',
-  'electronics': 'Electronics',
-};
 const _stockStatuses = ['inStock', 'outOfStock'];
 
 /// Products saved before out-of-stock replaced the China pre-order option
@@ -237,15 +211,24 @@ class _CategoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The admin can add and rename categories (Categories screen), so the
+    // pills follow Firestore rather than a list baked into this build.
+    return StreamBuilder<List<AdminCategory>>(
+      stream: categoriesStream(),
+      builder: (context, snap) => _build(context, snap.data ?? const []),
+    );
+  }
+
+  Widget _build(BuildContext context, List<AdminCategory> categories) {
     final narrow = MediaQuery.sizeOf(context).width < 720;
     final pills = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
           _CategoryPill(label: 'All Products', selected: selected == 'all', onTap: () => onSelect('all')),
-          for (final c in _categoryIds) ...[
+          for (final c in categories) ...[
             const SizedBox(width: 10),
-            _CategoryPill(label: _categoryLabels[c]!, selected: selected == c, onTap: () => onSelect(c)),
+            _CategoryPill(label: c.name, selected: selected == c.id, onTap: () => onSelect(c.id)),
           ],
         ],
       ),
@@ -546,7 +529,7 @@ class _ProductFormState extends State<_ProductForm> {
       return List<String>.from((groups.first as Map)['options'] as List? ?? const []).join(', ');
     })(),
   );
-  late String _categoryId = _d?['categoryId'] as String? ?? _categoryIds.first;
+  late String _categoryId = _d?['categoryId'] as String? ?? kDefaultCategories.first.id;
   late String _stockStatus = _d == null ? _stockStatuses.first : _stock(_d!['stockStatus']);
   late bool _isNew = _d?['isNew'] as bool? ?? false;
   late DateTime? _saleEndsAt = (_d?['saleEndsAt'] as Timestamp?)?.toDate();
@@ -843,11 +826,25 @@ class _ProductFormState extends State<_ProductForm> {
                   controller: _brand,
                   decoration: const InputDecoration(labelText: 'Brand'),
                 ),
-                DropdownButtonFormField<String>(
-                  initialValue: _categoryId,
-                  decoration: const InputDecoration(labelText: 'Category'),
-                  items: [for (final c in _categoryIds) DropdownMenuItem(value: c, child: Text(_categoryLabels[c]!))],
-                  onChanged: (v) => setState(() => _categoryId = v!),
+                // Admin-managed (Categories screen). A product whose category
+                // was deleted keeps its id and shows up here marked as such,
+                // so saving the product can't silently move it elsewhere.
+                StreamBuilder<List<AdminCategory>>(
+                  stream: categoriesStream(),
+                  builder: (context, snap) {
+                    final categories = snap.data ?? kDefaultCategories;
+                    final ids = {for (final c in categories) c.id};
+                    return DropdownButtonFormField<String>(
+                      initialValue: _categoryId,
+                      decoration: const InputDecoration(labelText: 'Category'),
+                      items: [
+                        for (final c in categories) DropdownMenuItem(value: c.id, child: Text(c.name)),
+                        if (!ids.contains(_categoryId))
+                          DropdownMenuItem(value: _categoryId, child: Text('$_categoryId (removed)')),
+                      ],
+                      onChanged: (v) => setState(() => _categoryId = v!),
+                    );
+                  },
                 ),
                 Row(
                   children: [

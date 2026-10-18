@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'account_screen.dart';
 import 'admins_screen.dart';
+import 'categories_screen.dart';
 import 'coupons_screen.dart';
 import 'customers_screen.dart';
 import 'dashboard_screen.dart';
@@ -39,6 +40,7 @@ const adminDestinations = [
   AdminDestination('/dashboard', IconlyLight.category, IconlyBold.category, 'Dashboard', DashboardScreen()),
   AdminDestination('/products', IconlyLight.bag, IconlyBold.bag, 'Products', ProductsScreen()),
   AdminDestination('/orders', IconlyLight.paper, IconlyBold.paper, 'Orders', OrdersScreen()),
+  AdminDestination('/categories', IconlyLight.folder, IconlyBold.folder, 'Categories', CategoriesScreen()),
   AdminDestination('/customers', IconlyLight.user_1, IconlyBold.user_3, 'Customers', CustomersScreen()),
   AdminDestination(
     '/delivery-areas',
@@ -72,8 +74,8 @@ const adminDestinations = [
 /// too, but they're not drawn in the top nav.
 /// (= `adminDestinations.length`, spelled out because a `switch` on the branch
 /// index needs constants and a list's length isn't one.)
-const accountBranch = 11;
-const moreBranch = 12;
+const accountBranch = 12;
+const moreBranch = 13;
 
 const accountPath = '/account';
 const morePath = '/more';

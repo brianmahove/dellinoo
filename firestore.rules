@@ -36,6 +36,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Shop categories, managed on the admin panel's Categories screen. The
+    // doc id is the `categoryId` products point at; the app falls back to its
+    // built-in list while this collection is empty.
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Promo codes: a signed-in customer may fetch one code *by exact id* (to
     // validate what they typed) but can't list them all; only admins write.
     // The payments Worker re-validates the code itself before charging.

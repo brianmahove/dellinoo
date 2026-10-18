@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'catalog_repository.dart';
+import 'category_icons.dart';
 import 'mock_data.dart' show mockCategories;
 import 'models.dart';
 
@@ -10,9 +11,9 @@ import 'models.dart';
 /// Products and delivery areas are admin-managed Firestore collections
 /// (`products`, `delivery_areas`) — see `firestore.rules` (public read, no
 /// client writes; the admin panel/Cloud Functions write instead, roadmap
-/// item 4). Categories stay a fixed, code-defined taxonomy (`mockCategories`
-/// in `mock_data.dart`): Firestore can't store a Flutter `IconData`, and the
-/// business doesn't need the 10 categories to be admin-editable.
+/// item 4). Categories are admin-managed too (Oct 2026): a `categories` doc
+/// holds a name and an *icon key* (Firestore can't store a Flutter
+/// `IconData`), resolved through `categoryIcon` in `category_icons.dart`.
 class FirestoreCatalogRepository implements CatalogRepository {
   FirestoreCatalogRepository({FirebaseFirestore? firestore, this._prefs})
     : _db = firestore ?? FirebaseFirestore.instance;
@@ -29,8 +30,27 @@ class FirestoreCatalogRepository implements CatalogRepository {
   /// scripts) that don't bump `meta/catalog`.
   static const _maxCacheAge = Duration(hours: 24);
 
+  /// One read per category on each app open — the same deal as
+  /// `delivery_areas`, and both lists are short and change rarely. Falls back
+  /// to the built-in list while the admin hasn't set any up (or if the read
+  /// fails), so the Shop tab is never empty.
   @override
-  Future<List<Category>> fetchCategories() async => mockCategories;
+  Future<List<Category>> fetchCategories() async {
+    try {
+      final snapshot = await _db.collection('categories').orderBy('sortOrder').get();
+      if (snapshot.docs.isEmpty) return mockCategories;
+      return [
+        for (final doc in snapshot.docs)
+          Category(
+            id: doc.id,
+            name: doc.data()['name'] as String? ?? doc.id,
+            icon: categoryIcon(doc.data()['icon'] as String?),
+          ),
+      ];
+    } catch (_) {
+      return mockCategories;
+    }
+  }
 
   /// Cheap on the Spark read quota: a plain `.get()` re-reads every product
   /// from the server (one read each) on every app open and pull-to-refresh.
