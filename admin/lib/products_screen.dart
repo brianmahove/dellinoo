@@ -7,6 +7,7 @@ import 'package:web/web.dart' as web;
 
 import 'catalog_version.dart';
 import 'glass_dialog.dart';
+import 'colour_swatches.dart';
 import 'categories_screen.dart' show AdminCategory, categoriesStream, kDefaultCategories;
 import 'photo_cropper.dart';
 import 'photos.dart';
@@ -522,13 +523,22 @@ class _ProductFormState extends State<_ProductForm> {
   late final _price = TextEditingController(text: (_d?['price'] as num?)?.toString() ?? '');
   late final _oldPrice = TextEditingController(text: (_d?['oldPrice'] as num?)?.toString() ?? '');
   late final _description = TextEditingController(text: _d?['description'] as String? ?? '');
-  late final _sizes = TextEditingController(
-    text: (() {
-      final groups = _d?['variantGroups'] as List?;
-      if (groups == null || groups.isEmpty) return '';
-      return List<String>.from((groups.first as Map)['options'] as List? ?? const []).join(', ');
-    })(),
-  );
+  late final _sizes = TextEditingController(text: _groupOptions('Size'));
+  late final _colours = TextEditingController(text: _groupOptions('Colour'));
+
+  /// "Black, Navy ,, Pink" -> ['Black', 'Navy', 'Pink'].
+  List<String> _options(String raw) => raw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+
+  /// The saved options of one variant group, as the admin types them.
+  String _groupOptions(String name) {
+    for (final g in (_d?['variantGroups'] as List? ?? const [])) {
+      if ((g as Map)['name'] == name) {
+        return List<String>.from(g['options'] as List? ?? const []).join(', ');
+      }
+    }
+    return '';
+  }
+
   late String _categoryId = _d?['categoryId'] as String? ?? kDefaultCategories.first.id;
   late String _stockStatus = _d == null ? _stockStatuses.first : _stock(_d!['stockStatus']);
   late bool _isNew = _d?['isNew'] as bool? ?? false;
@@ -664,7 +674,7 @@ class _ProductFormState extends State<_ProductForm> {
 
   @override
   void dispose() {
-    for (final c in [_name, _brand, _price, _oldPrice, _description, _sizes]) {
+    for (final c in [_name, _brand, _price, _oldPrice, _description, _sizes, _colours]) {
       c.dispose();
     }
     if (!_saved) deletePhotos(_uploadedHere);
@@ -752,7 +762,8 @@ class _ProductFormState extends State<_ProductForm> {
       return;
     }
     setState(() => _saving = true);
-    final sizes = _sizes.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final sizes = _options(_sizes.text);
+    final colours = _options(_colours.text);
     final data = {
       'name': _name.text.trim(),
       'brand': _brand.text.trim(),
@@ -768,11 +779,12 @@ class _ProductFormState extends State<_ProductForm> {
       // Colour behind each photo in the customer app (null = usual tint).
       'photoBgs': [for (final p in _photos) p.bg],
       'description': _description.text.trim(),
-      'variantGroups': sizes.isEmpty
-          ? <Map<String, dynamic>>[]
-          : [
-              {'name': 'Size', 'options': sizes},
-            ],
+      // The customer app picks the group named 'Colour' out for its swatches
+      // and shows every other group as plain chips, so the names matter.
+      'variantGroups': [
+        if (colours.isNotEmpty) {'name': 'Colour', 'options': colours},
+        if (sizes.isNotEmpty) {'name': 'Size', 'options': sizes},
+      ],
       'rating': (_d?['rating'] as num?) ?? 0,
       'soldCount': (_d?['soldCount'] as num?) ?? 0,
       'isNew': _isNew,
@@ -910,6 +922,16 @@ class _ProductFormState extends State<_ProductForm> {
                   controller: _sizes,
                   decoration: const InputDecoration(labelText: 'Sizes (comma-separated, leave blank if none)'),
                 ),
+                TextFormField(
+                  controller: _colours,
+                  decoration: const InputDecoration(
+                    labelText: 'Colours (comma-separated, leave blank if none)',
+                    hintText: 'e.g. Black, Navy, Pink',
+                  ),
+                  // Redraws the swatch preview under the field as it's typed.
+                  onChanged: (_) => setState(() {}),
+                ),
+                _ColourPreview(names: _options(_colours.text)),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(
@@ -1572,4 +1594,60 @@ Future<_BgChoice?> _showBgPicker(BuildContext context, ProductPhoto photo, Strin
       },
     ),
   ).whenComplete(hexField.dispose);
+}
+
+/// The colours typed into the product form, drawn the way the customer app
+/// will draw them. A name this build doesn't know still works — it just gets
+/// a plain grey dot, which this preview makes obvious before saving.
+class _ColourPreview extends StatelessWidget {
+  const _ColourPreview({required this.names});
+
+  final List<String> names;
+
+  @override
+  Widget build(BuildContext context) {
+    if (names.isEmpty) return const SizedBox.shrink();
+    final unknown = names.where((n) => colourSwatch(n) == null).toList();
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final n in names)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: colourSwatch(n) ?? AppColors.muted,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.line),
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(n, style: const TextStyle(fontSize: 12.5)),
+                  ],
+                ),
+            ],
+          ),
+          if (unknown.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                unknown.length == 1
+                    ? '"${unknown.first}" shows as a grey dot in the app.'
+                    : '${unknown.join(', ')} show as grey dots in the app.',
+                style: TextStyle(color: AppColors.muted, fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }

@@ -85,6 +85,11 @@ Rebranded (Sep 2026) from the original yellow/black reference mockups to the cli
 - Popups: use `showGlassDialog`, `showGlassBottomSheet` (always full width), `showGlassToast` — not the plain Flutter versions.
 - `GlassBox.enabled = false` turns blur off for cards/nav/toasts if low-end phones struggle.
 
+### Product variants
+
+- A product's `variantGroups` are admin-typed, comma-separated lists on the product form: **Sizes** and **Colours** (Oct 2026). The group named exactly `Colour` is the one the product page draws as swatches; every other group shows as plain chips, so the names matter when writing one from elsewhere.
+- Colour names map to dots through `colourSwatches` — `lib/data/colour_swatches.dart` and `admin/lib/colour_swatches.dart`, two hand-synced copies, same deal as `categoryIcons`. An unknown name still works (neutral grey dot); the admin form previews each typed colour and says which ones will come out grey.
+
 ### Icons
 - **Iconly** (Light/Bold) via `lib/core/iconly.dart` + fonts in `assets/fonts/`. The `iconly` pub package is **broken on current Flutter** (subclasses final `IconData`) — don't re-add it.
 - Material icons remain only where Iconly has no equivalent (truck, +/−, radio, close, check, some category fallbacks).

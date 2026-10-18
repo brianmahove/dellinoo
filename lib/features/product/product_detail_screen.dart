@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/contact.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
+import '../../data/colour_swatches.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
@@ -15,19 +16,6 @@ import '../../widgets/glass.dart';
 import 'reviews_section.dart';
 import 'size_guide.dart';
 import '../../core/iconly.dart';
-
-/// Swatch colours for "Colour" variants; unknown names fall back to grey.
-const _swatches = {
-  'black': Color(0xFF1E1E22),
-  'white': Color(0xFFF4F4F4),
-  'blue': Color(0xFF3A6B87),
-  'brown': Color(0xFF8B5E3C),
-  'cream': Color(0xFFE3C9A8),
-  'grey': Color(0xFFB5B5B8),
-  'gray': Color(0xFFB5B5B8),
-  'red': Color(0xFFC62828),
-  'gold': Color(0xFFD4AF37),
-};
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   const ProductDetailScreen({super.key, required this.productId, this.heroTag});
@@ -316,7 +304,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(left: 8),
                                 child: _Swatch(
-                                  color: _swatches[o.toLowerCase()] ?? AppColors.muted,
+                                  color: colourSwatch(o) ?? AppColors.muted,
                                   selected: _options['Colour'] == o,
                                   onTap: () => setState(() => _options['Colour'] = o),
                                 ),
