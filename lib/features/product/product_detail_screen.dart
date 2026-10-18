@@ -340,13 +340,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         ),
                       const SizedBox(height: 14),
                       StockBadge(product.stockStatus),
-                      const SizedBox(height: 4),
-                      Text(
-                        product.stockStatus == StockStatus.inStock
-                            ? 'Already here in Zimbabwe — we send it out as soon as your payment lands.'
-                            : "We're out of this one right now. Message us on WhatsApp and we'll let you know when it's back.",
-                        style: TextStyle(color: AppColors.muted, fontSize: 13),
-                      ),
+                      // In stock speaks for itself — only sold-out items need a line
+                      // of explanation, and neither promises a delivery date.
+                      if (!inStock) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          "We're out of this one right now. Message us on WhatsApp and we'll let you know "
+                          "when it's back.",
+                          style: TextStyle(color: AppColors.muted, fontSize: 13),
+                        ),
+                      ],
                       for (final g in otherGroups) ...[
                         const SizedBox(height: 20),
                         Row(
