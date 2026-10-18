@@ -19,7 +19,6 @@ class OrderSuccessScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final order = ref.watch(ordersProvider).where((o) => o.id == orderId).firstOrNull;
-    final hasPreorder = order?.items.any((i) => i.product.stockStatus == StockStatus.preorder) ?? false;
     // Only known-unpaid (status still `placed`) gets the different treatment
     // below — an order we haven't loaded yet defaults to the celebratory
     // copy rather than flashing a scary state during a brief load.
@@ -61,11 +60,6 @@ class OrderSuccessScreen extends ConsumerWidget {
                         : unpaid
                         ? "We couldn't confirm your payment. Your order is saved and nothing's lost — "
                               'you can complete payment any time from below.'
-                        : hasPreorder
-                        ? 'Thanks for shopping with Dellinoo. In-stock items arrive by '
-                              '${weekdayDayMonth(StockStatus.inStock.arrivalFrom(order.createdAt))}; items from China by '
-                              '${weekdayDayMonth(StockStatus.preorder.arrivalFrom(order.createdAt))}. '
-                              'We will update you along the way.'
                         : 'Thanks for shopping with Dellinoo. Your order arrives by '
                               '${weekdayDayMonth(StockStatus.inStock.arrivalFrom(order.createdAt))}. '
                               'We will notify you when it is out for delivery.',

@@ -98,20 +98,26 @@ void main() {
     expect(container.read(priceDropProvider(steady.id)), isNull);
   });
 
-  test('China legs only appear for orders with China items', () {
-    final china = mockProducts.firstWhere((p) => p.stockStatus == StockStatus.preorder);
-    final local = mockProducts.firstWhere((p) => p.stockStatus == StockStatus.inStock);
-    Order order(Product p) => Order(
+  test('China legs only appear once an order actually goes through China', () {
+    final p = mockProducts.first;
+    Order order(List<OrderStatus> statuses) => Order(
       id: 'x',
       docId: 'x',
       items: [CartItem(product: p, options: const {}, quantity: 1)],
       address: const Address(fullName: 'A', phone: '1', street: 's', city: 'Harare'),
       area: const DeliveryArea(id: 'x', name: 'X', fee: 0, eta: ''),
       payment: PaymentMethod.ecocash,
-      history: [StatusEvent(OrderStatus.placed, DateTime(2026))],
+      history: [for (final s in statuses) StatusEvent(s, DateTime(2026))],
     );
-    expect(order(china).journey, contains(OrderStatus.inTransit));
-    expect(order(local).journey.any((s) => s.chinaLeg), isFalse);
+    expect(order([OrderStatus.placed, OrderStatus.boughtInChina]).journey, contains(OrderStatus.inTransit));
+    expect(order([OrderStatus.placed, OrderStatus.processing]).journey.any((s) => s.chinaLeg), isFalse);
+  });
+
+  test('a product saved before out-of-stock replaced pre-orders reads as out of stock', () {
+    expect(StockStatus.parse('preorder'), StockStatus.outOfStock);
+    expect(StockStatus.parse('outOfStock'), StockStatus.outOfStock);
+    expect(StockStatus.parse('inStock'), StockStatus.inStock);
+    expect(StockStatus.parse(null), StockStatus.inStock);
   });
 
   test('manual payment: only configured channels are offered, and a reference awaits checking', () {

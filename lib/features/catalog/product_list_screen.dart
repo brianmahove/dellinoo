@@ -13,7 +13,7 @@ enum ProductCollection { all, deals, inStock, newIn }
 enum StockFilter {
   all('All'),
   inStock('In stock'),
-  preorder('Arrives 2–3 weeks');
+  outOfStock('Out of stock');
 
   const StockFilter(this.label);
   final String label;
@@ -21,7 +21,7 @@ enum StockFilter {
   bool matches(Product p) => switch (this) {
     all => true,
     inStock => p.stockStatus == StockStatus.inStock,
-    preorder => p.stockStatus == StockStatus.preorder,
+    outOfStock => p.stockStatus == StockStatus.outOfStock,
   };
 }
 

@@ -31,7 +31,7 @@ class AboutScreen extends StatelessWidget {
             margin: EdgeInsets.zero,
             child: Text(
               '${AppInfo.name} brings fashion, shoes, phones, laptops and electronics to Zimbabwe — '
-              'in stock for fast delivery, or ordered for you straight from China. '
+              'in stock for fast delivery, or sourced for you straight from China. '
               'Pay with EcoCash, OneMoney, InnBucks or card.',
               style: TextStyle(color: AppColors.muted, height: 1.5, fontSize: 14.5),
             ),

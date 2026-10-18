@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
@@ -20,7 +19,7 @@ class CartScreen extends ConsumerWidget {
     final subtotal = ref.watch(cartSubtotalProvider);
     final count = ref.watch(cartCountProvider);
     final wishCount = ref.watch(wishlistProvider).length;
-    final hasPreorder = items.any((i) => i.product.stockStatus == StockStatus.preorder);
+    final soldOut = items.where((i) => i.product.stockStatus != StockStatus.inStock).length;
 
     return Scaffold(
       appBar: PageHeader(
@@ -47,25 +46,26 @@ class CartScreen extends ConsumerWidget {
                   child: ListView(
                     padding: const EdgeInsets.only(top: 4, bottom: 16),
                     children: [
-                      if (hasPreorder)
+                      if (soldOut > 0)
                         Container(
                           margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppColors.preorderSoft,
+                            color: AppColors.dangerSoft,
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Row(
                             children: [
-                              Icon(IconlyBold.send, color: AppColors.preorder, size: 18),
+                              Icon(IconlyBold.danger, color: AppColors.danger, size: 18),
                               SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  'Items from China arrive by ${dayMonth(StockStatus.preorder.arrivalFrom(DateTime.now()))}. '
-                                  'In-stock items may arrive first.',
+                                  soldOut == 1
+                                      ? 'One item is out of stock. Remove it to check out.'
+                                      : '$soldOut items are out of stock. Remove them to check out.',
                                   style: TextStyle(
                                     fontSize: 12.5,
-                                    color: AppColors.preorder,
+                                    color: AppColors.danger,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -77,7 +77,7 @@ class CartScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                _Summary(subtotal: subtotal),
+                _Summary(subtotal: subtotal, blocked: soldOut > 0),
               ],
             ),
     );
@@ -85,9 +85,13 @@ class CartScreen extends ConsumerWidget {
 }
 
 class _Summary extends StatelessWidget {
-  const _Summary({required this.subtotal});
+  const _Summary({required this.subtotal, required this.blocked});
 
   final double subtotal;
+
+  /// True when something in the cart is out of stock — checkout is disabled
+  /// until the customer removes it.
+  final bool blocked;
 
   @override
   Widget build(BuildContext context) {
@@ -136,7 +140,7 @@ class _Summary extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           GradientButton(
-            onPressed: () => context.push('/checkout'),
+            onPressed: blocked ? null : () => context.push('/checkout'),
             trailingIcon: IconlyLight.arrow_right,
             child: const Text('Checkout'),
           ),

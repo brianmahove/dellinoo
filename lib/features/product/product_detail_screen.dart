@@ -154,6 +154,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       );
     }
     final cartCount = ref.watch(cartCountProvider);
+    final inStock = product.stockStatus == StockStatus.inStock;
     final similar = (ref.watch(productsProvider).value ?? const <Product>[])
         .where((p) => p.categoryId == product.categoryId && p.id != product.id)
         .take(4)
@@ -343,7 +344,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       Text(
                         product.stockStatus == StockStatus.inStock
                             ? 'Already in Zimbabwe — order today, delivered in 1–3 days.'
-                            : 'Ordered from our supplier in China after you pay.',
+                            : "We're out of this one right now. Message us on WhatsApp and we'll let you know when it's back.",
                         style: TextStyle(color: AppColors.muted, fontSize: 13),
                       ),
                       for (final g in otherGroups) ...[
@@ -511,6 +512,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       floatingActionButton: WhatsAppButton(
         message: 'Hi Dellinoo, I am interested in "${product.name}" (${money(product.price)}). Is it available?',
       ),
+      // Out-of-stock products can still be browsed and wishlisted, but not bought.
       bottomNavigationBar: Container(
         color: AppColors.surface,
         child: SafeArea(
@@ -520,30 +522,32 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               children: [
                 Expanded(
                   child: GradientButton(
-                    onPressed: () => _addWithAnimation(product),
+                    onPressed: inStock ? () => _addWithAnimation(product) : null,
                     icon: IconlyBold.buy,
-                    child: const Text('Add to Cart'),
+                    child: Text(inStock ? 'Add to Cart' : 'Out of stock'),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GradientButton(
-                    colors: AppColors.orangeGradient,
-                    icon: Icons.bolt_rounded,
-                    onPressed: () {
-                      final options = _selectedOptions(product);
-                      if (options == null) return;
-                      HapticFeedback.mediumImpact();
-                      // Checks out just this item and leaves the cart alone — adding
-                      // it to the cart made earlier cart items ride along unnoticed.
-                      context.push(
-                        '/checkout',
-                        extra: CartItem(product: product, options: options, quantity: _qty),
-                      );
-                    },
-                    child: const Text('Buy Now'),
+                if (inStock) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GradientButton(
+                      colors: AppColors.orangeGradient,
+                      icon: Icons.bolt_rounded,
+                      onPressed: () {
+                        final options = _selectedOptions(product);
+                        if (options == null) return;
+                        HapticFeedback.mediumImpact();
+                        // Checks out just this item and leaves the cart alone — adding
+                        // it to the cart made earlier cart items ride along unnoticed.
+                        context.push(
+                          '/checkout',
+                          extra: CartItem(product: product, options: options, quantity: _qty),
+                        );
+                      },
+                      child: const Text('Buy Now'),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

@@ -75,15 +75,18 @@ final _sections = <_FaqSection>[
       'The item is already here in Zimbabwe, so it reaches you in about 1–3 days. Every product '
           'shows the date you should have it by.',
     ),
-    const _Faq(
-      'What does "From China" mean?',
-      'It is a pre-order: we buy it for you in China and fly it in. That usually takes about '
-          '2–3 weeks, and the product page always shows the expected date.',
+    _Faq(
+      'What does "Out of stock" mean?',
+      'We have sold out of that one, so it cannot be ordered right now. Message us and we will '
+          'bring it in for you — that usually takes about 2–3 weeks from China.',
+      actionLabel: 'Request an item',
+      onAction: _push('/request-item'),
     ),
     _Faq(
       'Why does my order have extra steps?',
-      'Orders with China items pass through Bought in China, Flying to Zimbabwe and Arrived in '
-          'Harare before delivery. You can watch each step on the order page.',
+      'If we have to bring your item in for you, the order passes through Bought in China, '
+          'Flying to Zimbabwe and Arrived in Harare before delivery. You can watch each step on '
+          'the order page.',
       actionLabel: 'My orders',
       onAction: _push('/orders'),
     ),

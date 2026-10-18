@@ -33,7 +33,7 @@ const mockProducts = <Product>[
     categoryId: 'women',
     price: 89.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/womens-dresses/corset-leather-with-skirt/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/womens-dresses/corset-leather-with-skirt/1.webp",
@@ -81,7 +81,7 @@ const mockProducts = <Product>[
     categoryId: 'women',
     price: 49.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/womens-dresses/dress-pea/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/womens-dresses/dress-pea/1.webp",
@@ -153,7 +153,7 @@ const mockProducts = <Product>[
     categoryId: 'women',
     price: 34.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/tops/gray-dress/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/tops/gray-dress/1.webp",
@@ -200,7 +200,7 @@ const mockProducts = <Product>[
     categoryId: 'men',
     price: 24.99,
     oldPrice: 30.99,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/mens-shirts/gigabyte-aorus-men-tshirt/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/mens-shirts/gigabyte-aorus-men-tshirt/1.webp",
@@ -269,7 +269,7 @@ const mockProducts = <Product>[
     categoryId: 'men',
     price: 27.99,
     oldPrice: 34.99,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/mens-shirts/men-check-shirt/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/mens-shirts/men-check-shirt/1.webp",
@@ -315,7 +315,7 @@ const mockProducts = <Product>[
     categoryId: 'kids',
     price: 19.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/tops/girl-summer-dress/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/tops/girl-summer-dress/1.webp",
@@ -384,7 +384,7 @@ const mockProducts = <Product>[
     categoryId: 'shoes',
     price: 89.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/mens-shoes/puma-future-rider-trainers/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/mens-shoes/puma-future-rider-trainers/1.webp",
@@ -430,7 +430,7 @@ const mockProducts = <Product>[
     categoryId: 'shoes',
     price: 79.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/womens-shoes/calvin-klein-heel-shoes/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/womens-shoes/calvin-klein-heel-shoes/1.webp",
@@ -499,7 +499,7 @@ const mockProducts = <Product>[
     categoryId: 'shoes',
     price: 19.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/womens-shoes/black-&-brown-slipper/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/womens-shoes/black-&-brown-slipper/1.webp",
@@ -544,7 +544,7 @@ const mockProducts = <Product>[
     categoryId: 'handbags',
     price: 129.99,
     oldPrice: 161.99,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/womens-bags/heshe-women's-leather-bag/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/womens-bags/heshe-women's-leather-bag/1.webp",
@@ -610,7 +610,7 @@ const mockProducts = <Product>[
     categoryId: 'handbags',
     price: 59.99,
     oldPrice: 74.99,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/womens-bags/women-handbag-black/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/womens-bags/women-handbag-black/1.webp",
@@ -656,7 +656,7 @@ const mockProducts = <Product>[
     categoryId: 'phones',
     price: 899.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/smartphones/iphone-x/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/smartphones/iphone-x/1.webp",
@@ -728,7 +728,7 @@ const mockProducts = <Product>[
     categoryId: 'phones',
     price: 399.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/smartphones/oppo-f19-pro-plus/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/smartphones/oppo-f19-pro-plus/1.webp",
@@ -776,7 +776,7 @@ const mockProducts = <Product>[
     categoryId: 'phones',
     price: 499.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/smartphones/vivo-x21/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/smartphones/vivo-x21/1.webp",
@@ -848,7 +848,7 @@ const mockProducts = <Product>[
     categoryId: 'watches',
     price: 89.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/mens-watches/brown-leather-belt-watch/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/mens-watches/brown-leather-belt-watch/1.webp",
@@ -888,7 +888,7 @@ const mockProducts = <Product>[
     categoryId: 'watches',
     price: 799.99,
     oldPrice: 999.99,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/womens-watches/watch-gold-for-women/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/womens-watches/watch-gold-for-women/1.webp",
@@ -948,7 +948,7 @@ const mockProducts = <Product>[
     categoryId: 'laptops',
     price: 1999.99,
     oldPrice: 2499.99,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/laptops/apple-macbook-pro-14-inch-space-grey/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/laptops/apple-macbook-pro-14-inch-space-grey/1.webp",
@@ -992,7 +992,7 @@ const mockProducts = <Product>[
     categoryId: 'laptops',
     price: 1399.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/laptops/huawei-matebook-x-pro/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/laptops/huawei-matebook-x-pro/1.webp",
@@ -1058,7 +1058,7 @@ const mockProducts = <Product>[
     categoryId: 'games',
     price: 14.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/sports-accessories/basketball/thumbnail.webp",
     images: ["https://cdn.dummyjson.com/product-images/sports-accessories/basketball/1.webp"],
     description: "Great for games and outdoor fun with family and friends.",
@@ -1090,7 +1090,7 @@ const mockProducts = <Product>[
     categoryId: 'games',
     price: 49.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/sports-accessories/tennis-racket/thumbnail.webp",
     images: ["https://cdn.dummyjson.com/product-images/sports-accessories/tennis-racket/1.webp"],
     description: "Great for games and outdoor fun with family and friends.",
@@ -1142,7 +1142,7 @@ const mockProducts = <Product>[
     categoryId: 'electronics',
     price: 129.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpods/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpods/1.webp",
@@ -1178,7 +1178,7 @@ const mockProducts = <Product>[
     categoryId: 'electronics',
     price: 99.99,
     oldPrice: 124.99,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail:
         "https://cdn.dummyjson.com/product-images/mobile-accessories/apple-homepod-mini-cosmic-grey/thumbnail.webp",
     images: ["https://cdn.dummyjson.com/product-images/mobile-accessories/apple-homepod-mini-cosmic-grey/1.webp"],
@@ -1233,7 +1233,7 @@ const mockProducts = <Product>[
     categoryId: 'electronics',
     price: 49.99,
     oldPrice: 61.99,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail:
         "https://cdn.dummyjson.com/product-images/mobile-accessories/beats-flex-wireless-earphones/thumbnail.webp",
     images: ["https://cdn.dummyjson.com/product-images/mobile-accessories/beats-flex-wireless-earphones/1.webp"],
@@ -1271,7 +1271,7 @@ const mockProducts = <Product>[
     categoryId: 'electronics',
     price: 599.99,
     oldPrice: null,
-    stockStatus: StockStatus.preorder,
+    stockStatus: StockStatus.outOfStock,
     thumbnail: "https://cdn.dummyjson.com/product-images/tablets/samsung-galaxy-tab-s8-plus-grey/thumbnail.webp",
     images: [
       "https://cdn.dummyjson.com/product-images/tablets/samsung-galaxy-tab-s8-plus-grey/1.webp",

@@ -265,12 +265,12 @@ class _DeliverySlide extends StatelessWidget {
           Positioned(
             bottom: 60,
             right: 10,
-            child: option(IconlyBold.send, AppColors.preorder, 'From China', 'Arrives in 2–3 weeks'),
+            child: option(IconlyBold.send, AppColors.accent, 'Ask for anything', "We'll bring it in for you"),
           ),
         ],
       ),
-      title: 'Two ways to get it',
-      body: 'Every product shows when it will reach you, so there are no surprises.',
+      title: 'Already in Zimbabwe',
+      body: "What you see is in stock and on its way to you in days. Can't find it? Ask and we'll source it.",
     );
   }
 }

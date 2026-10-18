@@ -209,7 +209,7 @@ class FirestoreOrderRepository implements OrderRepository {
       brand: '',
       categoryId: '',
       price: (m['price'] as num).toDouble(),
-      stockStatus: StockStatus.values.byName(m['stockStatus'] as String),
+      stockStatus: StockStatus.parse(m['stockStatus'] as String?),
       thumbnail: m['thumbnail'] as String,
       images: [m['thumbnail'] as String],
       description: '',

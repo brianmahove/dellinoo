@@ -244,15 +244,15 @@ class StockBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final inStock = status == StockStatus.inStock;
-    final fg = inStock ? AppColors.inStock : AppColors.preorder;
-    final bg = inStock ? AppColors.inStockSoft : AppColors.preorderSoft;
+    final fg = inStock ? AppColors.inStock : AppColors.danger;
+    final bg = inStock ? AppColors.inStockSoft : AppColors.dangerSoft;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: compact ? 3 : 5),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(inStock ? IconlyBold.tick_square : IconlyBold.send, size: compact ? 12 : 14, color: fg),
+          Icon(inStock ? IconlyBold.tick_square : IconlyBold.danger, size: compact ? 12 : 14, color: fg),
           const SizedBox(width: 3),
           Flexible(
             child: Text(
@@ -445,7 +445,7 @@ class ProductCard extends StatelessWidget {
     final light = isLightBackdrop(backdrop);
     final (stockColor, stripTint, ink) = AppColors.lightIf(
       light,
-      () => (inStock ? AppColors.inStock : AppColors.preorder, AppColors.glass(0.6), AppColors.ink),
+      () => (inStock ? AppColors.inStock : AppColors.danger, AppColors.glass(0.6), AppColors.ink),
     );
     return SizedBox(
       width: width,
@@ -545,7 +545,11 @@ class ProductCard extends StatelessWidget {
                             () {
                               final line = Row(
                                 children: [
-                                  Icon(inStock ? IconlyBold.tick_square : IconlyBold.send, size: 12, color: stockColor),
+                                  Icon(
+                                    inStock ? IconlyBold.tick_square : IconlyBold.danger,
+                                    size: 12,
+                                    color: stockColor,
+                                  ),
                                   const SizedBox(width: 3),
                                   Text(
                                     arrivalShort(product.stockStatus),

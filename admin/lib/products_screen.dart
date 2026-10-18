@@ -39,8 +39,13 @@ const _categoryLabels = {
   'games': 'Games',
   'electronics': 'Electronics',
 };
-const _stockStatuses = ['inStock', 'preorder'];
-const _stockFilters = {'all': 'All', 'inStock': 'In stock', 'preorder': 'Preorder'};
+const _stockStatuses = ['inStock', 'outOfStock'];
+
+/// Products saved before out-of-stock replaced the China pre-order option
+/// (Oct 2026) still hold `preorder`; the customer app reads those as out of
+/// stock too (`StockStatus.parse`). They correct themselves on the next save.
+String _stock(Object? raw) => raw == 'inStock' ? 'inStock' : 'outOfStock';
+const _stockFilters = {'all': 'All', 'inStock': 'In stock', 'outOfStock': 'Out of stock'};
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -107,7 +112,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     final docs = snapshot.data!.docs.where((doc) {
                       final d = doc.data();
                       if (_category != 'all' && d['categoryId'] != _category) return false;
-                      if (_stockFilter != 'all' && d['stockStatus'] != _stockFilter) return false;
+                      if (_stockFilter != 'all' && _stock(d['stockStatus']) != _stockFilter) return false;
                       if (query.isNotEmpty && !('${d['name']}').toLowerCase().contains(query)) return false;
                       return true;
                     }).toList();
@@ -388,7 +393,7 @@ class _ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = doc.data();
-    final inStock = d['stockStatus'] == 'inStock';
+    final inStock = _stock(d['stockStatus']) == 'inStock';
     final isNew = d['isNew'] as bool? ?? false;
     final price = (d['price'] as num?)?.toDouble() ?? 0;
     final oldPrice = (d['oldPrice'] as num?)?.toDouble();
@@ -432,9 +437,9 @@ class _ProductCard extends StatelessWidget {
                         top: 8,
                         left: 8,
                         child: StatusPill(
-                          label: 'PREORDER',
-                          color: AppColors.preorder,
-                          background: AppColors.preorderSoft,
+                          label: 'OUT OF STOCK',
+                          color: AppColors.danger,
+                          background: AppColors.dangerSoft,
                         ),
                       ),
                   ],
@@ -530,7 +535,7 @@ class _ProductForm extends StatefulWidget {
 class _ProductFormState extends State<_ProductForm> {
   final _formKey = GlobalKey<FormState>();
   late final _name = TextEditingController(text: _d?['name'] as String? ?? '');
-  late final _brand = TextEditingController(text: _d?['brand'] as String? ?? 'Dellinoo Select');
+  late final _brand = TextEditingController(text: _d?['brand'] as String? ?? 'Dellinoo');
   late final _price = TextEditingController(text: (_d?['price'] as num?)?.toString() ?? '');
   late final _oldPrice = TextEditingController(text: (_d?['oldPrice'] as num?)?.toString() ?? '');
   late final _description = TextEditingController(text: _d?['description'] as String? ?? '');
@@ -542,7 +547,7 @@ class _ProductFormState extends State<_ProductForm> {
     })(),
   );
   late String _categoryId = _d?['categoryId'] as String? ?? _categoryIds.first;
-  late String _stockStatus = _d?['stockStatus'] as String? ?? _stockStatuses.first;
+  late String _stockStatus = _d == null ? _stockStatuses.first : _stock(_d!['stockStatus']);
   late bool _isNew = _d?['isNew'] as bool? ?? false;
   late DateTime? _saleEndsAt = (_d?['saleEndsAt'] as Timestamp?)?.toDate();
   bool _saving = false;
@@ -871,7 +876,7 @@ class _ProductFormState extends State<_ProductForm> {
                   decoration: const InputDecoration(labelText: 'Stock status'),
                   items: [
                     for (final s in _stockStatuses)
-                      DropdownMenuItem(value: s, child: Text(s == 'inStock' ? 'In stock' : 'From China (preorder)')),
+                      DropdownMenuItem(value: s, child: Text(s == 'inStock' ? 'In stock' : 'Out of stock')),
                   ],
                   onChanged: (v) => setState(() => _stockStatus = v!),
                 ),

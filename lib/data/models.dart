@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import '../core/iconly.dart';
 
+/// Worst-case days for the China leg of an order (buy → fly → Harare).
+/// Only used for the progress card on an order that is actually being
+/// imported — products themselves are either in stock or not (Oct 2026).
+const kChinaEtaDays = 21;
+
 enum StockStatus {
   inStock('In stock', 'Delivered in 1–3 days', 3),
-  preorder('Arrives in 2–3 weeks', 'Ships from China', 21);
+  outOfStock('Out of stock', 'Not available right now', 0);
 
   const StockStatus(this.label, this.detail, this.etaDays);
   final String label;
@@ -13,6 +18,14 @@ enum StockStatus {
   final int etaDays;
 
   DateTime arrivalFrom(DateTime orderedAt) => orderedAt.add(Duration(days: etaDays));
+
+  /// Reads the Firestore value. Products saved before out-of-stock replaced
+  /// the China pre-order option (Oct 2026) still say `preorder`; an unknown
+  /// value is treated as in stock so a typo can't hide a sellable product.
+  static StockStatus parse(String? name) => switch (name) {
+    'preorder' || 'outOfStock' => StockStatus.outOfStock,
+    _ => StockStatus.inStock,
+  };
 }
 
 class Category {
@@ -431,7 +444,10 @@ class Order {
   double get total => subtotal - discount + area.fee;
   int get itemCount => items.fold(0, (sum, i) => sum + i.quantity);
 
-  bool get hasChinaItems => items.any((i) => i.product.stockStatus == StockStatus.preorder);
+  /// Whether this order is being imported. Products no longer carry a
+  /// "from China" flag (Oct 2026), so this follows what the admin actually
+  /// did to the order — and legacy orders that went through China keep it.
+  bool get hasChinaItems => history.any((e) => e.status.chinaLeg);
 
   /// The steps this order goes through (China legs only if needed).
   List<OrderStatus> get journey => [

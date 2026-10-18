@@ -35,10 +35,9 @@ class DeliveryInfoScreen extends ConsumerWidget {
           const SizedBox(height: 18),
 
           const _SectionTitle(IconlyLight.time_circle, 'How soon will I get it?'),
-          // Both promises come straight from StockStatus.etaDays, so the dates
-          // here can never drift from the ones on a product card.
-          _StockCard(StockStatus.inStock),
-          _StockCard(StockStatus.preorder),
+          // The promise comes straight from StockStatus.etaDays, so the date
+          // here can never drift from the one on a product card.
+          const _StockCard(),
           const SizedBox(height: 10),
 
           const _SectionTitle(Icons.local_shipping_outlined, 'Areas and fees'),
@@ -131,17 +130,15 @@ class _SectionTitle extends StatelessWidget {
   );
 }
 
-/// "In stock" / "From China" explained, with today's concrete arrival date.
+/// "In stock" explained, with today's concrete arrival date. Products we've
+/// run out of just say "Out of stock" — no date is promised for those.
 class _StockCard extends StatelessWidget {
-  const _StockCard(this.status);
-
-  final StockStatus status;
+  const _StockCard();
 
   @override
   Widget build(BuildContext context) {
-    final inStock = status == StockStatus.inStock;
-    final tint = inStock ? AppColors.inStockSoft : AppColors.preorderSoft;
-    final ink = inStock ? AppColors.inStock : AppColors.preorder;
+    final tint = AppColors.inStockSoft;
+    final ink = AppColors.inStock;
     return SurfaceCard(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -151,7 +148,7 @@ class _StockCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(14)),
-            child: Icon(inStock ? IconlyBold.tick_square : IconlyBold.time_circle, color: ink, size: 22),
+            child: Icon(IconlyBold.tick_square, color: ink, size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -159,14 +156,13 @@ class _StockCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  inStock ? 'In stock' : 'From China',
+                  'In stock',
                   style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: AppColors.ink),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  inStock
-                      ? 'Already here in Zimbabwe. Delivered in about 1–3 days.'
-                      : 'We buy it for you in China and fly it in — about 2–3 weeks.',
+                  'Everything we list is already here in Zimbabwe, delivered in about 1–3 days. '
+                  "Anything we have run out of is marked Out of stock — message us and we'll bring it in for you.",
                   style: TextStyle(color: AppColors.muted, fontSize: 13.5, height: 1.45),
                 ),
                 const SizedBox(height: 8),
@@ -174,7 +170,7 @@ class _StockCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(30)),
                   child: Text(
-                    'Order today: ${arrivalShort(status)}',
+                    'Order today: ${arrivalShort(StockStatus.inStock)}',
                     style: TextStyle(color: ink, fontSize: 12.5, fontWeight: FontWeight.w700),
                   ),
                 ),

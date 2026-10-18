@@ -18,10 +18,10 @@ Flutter e-commerce app for a client who **buys goods in China and sells them to 
 
 ## Business rules
 
-- Every product is either **In stock** (already in Zimbabwe, 1–3 days) or **From China** (pre-order, ~2–3 weeks). The UI always shows a concrete date ("Get it by 28 Sep" / "Arrives 16 Oct"), from `StockStatus.etaDays` (3 / 21) via `arrivalShort` / `arrivalLong` in `lib/core/format.dart`.
+- Every product is either **In stock** (already in Zimbabwe, 1–3 days) or **Out of stock** (sold out — browsable and wishlistable, but Add to Cart/Buy Now are disabled and the cart blocks checkout until it's removed). In-stock cards show a concrete date ("Get it by 28 Sep") from `StockStatus.etaDays` (3) via `arrivalShort`/`arrivalLong` in `lib/core/format.dart`; out-of-stock ones promise no date. **The From China pre-order option was dropped in Oct 2026** at the client's request — products saved before then still hold `stockStatus: 'preorder'` in Firestore and are read as out of stock (`StockStatus.parse`, `_stock()` in `admin/lib/products_screen.dart`), correcting themselves on the next admin save.
 - Prices in **USD**. Payments via local gateways (**Paynow**: EcoCash, OneMoney, InnBucks, Visa/Mastercard/ZimSwitch).
 - **Delivery areas and fees are managed by the admin** (mock list in `mock_data.dart`), including a free pickup point.
-- Orders with China items go through extra steps: **Bought in China → Flying to Zimbabwe → Arrived in Harare** (`OrderStatus.chinaLeg`, `Order.journey`).
+- The client still imports: an order being sourced from China goes through extra steps — **Bought in China → Flying to Zimbabwe → Arrived in Harare** (`OrderStatus.chinaLeg`, `Order.journey`). Since products no longer carry a "from China" flag, those steps appear once the admin actually sets one (`Order.hasChinaItems` reads the order's history, not its items).
 - The admin adds products and updates order status.
 
 ## Commands
@@ -107,7 +107,7 @@ Rebranded (Sep 2026) from the original yellow/black reference mockups to the cli
 ## Placeholders — confirm with the client before release
 
 - **Warranty / returns claims** on product pages (`_TrustBadges`: "6-month warranty", "7-day easy returns").
-- **Size charts** (`lib/features/product/size_guide.dart`), **delivery fees/areas/times**, `etaDays` (3 / 21).
+- **Size charts** (`lib/features/product/size_guide.dart`), **delivery fees/areas/times**, `etaDays` (3) and `kChinaEtaDays` (21, used only by the order's China progress card).
 - Demo catalogue has no real kids' clothing or video games (Kids = girls' dresses, Games = sports balls).
 - **Invoice seller details** (`admin/lib/invoice_pdf.dart`: `_sellerName`, `_sellerLines`) — currently "Dellinoo · Harare, Zimbabwe · WhatsApp +86 131 6295 2997". A real invoice usually needs the registered trading name, a physical address and a tax/BP number; confirm what the client is registered as before issuing invoices to businesses.
 - **Privacy Policy / Data Deletion pages** (`hosting/privacy.html`, `hosting/data-deletion.html`, deployed to Firebase Hosting for Facebook/Google App Review — see live URLs below): drafted by Claude, not reviewed by the client or a lawyer. Update once "delete my account" is a real feature.

@@ -97,7 +97,7 @@ class FirestoreCatalogRepository implements CatalogRepository {
       categoryId: data['categoryId'] as String,
       price: (data['price'] as num).toDouble(),
       oldPrice: (data['oldPrice'] as num?)?.toDouble(),
-      stockStatus: StockStatus.values.byName(data['stockStatus'] as String),
+      stockStatus: StockStatus.parse(data['stockStatus'] as String?),
       thumbnail: data['thumbnail'] as String,
       images: List<String>.from(data['images'] as List? ?? const []),
       description: data['description'] as String? ?? '',

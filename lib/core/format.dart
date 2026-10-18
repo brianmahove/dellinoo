@@ -18,16 +18,14 @@ String dayMonth(DateTime d) => '${d.day} ${_months[d.month - 1]}';
 
 String weekdayDayMonth(DateTime d) => '${_weekdays[d.weekday - 1]}, ${dayMonth(d)}';
 
-/// Short arrival promise for cards: "Get it by 28 Sep" / "Arrives 16 Oct".
+/// Short arrival promise for cards: "Get it by 28 Sep", or "Out of stock".
 String arrivalShort(StockStatus s, [DateTime? orderedAt]) {
-  final d = s.arrivalFrom(orderedAt ?? DateTime.now());
-  return s == StockStatus.inStock ? 'Get it by ${dayMonth(d)}' : 'Arrives ${dayMonth(d)}';
+  if (s != StockStatus.inStock) return s.label;
+  return 'Get it by ${dayMonth(s.arrivalFrom(orderedAt ?? DateTime.now()))}';
 }
 
 /// Full arrival promise: "In stock · Get it by Mon, 28 Sep".
 String arrivalLong(StockStatus s, [DateTime? orderedAt]) {
-  final d = s.arrivalFrom(orderedAt ?? DateTime.now());
-  return s == StockStatus.inStock
-      ? 'In stock · Get it by ${weekdayDayMonth(d)}'
-      : 'From China · Arrives by ${weekdayDayMonth(d)}';
+  if (s != StockStatus.inStock) return s.label;
+  return 'In stock · Get it by ${weekdayDayMonth(s.arrivalFrom(orderedAt ?? DateTime.now()))}';
 }

@@ -406,7 +406,7 @@ class _ChinaJourney extends StatelessWidget {
       OrderStatus.delivered => ('Landed in Harare', 'Your China items are in Zimbabwe'),
       _ => ('Ordering from our supplier', 'We buy your items in China after payment'),
     };
-    final eta = StockStatus.preorder.arrivalFrom(order.createdAt);
+    final eta = order.createdAt.add(const Duration(days: kChinaEtaDays));
 
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),

@@ -83,7 +83,11 @@ class DashboardScreen extends StatelessWidget {
                   }
                   final orders = orderSnap.data!.docs.map((d) => _O(d.data())).toList();
                   final products = productSnap.data!.docs;
-                  return _DashboardBody(orders: orders, productCount: products.length);
+                  return _DashboardBody(
+                    orders: orders,
+                    productCount: products.length,
+                    outOfStock: products.where((d) => d.data()['stockStatus'] != 'inStock').length,
+                  );
                 },
               );
             },
@@ -95,10 +99,11 @@ class DashboardScreen extends StatelessWidget {
 }
 
 class _DashboardBody extends StatelessWidget {
-  const _DashboardBody({required this.orders, required this.productCount});
+  const _DashboardBody({required this.orders, required this.productCount, required this.outOfStock});
 
   final List<_O> orders;
   final int productCount;
+  final int outOfStock;
 
   @override
   Widget build(BuildContext context) {
@@ -144,8 +149,6 @@ class _DashboardBody extends StatelessWidget {
 
     // Best sellers + China vs in-stock split, from paid orders only.
     final sold = <String, ({int qty, double revenue})>{};
-    var chinaRevenue = 0.0;
-    var stockRevenue = 0.0;
     for (final o in paid) {
       for (final i in o.items) {
         final qty = _O._num(i['quantity']).toInt();
@@ -153,11 +156,6 @@ class _DashboardBody extends StatelessWidget {
         final name = i['name'] as String? ?? 'Unknown';
         final prev = sold[name];
         sold[name] = (qty: (prev?.qty ?? 0) + qty, revenue: (prev?.revenue ?? 0) + line);
-        if (i['stockStatus'] == 'preorder') {
-          chinaRevenue += line;
-        } else {
-          stockRevenue += line;
-        }
       }
     }
     final top = sold.entries.toList()..sort((a, b) => b.value.qty.compareTo(a.value.qty));
@@ -226,6 +224,13 @@ class _DashboardBody extends StatelessWidget {
                 hint: '$repeat of ${perCustomer.length} buyers',
                 accent: AppColors.inStock,
               ),
+              _StatTile(
+                icon: IconlyLight.danger,
+                label: 'Out of stock',
+                value: '$outOfStock',
+                hint: '$productCount products in catalogue',
+                accent: outOfStock == 0 ? AppColors.inStock : AppColors.danger,
+              ),
             ],
           ),
           SizedBox(height: compact ? 14 : 20),
@@ -284,16 +289,6 @@ class _DashboardBody extends StatelessWidget {
                             ),
                         ],
                       ),
-              ),
-              _Card(
-                title: 'Sales split',
-                child: _SplitBar(
-                  aLabel: 'In stock (Zimbabwe)',
-                  a: stockRevenue,
-                  bLabel: 'From China (pre-order)',
-                  b: chinaRevenue,
-                  footer: '$productCount products in catalogue',
-                ),
               ),
             ],
           ),
@@ -469,72 +464,6 @@ class _BarRow extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SplitBar extends StatelessWidget {
-  const _SplitBar({required this.aLabel, required this.a, required this.bLabel, required this.b, required this.footer});
-
-  final String aLabel;
-  final double a;
-  final String bLabel;
-  final double b;
-  final String footer;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = a + b;
-    if (total == 0) return const _Empty('No paid orders yet');
-    Widget legend(Color c, String label, double v) => Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(color: c, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-          ),
-          Text(
-            '${_money.format(v)} · ${(v / total * 100).toStringAsFixed(0)}%',
-            style: TextStyle(color: AppColors.muted, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: SizedBox(
-            height: 14,
-            child: Row(
-              children: [
-                if (a > 0)
-                  Expanded(
-                    flex: (a * 1000).round(),
-                    child: const ColoredBox(color: AppColors.inStock),
-                  ),
-                if (b > 0)
-                  Expanded(
-                    flex: (b * 1000).round(),
-                    child: const ColoredBox(color: AppColors.accentOrange),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        legend(AppColors.inStock, aLabel, a),
-        legend(AppColors.accentOrange, bLabel, b),
-        const SizedBox(height: 14),
-        Text(footer, style: TextStyle(color: AppColors.muted, fontSize: 12)),
-      ],
     );
   }
 }
