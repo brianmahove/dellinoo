@@ -260,7 +260,7 @@ class _DeliverySlide extends StatelessWidget {
           Positioned(
             top: 60,
             left: 10,
-            child: option(IconlyBold.tick_square, AppColors.inStock, 'In stock', 'Delivered in 1–3 days'),
+            child: option(IconlyBold.tick_square, AppColors.inStock, 'In stock', 'Here in Zimbabwe'),
           ),
           Positioned(
             bottom: 60,
@@ -270,7 +270,7 @@ class _DeliverySlide extends StatelessWidget {
         ],
       ),
       title: 'Already in Zimbabwe',
-      body: "What you see is in stock and on its way to you in days. Can't find it? Ask and we'll source it.",
+      body: "What you see is in stock and ready to send. Can't find it? Ask us and we'll source it for you.",
     );
   }
 }

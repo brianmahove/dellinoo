@@ -72,8 +72,8 @@ final _sections = <_FaqSection>[
   _FaqSection(IconlyLight.time_circle, 'Stock and arrival times', [
     const _Faq(
       'What does "In stock" mean?',
-      'The item is already here in Zimbabwe, so it reaches you in about 1–3 days. Every product '
-          'shows the date you should have it by.',
+      'The item is already here in Zimbabwe, so we send it out as soon as your payment lands. '
+          'We message you at every step until it reaches you.',
     ),
     _Faq(
       'What does "Out of stock" mean?',

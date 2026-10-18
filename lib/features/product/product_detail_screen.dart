@@ -343,7 +343,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       const SizedBox(height: 4),
                       Text(
                         product.stockStatus == StockStatus.inStock
-                            ? 'Already in Zimbabwe — order today, delivered in 1–3 days.'
+                            ? 'Already here in Zimbabwe — we send it out as soon as your payment lands.'
                             : "We're out of this one right now. Message us on WhatsApp and we'll let you know when it's back.",
                         style: TextStyle(color: AppColors.muted, fontSize: 13),
                       ),

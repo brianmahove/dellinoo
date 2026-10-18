@@ -60,9 +60,8 @@ class OrderSuccessScreen extends ConsumerWidget {
                         : unpaid
                         ? "We couldn't confirm your payment. Your order is saved and nothing's lost — "
                               'you can complete payment any time from below.'
-                        : 'Thanks for shopping with Dellinoo. Your order arrives by '
-                              '${weekdayDayMonth(StockStatus.inStock.arrivalFrom(order.createdAt))}. '
-                              'We will notify you when it is out for delivery.',
+                        : 'Thanks for shopping with Dellinoo. We are preparing your order and will notify '
+                              'you at every step, right up to delivery.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(height: 1.5),
                   ),

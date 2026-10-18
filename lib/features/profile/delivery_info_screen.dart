@@ -29,14 +29,14 @@ class DeliveryInfoScreen extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
         children: [
           Text(
-            'How your order gets to you, what it costs, and how long it takes.',
+            'How your order gets to you and what it costs.',
             style: TextStyle(color: AppColors.muted, fontSize: 14.5, height: 1.45),
           ),
           const SizedBox(height: 18),
 
-          const _SectionTitle(IconlyLight.time_circle, 'How soon will I get it?'),
-          // The promise comes straight from StockStatus.etaDays, so the date
-          // here can never drift from the one on a product card.
+          const _SectionTitle(IconlyLight.time_circle, 'What you can order'),
+          // Deliberately no delivery estimate here or anywhere else in the
+          // app (dropped Oct 2026) — the client sets expectations per order.
           const _StockCard(),
           const SizedBox(height: 10),
 
@@ -130,8 +130,7 @@ class _SectionTitle extends StatelessWidget {
   );
 }
 
-/// "In stock" explained, with today's concrete arrival date. Products we've
-/// run out of just say "Out of stock" — no date is promised for those.
+/// "In stock" explained. No arrival date is promised — see the note above.
 class _StockCard extends StatelessWidget {
   const _StockCard();
 
@@ -161,18 +160,10 @@ class _StockCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Everything we list is already here in Zimbabwe, delivered in about 1–3 days. '
-                  "Anything we have run out of is marked Out of stock — message us and we'll bring it in for you.",
+                  'Everything we list is already here in Zimbabwe, so it goes out as soon as your payment '
+                  "lands. Anything we have run out of is marked Out of stock — message us and we'll bring "
+                  'it in for you.',
                   style: TextStyle(color: AppColors.muted, fontSize: 13.5, height: 1.45),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(30)),
-                  child: Text(
-                    'Order today: ${arrivalShort(StockStatus.inStock)}',
-                    style: TextStyle(color: ink, fontSize: 12.5, fontWeight: FontWeight.w700),
-                  ),
                 ),
               ],
             ),

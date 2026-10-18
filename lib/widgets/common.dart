@@ -233,13 +233,10 @@ class SearchPill extends StatelessWidget {
 }
 
 class StockBadge extends StatelessWidget {
-  const StockBadge(this.status, {super.key, this.compact = false, this.orderedAt});
+  const StockBadge(this.status, {super.key, this.compact = false});
 
   final StockStatus status;
   final bool compact;
-
-  /// Arrival is counted from this date (defaults to now).
-  final DateTime? orderedAt;
 
   @override
   Widget build(BuildContext context) {
@@ -256,7 +253,7 @@ class StockBadge extends StatelessWidget {
           const SizedBox(width: 3),
           Flexible(
             child: Text(
-              compact ? arrivalShort(status, orderedAt) : arrivalLong(status, orderedAt),
+              status.label,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: compact ? 12 : 13, color: fg, fontWeight: FontWeight.w700),
             ),
@@ -552,7 +549,7 @@ class ProductCard extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 3),
                                   Text(
-                                    arrivalShort(product.stockStatus),
+                                    product.stockStatus.label,
                                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: stockColor),
                                   ),
                                 ],

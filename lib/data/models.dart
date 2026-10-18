@@ -1,23 +1,16 @@
 import 'package:flutter/material.dart';
 import '../core/iconly.dart';
 
-/// Worst-case days for the China leg of an order (buy → fly → Harare).
-/// Only used for the progress card on an order that is actually being
-/// imported — products themselves are either in stock or not (Oct 2026).
-const kChinaEtaDays = 21;
-
+/// A product is either here or it isn't. The app deliberately promises **no**
+/// delivery date anywhere (dropped Oct 2026 at the client's request) — don't
+/// add an `etaDays`-style estimate back without asking.
 enum StockStatus {
-  inStock('In stock', 'Delivered in 1–3 days', 3),
-  outOfStock('Out of stock', 'Not available right now', 0);
+  inStock('In stock', 'Ready to send'),
+  outOfStock('Out of stock', 'Not available right now');
 
-  const StockStatus(this.label, this.detail, this.etaDays);
+  const StockStatus(this.label, this.detail);
   final String label;
   final String detail;
-
-  /// Worst-case days until the customer has it (admin-configurable later).
-  final int etaDays;
-
-  DateTime arrivalFrom(DateTime orderedAt) => orderedAt.add(Duration(days: etaDays));
 
   /// Reads the Firestore value. Products saved before out-of-stock replaced
   /// the China pre-order option (Oct 2026) still say `preorder`; an unknown

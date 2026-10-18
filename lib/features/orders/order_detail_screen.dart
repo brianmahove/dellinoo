@@ -121,7 +121,7 @@ class OrderDetailScreen extends ConsumerWidget {
                                   style: TextStyle(fontSize: 12.5, color: AppColors.muted),
                                 ),
                                 const SizedBox(height: 4),
-                                StockBadge(i.product.stockStatus, compact: true, orderedAt: order.createdAt),
+                                StockBadge(i.product.stockStatus, compact: true),
                               ],
                             ),
                           ),
@@ -406,7 +406,6 @@ class _ChinaJourney extends StatelessWidget {
       OrderStatus.delivered => ('Landed in Harare', 'Your China items are in Zimbabwe'),
       _ => ('Ordering from our supplier', 'We buy your items in China after payment'),
     };
-    final eta = order.createdAt.add(const Duration(days: kChinaEtaDays));
 
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
@@ -465,20 +464,6 @@ class _ChinaJourney extends StatelessWidget {
               Text('Harare', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
             ],
           ),
-          if (progress < 1) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.accentOrange.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'Expected in Zimbabwe by ${weekdayDayMonth(eta)}',
-                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 13),
-              ),
-            ),
-          ],
         ],
       ),
     );
