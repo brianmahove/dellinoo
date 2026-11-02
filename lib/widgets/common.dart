@@ -470,7 +470,15 @@ class ProductCard extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(12, 34, 12, 0),
                         child: ProductPhotoHero(
                           tag: heroTag,
-                          child: NetImage(product.thumbnail, fit: BoxFit.contain),
+                          // A photo with an admin-set backdrop (usually a cut-out) floats on
+                          // it uncropped; any other photo fills the box, so every card's photo
+                          // is the same size whatever its shape (edges get trimmed).
+                          child: product.photoBg(0) != null
+                              ? NetImage(product.thumbnail, fit: BoxFit.contain)
+                              : ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: NetImage(product.thumbnail, fit: BoxFit.cover),
+                                ),
                         ),
                       ),
                     ),

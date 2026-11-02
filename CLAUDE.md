@@ -126,17 +126,23 @@ Resolved: `kWhatsAppNumber` (`lib/core/contact.dart`) is now the client's real W
 Resolved: the logo is now the client's real bag-and-smile mark (`assets/images/logo_*.png`, `lib/widgets/brand.dart`), and the launcher icon / native launch screen (`assets/icon/`, `res/drawable*/launch_background.xml`, `values-v31`) were updated to match in the violet/orange rebrand. Regenerate the launcher icon with `dart run flutter_launcher_icons` if `assets/icon/` changes again.
 The launcher icon's source images (`assets/icon/icon.png`/`icon_foreground.png`/`icon_monochrome.png`) were rescaled Sep 2026 — the mark used to occupy only ~55% of the 1024×1024 canvas (a lot of dead white space around it on the home screen), now ~80%, centred on the same auto-detected bounding box for all three source images so the adaptive layers stay aligned. No image-editing tool was available in this environment (no ImageMagick/PIL/ffmpeg), so this went through a throwaway Node/Jimp script in the scratchpad, not a repo-tracked tool — if the mark changes again, redo it by eye in real design software rather than hunting for that script.
 
-## Next steps (as of 29 Sep 2026, ~80% complete)
+## Next steps (as of 2 Nov 2026)
 
-In priority order:
-1. **Deploy coupons:** `wrangler deploy` in `payments/` *first*, then `firebase deploy --only firestore:rules`. Until then the old Worker charges the undiscounted amount.
-   - The same rules deploy now also ships the invoice rules (`invoice_requests`, `invoices`, `meta/invoiceCounter`) — until it runs, requesting or issuing an invoice is denied. The admin panel needs a rebuild + `firebase deploy --only hosting:admin` too (it has new deps: `pdf`, `printing`).
-2. **Real emulator checkout** as a signed-in user, to exercise the `orders`/`meta/orderCounter` Firestore rules (only ever tested via IAM scripts, which bypass rules).
-3. **Paynow: account live, integration still in test mode** (Oct 2026) → chase Paynow to set the integration itself live, then one small real EcoCash payment that actually debits, then the same for InnBucks. Client-side asks: request Visa/Mastercard activation, and add a OneMoney account if they want OneMoney at all. Code-side: cap InnBucks at $250 (its per-transaction limit) in the checkout/retry pickers.
-4. **Client sign-off** on the Placeholders above (warranty/returns, size charts, delivery fees/areas/times, ETAs, privacy/data-deletion wording).
-5. **Photo uploads no longer need Blaze (Oct 2026):** product photos go to **Supabase Storage** (free tier) via the payments Worker — admin side done and deployed Worker-side (see "Photos" under Roadmap item 1). Still to do: deploy the admin panel (`hosting:admin`), and photos on reviews / "Request an item" in the customer app. The weekly orphan clean-up is done (see "Photos").
-6. **Play Store:** real listing, screenshots, Facebook App Review (app still in dev mode).
-7. Later: deposit-then-balance for China orders (after Live), referral redemption, visual search, Apple Sign-In/iOS.
+**Deployed 2 Nov 2026:** payments Worker (with coupons + priced options, version `d52b66e1`) and the admin panel (`hosting:admin`, with photos, priced options and the per-choice "Extra cost" editor). Release APK built and signed with the shared key (see Commands → Signing).
+
+**Finish what was started 2 Nov:**
+1. **Facebook key hash:** developers.facebook.com → dellinoo → Settings → Basic → Android → Key hashes → add `TLpAnDmSnE8qgnmOdmW+bopM8Cs=` (the shared signing key). Until then Facebook login may fail in new builds.
+2. **Reinstall on the phone:** uninstall Dellinoo once (old install is signed with a different key), then install `build/app/outputs/flutter-apk/app-release.apk`. From then on builds install over each other.
+3. **Test priced options end to end:** in the admin, give a laptop RAM/Storage choices with extra costs; on the phone, pick them and check the product price, cart total and the amount charged.
+
+**Needed to launch**, in priority order:
+1. **Firestore rules:** `firebase deploy --only firestore:rules`. Ships the coupon, invoice (`invoice_requests`, `invoices`, `meta/invoiceCounter`), manual-payment and notification rules; until it runs those are denied. Not yet checked whether the live rules already match the repo.
+2. **Real checkout on the phone** as a signed-in customer, to exercise the `orders`/`meta/orderCounter` rules (only ever tested via IAM scripts, which bypass rules).
+3. **Paynow: account live, integration still in test mode** (Oct 2026) → chase Paynow to set the integration itself live, then one small real EcoCash payment that actually debits, then the same for InnBucks; then flip `PaymentMethod.paynowLive` to true. Client-side asks: request Visa/Mastercard activation, and add a OneMoney account if they want OneMoney at all. Code-side: cap InnBucks at $250 (its per-transaction limit) in the checkout/retry pickers.
+4. **Client sign-off** on the Placeholders above (warranty/returns, size charts, delivery fees/areas, invoice seller details, privacy/data-deletion/terms wording).
+5. **Photos on reviews / "Request an item"** in the customer app (product photos are done — Supabase via the Worker, see "Photos" under Roadmap item 1).
+6. **Play Store:** real listing, screenshots, Facebook App Review (app still in dev mode). Signing key is done and backed up.
+7. Later: deposit-then-balance for China orders (after Live), referral redemption, visual search, Apple Sign-In/iOS, photo per colour option.
 
 ## Roadmap
 
