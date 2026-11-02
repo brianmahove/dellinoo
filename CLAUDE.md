@@ -38,6 +38,7 @@ flutter run              # Android emulator/device
 - **Don't build/preview the web version** — the user tests on an Android emulator.
 - Route or Android-manifest changes need a **full restart / `flutter run`**, not hot reload.
 - **Signing (Nov 2026):** every build, debug and release, signs with one shared key, `android/dellinoo-upload.jks` + `android/key.properties` (both gitignored; `android/app/build.gradle.kts`). **A new PC needs both files copied in** before building, or it falls back to that PC's own debug key and the phone refuses the update ("package conflicts with an existing package"). The key is also the Play Store upload key, so losing it means a Play key reset. Its SHA-1 `4C:BA:40:9C:39:92:9C:4F:2A:82:79:8E:76:65:BE:6E:8A:4C:F0:2B` and SHA-256 are registered in Firebase (Google sign-in), and its Facebook key hash is `TLpAnDmSnE8qgnmOdmW+bopM8Cs=`. The older per-PC debug SHA-1s stay registered too.
+  - **Where the key is backed up:** Google Drive → **My Drive → Dellinoo** folder (the same Google account as the admin allowlist), holding both `dellinoo-upload.jks` and `key.properties` (uploaded 2 Nov 2026). On a new PC, download both into the repo's `android/` folder; `key.properties` already points at `../dellinoo-upload.jks`, so nothing needs editing. Never commit them or share the folder.
 
 ## Architecture
 
