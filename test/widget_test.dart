@@ -120,6 +120,34 @@ void main() {
     expect(StockStatus.parse(null), StockStatus.inStock);
   });
 
+  test('priced options add to the unit price, unpriced ones and unknown picks add nothing', () {
+    const laptop = Product(
+      id: 'lp',
+      name: 'Laptop',
+      brand: 'X',
+      categoryId: 'laptops',
+      price: 500,
+      stockStatus: StockStatus.inStock,
+      thumbnail: '',
+      images: [],
+      description: '',
+      variantGroups: [
+        VariantGroup('Colour', ['Silver', 'Black']),
+        VariantGroup('RAM', ['8GB', '16GB'], priceAdds: [0, 60]),
+        VariantGroup('Storage', ['256GB', '512GB', '1TB'], priceAdds: [0, 40]),
+      ],
+    );
+    final item = CartItem(
+      product: laptop,
+      options: const {'Colour': 'Black', 'RAM': '16GB', 'Storage': '512GB'},
+      quantity: 2,
+    );
+    expect(item.unitPrice, 600);
+    expect(item.total, 1200);
+    expect(laptop.priceFor(const {'RAM': '8GB', 'Storage': '1TB'}), 500);
+    expect(laptop.priceFor(const {'RAM': '32GB'}), 500);
+  });
+
   test('manual payment: only configured channels are offered, and a reference awaits checking', () {
     final details = PaymentDetails.fromMap(const {'ecocashNumber': ' 0771234567 ', 'bankName': 'NMB'});
     // Bank has a name but no account number, so it isn't offered.

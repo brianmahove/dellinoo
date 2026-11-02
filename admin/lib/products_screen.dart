@@ -526,13 +526,31 @@ class _ProductFormState extends State<_ProductForm> {
   late final _sizes = TextEditingController(text: _groupOptions('Size'));
   late final _colours = TextEditingController(text: _groupOptions('Colour'));
 
-  // Any other option groups (RAM, Storage, …), each a name + choices field.
+  // Any other option groups (RAM, Storage, …): a name, then one row per
+  // choice with its own extra-cost box.
   late final List<_OptionGroupFields> _extraGroups = [
     for (final g in (_d?['variantGroups'] as List? ?? const []))
-      if (!_fixedGroups.contains((g as Map)['name']))
-        _OptionGroupFields(g['name'] as String, _groupText(Map<String, dynamic>.from(g))),
+      if (!_fixedGroups.contains((g as Map)['name'])) _OptionGroupFields.saved(Map<String, dynamic>.from(g)),
   ];
   static const _fixedGroups = {'Colour', 'Size'};
+
+  // Quick-add option names per category id, so a wig suggests Length and a
+  // laptop suggests RAM. Only shortcuts: "Other option" takes any name, and a
+  // category not listed here (added later by the admin) gets the fallback.
+  static const _suggestedGroups = {
+    'women': ['Length', 'Material'],
+    'men': ['Fit', 'Material'],
+    'kids': ['Age', 'Material'],
+    'shoes': ['Width', 'Material'],
+    'handbags': ['Material', 'Style'],
+    'wigs': ['Length', 'Density', 'Lace', 'Texture'],
+    'phones': ['RAM', 'Storage', 'Network'],
+    'watches': ['Strap', 'Case size'],
+    'laptops': ['Processor', 'RAM', 'Storage'],
+    'games': ['Platform', 'Edition'],
+    'electronics': ['Model', 'Capacity', 'Plug'],
+    'kitchenware': ['Capacity', 'Material', 'Set'],
+  };
 
   /// "Black, Navy ,, Pink" -> ['Black', 'Navy', 'Pink'].
   List<String> _options(String raw) => parseOptions(raw).options;
@@ -556,14 +574,11 @@ class _ProductFormState extends State<_ProductForm> {
   }
 
   /// One `variantGroups` entry; `priceAdds` only when a choice is priced.
-  Map<String, dynamic>? _group(String name, String raw) {
-    final parsed = parseOptions(raw);
+  Map<String, dynamic>? _group(String name, String raw) => _groupOf(name, parseOptions(raw));
+
+  Map<String, dynamic>? _groupOf(String name, ({List<String> options, List<double> adds}) parsed) {
     if (name.isEmpty || parsed.options.isEmpty) return null;
-    return {
-      'name': name,
-      'options': parsed.options,
-      if (parsed.adds.any((a) => a != 0)) 'priceAdds': parsed.adds,
-    };
+    return {'name': name, 'options': parsed.options, if (parsed.adds.any((a) => a != 0)) 'priceAdds': parsed.adds};
   }
 
   String? _validateOptions(String? v) {
@@ -576,7 +591,7 @@ class _ProductFormState extends State<_ProductForm> {
 
   String? _validateGroupName(_OptionGroupFields g, String? v) {
     final name = v?.trim() ?? '';
-    if (name.isEmpty) return g.options.text.trim().isEmpty ? null : 'Name it';
+    if (name.isEmpty) return g.parsed.options.isEmpty ? null : 'Name it';
     if (_fixedGroups.contains(name)) return 'Use the $name field above';
     if (_extraGroups.where((o) => o.name.text.trim() == name).length > 1) return 'Already used';
     return null;
@@ -830,7 +845,7 @@ class _ProductFormState extends State<_ProductForm> {
       'variantGroups': [
         ?_group('Colour', _colours.text),
         ?_group('Size', _sizes.text),
-        for (final g in _extraGroups) ?_group(g.name.text.trim(), g.options.text),
+        for (final g in _extraGroups) ?_groupOf(g.name.text.trim(), g.parsed),
       ],
       'rating': (_d?['rating'] as num?) ?? 0,
       'soldCount': (_d?['soldCount'] as num?) ?? 0,
@@ -913,6 +928,8 @@ class _ProductFormState extends State<_ProductForm> {
                         decoration: const InputDecoration(labelText: 'Price (USD)'),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         validator: (v) => double.tryParse(v?.trim() ?? '') == null ? 'Required number' : null,
+                        // Re-totals each choice's price under the option fields.
+                        onChanged: (_) => setState(() {}),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -966,8 +983,8 @@ class _ProductFormState extends State<_ProductForm> {
                   maxLines: 3,
                 ),
                 Text(
-                  'Choices are comma-separated. Put "+40" after one that costs \$40 more (or "-10" for '
-                  'less), e.g. "128GB, 256GB +40, 512GB +120".',
+                  'Sizes and colours are comma-separated. For options that change the price, like RAM or '
+                  'Storage, use the buttons below: each choice gets its own extra cost.',
                   style: TextStyle(color: AppColors.muted, fontSize: 12.5),
                 ),
                 TextFormField(
@@ -989,53 +1006,30 @@ class _ProductFormState extends State<_ProductForm> {
                 ),
                 _ColourPreview(names: _options(_colours.text)),
                 _OptionPricePreview(raw: _colours.text, base: double.tryParse(_price.text.trim())),
-                for (final g in _extraGroups) ...[
-                  Row(
+                for (final g in _extraGroups)
+                  _OptionGroupEditor(
                     key: ObjectKey(g),
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 130,
-                        child: TextFormField(
-                          controller: g.name,
-                          decoration: const InputDecoration(labelText: 'Option', hintText: 'e.g. RAM'),
-                          validator: (v) => _validateGroupName(g, v),
-                          onChanged: (_) => setState(() {}),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: g.options,
-                          decoration: const InputDecoration(labelText: 'Choices', hintText: 'e.g. 8GB, 16GB +60'),
-                          validator: _validateOptions,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Remove',
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => setState(() => _extraGroups.remove(g)),
-                      ),
-                    ],
+                    group: g,
+                    base: double.tryParse(_price.text.trim()),
+                    nameValidator: (v) => _validateGroupName(g, v),
+                    onChanged: () => setState(() {}),
+                    onRemove: () => setState(() => _extraGroups.remove(g)),
                   ),
-                  _OptionPricePreview(raw: g.options.text, base: double.tryParse(_price.text.trim())),
-                ],
                 Wrap(
                   spacing: 8,
                   runSpacing: 6,
                   children: [
-                    for (final name in ['RAM', 'Storage', 'Model'])
+                    for (final name in _suggestedGroups[_categoryId] ?? const ['Model', 'Material'])
                       if (!_extraGroups.any((g) => g.name.text.trim() == name))
                         ActionChip(
                           avatar: const Icon(Icons.add_rounded, size: 18),
                           label: Text(name),
-                          onPressed: () => setState(() => _extraGroups.add(_OptionGroupFields(name, ''))),
+                          onPressed: () => setState(() => _extraGroups.add(_OptionGroupFields(name))),
                         ),
                     ActionChip(
                       avatar: const Icon(Icons.add_rounded, size: 18),
                       label: const Text('Other option'),
-                      onPressed: () => setState(() => _extraGroups.add(_OptionGroupFields('', ''))),
+                      onPressed: () => setState(() => _extraGroups.add(_OptionGroupFields(''))),
                     ),
                   ],
                 ),
@@ -1759,18 +1753,173 @@ class _ColourPreview extends StatelessWidget {
   }
 }
 
-/// The name + choices fields of one extra option group (RAM, Storage, …).
+/// The fields of one extra option group (RAM, Storage, …): its name, and a
+/// name + extra-cost pair per choice. A new group starts with two empty rows.
 class _OptionGroupFields {
-  _OptionGroupFields(String name, String options)
-    : name = TextEditingController(text: name),
-      options = TextEditingController(text: options);
+  _OptionGroupFields(String name) : name = TextEditingController(text: name) {
+    addChoice();
+    addChoice();
+  }
+
+  _OptionGroupFields.saved(Map<String, dynamic> g) : name = TextEditingController(text: g['name'] as String? ?? '') {
+    final options = List<String>.from(g['options'] as List? ?? const []);
+    final adds = [for (final a in (g['priceAdds'] as List? ?? const [])) (a as num).toDouble()];
+    for (var i = 0; i < options.length; i++) {
+      addChoice(options[i], i < adds.length ? adds[i] : 0);
+    }
+    if (choices.isEmpty) addChoice();
+  }
 
   final TextEditingController name;
-  final TextEditingController options;
+  final choices = <({TextEditingController name, TextEditingController cost})>[];
+
+  void addChoice([String name = '', double add = 0]) => choices.add((
+    name: TextEditingController(text: name),
+    // Blank means no extra cost; 40 -> "40", -5.5 -> "-5.50".
+    cost: TextEditingController(text: add == 0 ? '' : formatPriceAdd(add).replaceFirst('+', '')),
+  ));
+
+  /// The filled-in rows, as saved. A blank or unreadable cost counts as 0 (the
+  /// form's validator stops an unreadable one from being saved).
+  ({List<String> options, List<double> adds}) get parsed {
+    final rows = choices.where((c) => c.name.text.trim().isNotEmpty);
+    return (
+      options: [for (final c in rows) c.name.text.trim()],
+      adds: [for (final c in rows) parseCost(c.cost.text) ?? 0],
+    );
+  }
 
   void dispose() {
     name.dispose();
-    options.dispose();
+    for (final c in choices) {
+      c.name.dispose();
+      c.cost.dispose();
+    }
+  }
+}
+
+/// "40", "+40", "\$40", "-10" -> the number; blank -> 0; anything else -> null.
+double? parseCost(String raw) {
+  final text = raw.replaceAll(RegExp(r'[\s$+]'), '');
+  return text.isEmpty ? 0 : double.tryParse(text);
+}
+
+/// One extra option group as a card: its name, then each choice on its own
+/// row with an extra-cost box and the price that choice comes to.
+class _OptionGroupEditor extends StatelessWidget {
+  const _OptionGroupEditor({
+    super.key,
+    required this.group,
+    required this.base,
+    required this.nameValidator,
+    required this.onChanged,
+    required this.onRemove,
+  });
+
+  final _OptionGroupFields group;
+  final double? base;
+  final FormFieldValidator<String> nameValidator;
+  final VoidCallback onChanged;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final names = [for (final c in group.choices) c.name.text.trim()];
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.line),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: group.name,
+                  decoration: const InputDecoration(labelText: 'Option name', hintText: 'e.g. RAM'),
+                  validator: nameValidator,
+                  onChanged: (_) => onChanged(),
+                ),
+              ),
+              IconButton(tooltip: 'Remove this option', icon: const Icon(Icons.close_rounded), onPressed: onRemove),
+            ],
+          ),
+          for (final c in group.choices)
+            Padding(
+              key: ObjectKey(c),
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: TextFormField(
+                      controller: c.name,
+                      decoration: const InputDecoration(labelText: 'Choice', hintText: 'e.g. 16GB'),
+                      validator: (v) {
+                        final name = v?.trim() ?? '';
+                        return name.isNotEmpty && names.where((n) => n == name).length > 1 ? 'Repeated' : null;
+                      },
+                      onChanged: (_) => onChanged(),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      controller: c.cost,
+                      decoration: const InputDecoration(labelText: 'Extra cost', prefixText: '+\$ ', hintText: '0'),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                      validator: (v) {
+                        final add = parseCost(v ?? '');
+                        if (add == null) return 'A number';
+                        if (base != null && base! + add < 0) return 'Too low';
+                        return null;
+                      },
+                      onChanged: (_) => onChanged(),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 84,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 18, left: 8),
+                      child: Text(
+                        base == null || c.name.text.trim().isEmpty
+                            ? ''
+                            : '= \$${(base! + (parseCost(c.cost.text) ?? 0)).toStringAsFixed(2)}',
+                        style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Remove this choice',
+                    icon: const Icon(Icons.remove_circle_outline_rounded, size: 20),
+                    onPressed: group.choices.length == 1
+                        ? null
+                        : () {
+                            group.choices.remove(c);
+                            onChanged();
+                          },
+                  ),
+                ],
+              ),
+            ),
+          TextButton.icon(
+            onPressed: () {
+              group.addChoice();
+              onChanged();
+            },
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Add choice'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

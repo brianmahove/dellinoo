@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "239128341649-lkjq7lcr7ipqltnsk3l5nrqr3dl1ml7u.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.dellinoo.app",
+            "certificate_hash": "4cba409c39929c4f2a82798e7665be6e8a4cf02b"
+          }
+        },
+        {
           "client_id": "239128341649-t9pdtg8r092ic527q38h9mfn2k6ijqmi.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

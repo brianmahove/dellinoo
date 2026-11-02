@@ -37,6 +37,7 @@ flutter run              # Android emulator/device
 - Format with `dart format -l 120 lib test`.
 - **Don't build/preview the web version** — the user tests on an Android emulator.
 - Route or Android-manifest changes need a **full restart / `flutter run`**, not hot reload.
+- **Signing (Nov 2026):** every build, debug and release, signs with one shared key, `android/dellinoo-upload.jks` + `android/key.properties` (both gitignored; `android/app/build.gradle.kts`). **A new PC needs both files copied in** before building, or it falls back to that PC's own debug key and the phone refuses the update ("package conflicts with an existing package"). The key is also the Play Store upload key, so losing it means a Play key reset. Its SHA-1 `4C:BA:40:9C:39:92:9C:4F:2A:82:79:8E:76:65:BE:6E:8A:4C:F0:2B` and SHA-256 are registered in Firebase (Google sign-in), and its Facebook key hash is `TLpAnDmSnE8qgnmOdmW+bopM8Cs=`. The older per-PC debug SHA-1s stay registered too.
 
 ## Architecture
 
@@ -88,6 +89,7 @@ Rebranded (Sep 2026) from the original yellow/black reference mockups to the cli
 ### Product variants
 
 - A product's `variantGroups` are admin-typed, comma-separated lists on the product form: **Sizes** and **Colours** (Oct 2026). The group named exactly `Colour` is the one the product page draws as swatches; every other group shows as plain chips, so the names matter when writing one from elsewhere.
+- **Priced options (Nov 2026):** besides Sizes/Colours the admin form can add any number of extra groups (quick-add names depend on the category — `_suggestedGroups` in `admin/lib/products_screen.dart`, e.g. wigs → Length/Density/Lace/Texture, laptops → Processor/RAM/Storage; unlisted categories get Model/Material — plus "Other option" for any name), and any choice can carry a price. Extra groups are a card per option (`_OptionGroupEditor`): one row per choice with its own "Extra cost" box and the resulting price. Sizes/Colours stay comma-separated text, where a price can still be typed as `Gold +20` (a space before the sign, so `10-12` stays a plain size). Saved as `priceAdds`, a list parallel to `options`, written only when something is priced. `price` stays the base ("From") price that cards, sorting and price-drop alerts use. The product page shows `+$40.00` on chips and moves the price as choices are picked. `CartItem.unitPrice` = `Product.priceFor(options)`, the order item's `price` stores that unit price, and the Worker's `computeAmount` adds the same add-ons (`optionsPriceAdd` in `payments/src/firestore.ts`). It refuses an order whose pick in a priced group no longer exists rather than charging the base price. **Deploy the Worker before pricing any option**, or the old Worker charges the base price.
 - Colour names map to dots through `colourSwatches` — `lib/data/colour_swatches.dart` and `admin/lib/colour_swatches.dart`, two hand-synced copies, same deal as `categoryIcons`. An unknown name still works (neutral grey dot); the admin form previews each typed colour and says which ones will come out grey.
 
 ### Icons

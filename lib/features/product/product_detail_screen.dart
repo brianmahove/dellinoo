@@ -383,7 +383,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               ),
                           ],
                         ),
-                        if (g == otherGroups.first && hasSizeGuide(product.categoryId))
+                        if (g.name == 'Size' && hasSizeGuide(product.categoryId))
                           Padding(
                             padding: const EdgeInsets.only(top: 6),
                             child: TextButton.icon(
@@ -491,9 +491,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           const SizedBox(width: 10),
                           CircleIconButton(
                             icon: IconlyLight.send,
-                            onTap: () => shareToWhatsApp(
-                              'Check this out on Dellinoo: ${product.name} — ${money(shownPrice)}',
-                            ),
+                            onTap: () =>
+                                shareToWhatsApp('Check this out on Dellinoo: ${product.name} — ${money(shownPrice)}'),
                           ),
                           const SizedBox(width: 10),
                           CircleIconButton(
@@ -515,7 +514,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         ],
       ),
       floatingActionButton: WhatsAppButton(
-        message: 'Hi Dellinoo, I am interested in "${product.name}"'
+        message:
+            'Hi Dellinoo, I am interested in "${product.name}"'
             '${_options.isEmpty ? '' : ' (${_options.values.join(', ')})'} (${money(shownPrice)}). Is it available?',
       ),
       // Out-of-stock products can still be browsed and wishlisted, but not bought.

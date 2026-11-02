@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -7,6 +10,17 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// The shared Dellinoo signing key (android/dellinoo-upload.jks + android/key.properties,
+// both gitignored — copy them to any PC that builds the app). Every build, debug and
+// release, signs with it, so an app built on one PC updates one built on another, and
+// one key is registered with Firebase/Facebook. Without key.properties it falls back to
+// this PC's own debug key, which builds fine but can't update an app built elsewhere.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) FileInputStream(file).use { load(it) }
+}
+val hasSharedKey = keystoreProperties.getProperty("storeFile") != null
 
 android {
     namespace = "com.dellinoo.app"
@@ -29,11 +43,24 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasSharedKey) {
+            create("dellinoo") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
+        val signing = signingConfigs.getByName(if (hasSharedKey) "dellinoo" else "debug")
+        debug {
+            signingConfig = signing
+        }
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signing
         }
     }
 }
