@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "239128341649-e9sled2j2972eeo5er1i5cih0tm5b2f6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.dellinoo.app",
+            "certificate_hash": "2e5b331a46ae3ce5feb60c739193e6622b0a3083"
+          }
+        },
+        {
+          "client_id": "239128341649-t9pdtg8r092ic527q38h9mfn2k6ijqmi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.dellinoo.app",
+            "certificate_hash": "536273d19b999b4b559d15aa8e0a7dc44678a117"
+          }
+        },
+        {
           "client_id": "239128341649-61jkt6to40lt318r8cbc6rrh8t3u24mv.apps.googleusercontent.com",
           "client_type": 3
         }

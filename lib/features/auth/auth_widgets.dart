@@ -20,6 +20,9 @@ final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 /// A friendly message for a failed email/password or Google sign-in, or
 /// `null` if [error] is just the user cancelling a Google sign-in (no toast).
 String? authErrorMessage(Object error) {
+  // Android reports a rejected app (e.g. unregistered SHA-1) as `canceled` too,
+  // so print the details in debug builds rather than failing silently.
+  if (error is GoogleSignInException) debugPrint('Google sign-in failed: ${error.code} ${error.description}');
   if (error is GoogleSignInException && error.code == GoogleSignInExceptionCode.canceled) return null;
   if (error is FirebaseAuthException) {
     return switch (error.code) {
