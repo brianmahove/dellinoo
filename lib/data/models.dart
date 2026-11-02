@@ -30,10 +30,19 @@ class Category {
 }
 
 class VariantGroup {
-  const VariantGroup(this.name, this.options);
+  const VariantGroup(this.name, this.options, {this.priceAdds = const []});
 
   final String name;
   final List<String> options;
+
+  /// What each option adds to the product's price (parallel to [options];
+  /// negative = cheaper, missing = 0) — e.g. Storage 128GB +0, 256GB +40.
+  final List<double> priceAdds;
+
+  double priceAdd(String? option) {
+    final i = option == null ? -1 : options.indexOf(option);
+    return i >= 0 && i < priceAdds.length ? priceAdds[i] : 0;
+  }
 }
 
 class Product {
@@ -85,6 +94,13 @@ class Product {
   /// Flash sale still running — drives the countdown.
   bool get flashSaleActive => onSale && saleEndsAt != null && saleEndsAt!.isAfter(DateTime.now());
 
+  /// What the chosen [options] add to [price] (and [oldPrice]); 0 when no
+  /// option is priced. The payments Worker adds them up the same way.
+  double priceAddFor(Map<String, String> options) =>
+      variantGroups.fold(0, (sum, g) => sum + g.priceAdd(options[g.name]));
+
+  double priceFor(Map<String, String> options) => price + priceAddFor(options);
+
   bool get onSale => oldPrice != null && oldPrice! > price;
   int get discountPercent => onSale ? ((1 - price / oldPrice!) * 100).round() : 0;
 }
@@ -97,7 +113,8 @@ class CartItem {
   final int quantity;
 
   String get key => '${product.id}|${options.entries.map((e) => '${e.key}=${e.value}').join(',')}';
-  double get total => product.price * quantity;
+  double get unitPrice => product.priceFor(options);
+  double get total => unitPrice * quantity;
   String get optionsLabel => options.values.join(' · ');
 
   CartItem copyWith({int? quantity}) =>

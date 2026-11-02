@@ -114,7 +114,7 @@ export interface LoadedOrder {
   payment: string;
   address: { fullName: string; phone: string; street: string; city: string };
   area: { id: string; name: string; fee: number; eta: string };
-  items: Array<{ productId: string; price: number; quantity: number }>;
+  items: Array<{ productId: string; price: number; quantity: number; options?: Record<string, string> }>;
   coupon: { code: string } | null;
   history: Array<{ status: string; at: string; note?: string }>;
   manualPayment: { status?: string; reference?: string; note?: string } | null;
@@ -186,6 +186,22 @@ async function hasOtherPaidOrder(uid: string, exceptOrderId: string, env: Env, t
   return rows.some((r) => r.document && !r.document.name.endsWith(`/${exceptOrderId}`) && r.document.fields?.paidAt);
 }
 
+// What the chosen options add to a product's price — `variantGroups[].priceAdds`
+// is parallel to `options` (e.g. Storage 128GB +0, 256GB +40). Mirrors
+// `Product.priceAddFor` in the customer app. A pick that's no longer offered
+// in a priced group is refused rather than silently charged the base price.
+function optionsPriceAdd(product: Record<string, unknown>, chosen: Record<string, string>): number {
+  let add = 0;
+  for (const g of (product.variantGroups as Array<Record<string, unknown>> | undefined) ?? []) {
+    const adds = (g.priceAdds as unknown[] | undefined) ?? [];
+    if (!adds.some((a) => typeof a === 'number' && a !== 0)) continue;
+    const i = ((g.options as unknown[] | undefined) ?? []).indexOf(chosen[g.name as string]);
+    if (i < 0) throw new AmountError('invalid_order', `The ${g.name} picked for an item is no longer available`);
+    if (typeof adds[i] === 'number') add += adds[i] as number;
+  }
+  return add;
+}
+
 // The amount to charge, computed from the catalogue and coupon *documents*,
 // never from prices/discounts the customer's app wrote onto the order (the
 // client can write anything to its own order doc — see firestore.rules).
@@ -196,7 +212,7 @@ export async function computeAmount(orderId: string, order: LoadedOrder, env: En
     if (!product || typeof product.price !== 'number') {
       throw new AmountError('invalid_order', 'An item in this order is no longer available');
     }
-    subtotal += product.price * item.quantity;
+    subtotal += (product.price + optionsPriceAdd(product, item.options ?? {})) * item.quantity;
   }
 
   let discount = 0;

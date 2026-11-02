@@ -330,11 +330,14 @@ class GradientButton extends StatelessWidget {
 }
 
 class PriceText extends StatelessWidget {
-  const PriceText(this.product, {super.key, this.size = 16, this.color});
+  const PriceText(this.product, {super.key, this.size = 16, this.color, this.add = 0});
 
   final Product product;
   final double size;
   final Color? color;
+
+  /// What the chosen variants add (see [Product.priceAddFor]).
+  final double add;
 
   @override
   Widget build(BuildContext context) {
@@ -347,12 +350,12 @@ class PriceText extends StatelessWidget {
       spacing: 6,
       children: [
         Text(
-          money(product.price),
+          money(product.price + add),
           style: TextStyle(fontSize: size, fontWeight: FontWeight.w800, color: color),
         ),
         if (product.onSale)
           Text(
-            money(product.oldPrice!),
+            money(product.oldPrice! + add),
             style: TextStyle(
               fontSize: size * 0.72,
               color: onDark ? color.withValues(alpha: 0.75) : muted,

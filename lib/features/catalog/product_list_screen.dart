@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
@@ -158,7 +157,16 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: PageHeader(title: widget.title),
+      appBar: PageHeader(
+        title: widget.title,
+        trailing: FilterButton(
+          active: _filter.isActive,
+          onTap: () async {
+            final f = await showFilterSheet(context, _filter);
+            if (f != null) setState(() => _filter = f);
+          },
+        ),
+      ),
       body: ProductsBuilder(
         builder: (all) {
           final base = all
@@ -174,28 +182,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${products.length} items',
-                            style: TextStyle(color: AppColors.muted, fontSize: 15, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        FilterButton(
-                          active: _filter.isActive,
-                          onTap: () async {
-                            final f = await showFilterSheet(context, _filter);
-                            if (f != null) setState(() => _filter = f);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
                 if (products.isEmpty)
                   const SliverFillRemaining(
                     hasScrollBody: false,

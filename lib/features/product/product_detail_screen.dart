@@ -62,6 +62,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     super.dispose();
   }
 
+  /// "256GB  +$40.00" for a priced option, else just its name.
+  String _optionLabel(VariantGroup g, String option) {
+    final a = g.priceAdd(option);
+    if (a == 0) return option;
+    return '$option  ${a > 0 ? '+' : '−'}${money(a.abs())}';
+  }
+
   /// Validates variants; on success returns the options to add, else null.
   Map<String, String>? _selectedOptions(Product p) {
     final missing = p.variantGroups.where((g) => !_options.containsKey(g.name)).firstOrNull;
@@ -149,6 +156,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         .toList();
     final colourGroup = product.variantGroups.where((g) => g.name == 'Colour').firstOrNull;
     final otherGroups = product.variantGroups.where((g) => g != colourGroup);
+    // Priced options (e.g. more RAM) move the price as they're picked; until
+    // every priced group has a pick, the shown price is a "From" price.
+    final add = product.priceAddFor(_options);
+    final pricePending = product.variantGroups.any((g) => g.priceAdds.any((a) => a != 0) && _options[g.name] == null);
+    final shownPrice = product.price + add;
     final top = MediaQuery.paddingOf(context).top;
     final dataSaver = ref.watch(dataSaverProvider);
     // Data saver: first photo uses the small thumbnail; others load on tap.
@@ -297,8 +309,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       const SizedBox(height: 14),
                       Row(
                         children: [
-                          Text('From: ', style: TextStyle(color: AppColors.muted, fontSize: 16)),
-                          Expanded(child: PriceText(product, size: 20)),
+                          if (pricePending) Text('From: ', style: TextStyle(color: AppColors.muted, fontSize: 16)),
+                          Expanded(child: PriceText(product, size: 20, add: add)),
                           if (colourGroup != null)
                             for (final o in colourGroup.options)
                               Padding(
@@ -317,7 +329,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           child: Padding(
                             padding: const EdgeInsets.only(top: 6),
                             child: Text(
-                              _options['Colour'] ?? (_showErrors ? 'Pick a colour' : 'Colour'),
+                              _options['Colour'] == null
+                                  ? (_showErrors ? 'Pick a colour' : 'Colour')
+                                  : _optionLabel(colourGroup, _options['Colour']!),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -359,7 +373,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           children: [
                             for (final o in g.options)
                               PillChip(
-                                label: o,
+                                label: _optionLabel(g, o),
                                 dense: true,
                                 selected: _options[g.name] == o,
                                 onTap: () {
@@ -478,7 +492,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           CircleIconButton(
                             icon: IconlyLight.send,
                             onTap: () => shareToWhatsApp(
-                              'Check this out on Dellinoo: ${product.name} — ${money(product.price)}',
+                              'Check this out on Dellinoo: ${product.name} — ${money(shownPrice)}',
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -501,7 +515,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         ],
       ),
       floatingActionButton: WhatsAppButton(
-        message: 'Hi Dellinoo, I am interested in "${product.name}" (${money(product.price)}). Is it available?',
+        message: 'Hi Dellinoo, I am interested in "${product.name}"'
+            '${_options.isEmpty ? '' : ' (${_options.values.join(', ')})'} (${money(shownPrice)}). Is it available?',
       ),
       // Out-of-stock products can still be browsed and wishlisted, but not bought.
       bottomNavigationBar: Container(

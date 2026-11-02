@@ -407,13 +407,13 @@ class CartNotifier extends Notifier<List<CartItem>> {
     _logSafely(
       () => FirebaseAnalytics.instance.logAddToCart(
         currency: 'USD',
-        value: product.price * quantity,
+        value: item.total,
         items: [
           AnalyticsEventItem(
             itemId: product.id,
             itemName: product.name,
             itemCategory: product.categoryId,
-            price: product.price,
+            price: item.unitPrice,
             quantity: quantity,
           ),
         ],
@@ -675,7 +675,7 @@ class OrdersNotifier extends Notifier<List<Order>> {
               itemId: i.product.id,
               itemName: i.product.name,
               itemCategory: i.product.categoryId,
-              price: i.product.price,
+              price: i.unitPrice,
               quantity: i.quantity,
             ),
         ],

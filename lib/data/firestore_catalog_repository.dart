@@ -123,7 +123,11 @@ class FirestoreCatalogRepository implements CatalogRepository {
       description: data['description'] as String? ?? '',
       variantGroups: [
         for (final g in (data['variantGroups'] as List? ?? const []))
-          VariantGroup((g as Map)['name'] as String, List<String>.from(g['options'] as List? ?? const [])),
+          VariantGroup(
+            (g as Map)['name'] as String,
+            List<String>.from(g['options'] as List? ?? const []),
+            priceAdds: [for (final a in (g['priceAdds'] as List? ?? const [])) (a as num).toDouble()],
+          ),
       ],
       rating: ((data['rating'] as num?) ?? 0).toDouble(),
       soldCount: (data['soldCount'] as num?)?.toInt() ?? 0,

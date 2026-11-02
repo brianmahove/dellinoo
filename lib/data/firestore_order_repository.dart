@@ -135,7 +135,8 @@ class FirestoreOrderRepository implements OrderRepository {
             'productId': i.product.id,
             'name': i.product.name,
             'thumbnail': i.product.thumbnail,
-            'price': i.product.price,
+            // Unit price including any priced options (e.g. a bigger SSD).
+            'price': i.unitPrice,
             'stockStatus': i.product.stockStatus.name,
             'options': i.options,
             'quantity': i.quantity,
