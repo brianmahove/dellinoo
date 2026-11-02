@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:flutter/foundation.dart' show LicenseEntryWithLineBreaks, LicenseRegistry, kDebugMode;
+import 'package:flutter/foundation.dart' show LicenseEntryWithLineBreaks, LicenseRegistry, debugPrint, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,7 +24,15 @@ import 'widgets/offline_banner.dart';
 const _googleServerClientId = '239128341649-61jkt6to40lt318r8cbc6rrh8t3u24mv.apps.googleusercontent.com';
 
 Future<void> main() async {
-  runZonedGuarded(_main, (error, stack) => FirebaseCrashlytics.instance.recordError(error, stack, fatal: true));
+  runZonedGuarded(_main, (error, stack) {
+    // If Firebase never started (e.g. launched on an unsupported platform like
+    // web), Crashlytics would throw "not initialized" and hide the real error.
+    if (Firebase.apps.isEmpty) {
+      debugPrint('$error\n$stack');
+      return;
+    }
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+  });
 }
 
 Future<void> _main() async {

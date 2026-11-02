@@ -171,6 +171,10 @@ class AuthNotifier extends Notifier<AppUser?> {
 
   Future<void> sendEmailVerification() => FirebaseAuth.instance.currentUser!.sendEmailVerification();
 
+  /// Emails a reset link. With Firebase's email-enumeration protection this
+  /// succeeds even when no account uses [email], so callers shouldn't claim one exists.
+  Future<void> sendPasswordReset(String email) => FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+
   /// Re-proves identity for a sensitive action (change email/password,
   /// delete account) — Firebase requires a *recent* sign-in for these and
   /// throws `requires-recent-login` otherwise. For Google/Facebook this

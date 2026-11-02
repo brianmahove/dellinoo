@@ -78,6 +78,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  /// Asks for the email (pre-filled from the login field) and sends a reset link.
+  Future<void> _forgotPassword() async {
+    final email = await showGlassDialog<String>(
+      context: context,
+      builder: (_) => _ResetPasswordDialog(initialEmail: _identifier.text.trim()),
+    );
+    if (email == null || !mounted) return;
+    final trimmed = email.trim();
+    if (!emailPattern.hasMatch(trimmed)) {
+      showGlassToast(context, 'That email address looks invalid.');
+      return;
+    }
+    try {
+      await ref.read(authProvider.notifier).sendPasswordReset(trimmed);
+      if (mounted) {
+        showGlassToast(
+          context,
+          'If an account uses $trimmed, a reset link is on its way. Check your inbox and spam.',
+          duration: const Duration(seconds: 4),
+        );
+      }
+    } catch (e) {
+      final message = authErrorMessage(e);
+      if (mounted && message != null) showGlassToast(context, message);
+    }
+  }
+
   void _social(String provider) => showGlassToast(context, '$provider sign-in is coming soon');
 
   @override
@@ -133,7 +160,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Align(
               alignment: Alignment.centerRight,
               child: GestureDetector(
-                onTap: () => showGlassToast(context, 'Password reset isn\'t available yet'),
+                onTap: _forgotPassword,
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 4),
                   child: Text(
@@ -172,6 +199,46 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Owns its controller so it's disposed only once the dialog's closing
+/// animation has finished — disposing it straight after `pop` crashes the
+/// TextField that's still being drawn on the way out.
+class _ResetPasswordDialog extends StatefulWidget {
+  const _ResetPasswordDialog({required this.initialEmail});
+
+  final String initialEmail;
+
+  @override
+  State<_ResetPasswordDialog> createState() => _ResetPasswordDialogState();
+}
+
+class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
+  late final _controller = TextEditingController(text: widget.initialEmail);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassAlertDialog(
+      title: const Text('Reset your password'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.emailAddress,
+        decoration: const InputDecoration(labelText: 'Email address'),
+        onSubmitted: (v) => Navigator.pop(context, v),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(context, _controller.text), child: const Text('Send link')),
+      ],
     );
   }
 }
