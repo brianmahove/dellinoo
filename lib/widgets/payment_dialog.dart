@@ -201,7 +201,7 @@ class _PaymentWaitDialogState extends ConsumerState<PaymentWaitDialog> {
         _authorizationExpires = result.authorizationExpires;
       });
       developer.log('order ${widget.orderId}: waiting on Firestore for a paid status', name: _logName);
-      _listenForPayment();
+      _listenForPayment(result.attemptId);
     } catch (err, stack) {
       developer.log('order ${widget.orderId}: initiate request threw', name: _logName, error: err, stackTrace: stack);
       if (!mounted) return;
@@ -209,15 +209,40 @@ class _PaymentWaitDialogState extends ConsumerState<PaymentWaitDialog> {
     }
   }
 
-  void _listenForPayment() {
+  void _listenForPayment(String? attemptId) {
     _sub = FirebaseFirestore.instance.collection('orders').doc(widget.orderId).snapshots().listen((snapshot) {
-      final history = snapshot.data()?['history'] as List?;
+      final data = snapshot.data();
+      final history = data?['history'] as List?;
       final statuses = history?.map((e) => (e as Map)['status']).toList();
       developer.log('order ${widget.orderId}: history now $statuses', name: _logName);
       final paid = history?.any((e) => (e as Map)['status'] == 'paid') ?? false;
-      if (paid) _finish(true, reason: 'Firestore listener saw paid');
+      if (paid) {
+        _finish(true, reason: 'Firestore listener saw paid');
+        return;
+      }
+      // Paynow reported this attempt Cancelled/Failed (declined prompt, wrong
+      // PIN, low balance...). Only trust a result tagged with *this* attempt,
+      // so an earlier attempt's result can't end this one.
+      final result = data?['paynowResult'] as String?;
+      if (attemptId != null && data?['paynowResultAttempt'] == attemptId && result != null) {
+        _fail(result);
+      }
     });
     _timeout = Timer(const Duration(minutes: 3), () => _finish(false, reason: 'timed out after 3 minutes'));
+  }
+
+  void _fail(String result) {
+    if (_done || !mounted) return;
+    _done = true;
+    developer.log('order ${widget.orderId}: Paynow reported $result', name: _logName);
+    _sub?.cancel();
+    _timeout?.cancel();
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _errorMessage = result == 'cancelled'
+          ? 'The payment was cancelled or declined, and no money was taken. You can try again.'
+          : "The payment didn't go through, and no money was taken. You can try again.";
+    });
   }
 
   void _finish(bool success, {required String reason}) {
@@ -278,8 +303,10 @@ class _PaymentWaitDialogState extends ConsumerState<PaymentWaitDialog> {
           if (!_paid) ...[
             const SizedBox(height: 12),
             TextButton(
-              onPressed: () => _finish(false, reason: 'cancelled by customer'),
-              child: const Text('Cancel'),
+              onPressed: _done
+                  ? () => Navigator.of(context).pop(false)
+                  : () => _finish(false, reason: 'cancelled by customer'),
+              child: Text(_errorMessage != null ? 'Close' : 'Cancel'),
             ),
           ],
         ],

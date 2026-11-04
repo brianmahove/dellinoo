@@ -162,7 +162,7 @@ enum PaymentMethod {
   /// and the customer then enters the SMS reference for the admin to confirm
   /// (lib/widgets/manual_payment.dart). Set to true once Paynow sets the
   /// integration live to go back to Paynow for EcoCash, InnBucks and Card.
-  static const paynowLive = false;
+  static const paynowLive = true;
 
   /// Card is inactive on the merchant account until Paynow activates
   /// Visa/Mastercard — it only shows once [paynowLive] too.

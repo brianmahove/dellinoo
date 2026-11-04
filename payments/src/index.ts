@@ -201,6 +201,10 @@ async function handleInitiate(request: Request, env: Env, origin: string): Promi
   // Keep the order doc's `payment` field in sync with what's actually being
   // attempted, e.g. after a retry picked a different method than checkout.
   const patch: Record<string, string> = method === order.payment ? {} : { payment: method };
+  // Each attempt gets an id, so the app can tell "this attempt was cancelled"
+  // (written by the webhook below) apart from an earlier attempt's result.
+  const attemptId = crypto.randomUUID();
+  patch.paynowAttemptId = attemptId;
 
   try {
     if (method === 'card') {
@@ -211,8 +215,8 @@ async function handleInitiate(request: Request, env: Env, origin: string): Promi
         return json({ ok: false, error: 'paynow_error', message: result.error ?? 'Paynow could not start this payment' }, 502);
       }
       if (result.pollurl) patch.paynowPollUrl = result.pollurl;
-      if (Object.keys(patch).length > 0) await patchFields(orderId, env, token, patch);
-      return json({ ok: true, flow: 'redirect', redirectUrl: result.browserurl });
+      await patchFields(orderId, env, token, patch);
+      return json({ ok: true, flow: 'redirect', redirectUrl: result.browserurl, attemptId });
     }
 
     const phone = method === 'innbucks' ? undefined : body.phone || order.address.phone;
@@ -223,10 +227,11 @@ async function handleInitiate(request: Request, env: Env, origin: string): Promi
       return json({ ok: false, error: 'paynow_error', message: result.error ?? 'Paynow could not start this payment' }, 502);
     }
     if (result.pollurl) patch.paynowPollUrl = result.pollurl;
-    if (Object.keys(patch).length > 0) await patchFields(orderId, env, token, patch);
+    await patchFields(orderId, env, token, patch);
     return json({
       ok: true,
       flow: 'express',
+      attemptId,
       authorizationCode: result.authorizationcode,
       authorizationExpires: result.authorizationexpires,
     });
@@ -251,6 +256,10 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
 
   if (!(await verifyHash(entries, env.PAYNOW_INTEGRATION_KEY))) {
     console.error(`webhook: hash mismatch for reference=${obj.reference}`);
+    return new Response('OK');
+  }
+  if (obj.status === 'Cancelled' || obj.status === 'Failed') {
+    await recordFailedAttempt(obj, env);
     return new Response('OK');
   }
   if (obj.status !== 'Paid') {
@@ -306,6 +315,34 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
     console.error(`webhook: order ${orderId} failed to record payment`, err);
   }
   return new Response('OK');
+}
+
+// A signed Cancelled/Failed result (customer declined the EcoCash prompt,
+// wrong PIN, low balance...): tell the app's waiting dialog, which otherwise
+// spins until its 3-minute timeout. Written as `paynowResult` +
+// `paynowResultAttempt` (the attempt it belongs to), and only when the
+// webhook's pollurl is the order's current one, so a late result from an
+// earlier attempt can't cancel a newer one. Never touches `history`.
+async function recordFailedAttempt(obj: Record<string, string>, env: Env): Promise<void> {
+  const orderId = obj.reference;
+  if (!orderId) return;
+  try {
+    const token = await getAccessToken(env);
+    const fields = await getDocFields(`orders/${orderId}`, env, token);
+    if (!fields) return;
+    const attemptId = fields.paynowAttemptId as string | undefined;
+    if (!attemptId || !obj.pollurl || obj.pollurl !== fields.paynowPollUrl) {
+      console.log(`webhook: order ${orderId} ${obj.status} is for an earlier attempt, ignoring`);
+      return;
+    }
+    await patchFields(orderId, env, token, {
+      paynowResult: obj.status.toLowerCase(),
+      paynowResultAttempt: attemptId,
+    });
+    console.log(`webhook: order ${orderId} attempt ${attemptId} recorded as ${obj.status}`);
+  } catch (err) {
+    console.error(`webhook: order ${orderId} failed to record ${obj.status}`, err);
+  }
 }
 
 // Shared gate for the admin panel's /notify/* calls: a valid Firebase ID

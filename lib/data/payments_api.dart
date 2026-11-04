@@ -24,6 +24,7 @@ class PaynowInitiateResult {
     this.redirectUrl,
     this.authorizationCode,
     this.authorizationExpires,
+    this.attemptId,
     this.error,
     this.message,
   });
@@ -39,6 +40,10 @@ class PaynowInitiateResult {
   final String? authorizationCode;
   final String? authorizationExpires;
 
+  /// Identifies this attempt; the Worker's webhook tags a Cancelled/Failed
+  /// result with it (`paynowResultAttempt` on the order doc).
+  final String? attemptId;
+
   final String? error;
   final String? message;
 
@@ -53,6 +58,7 @@ class PaynowInitiateResult {
     redirectUrl: json['redirectUrl'] as String?,
     authorizationCode: json['authorizationCode'] as String?,
     authorizationExpires: json['authorizationExpires'] as String?,
+    attemptId: json['attemptId'] as String?,
     error: json['error'] as String?,
     message: json['message'] as String?,
   );
