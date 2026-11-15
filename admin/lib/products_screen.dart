@@ -43,7 +43,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Future<void> _openForm({QueryDocumentSnapshot<Map<String, dynamic>>? doc}) {
     return showFormPage(
       context: context,
-      builder: (context) => _ProductForm(doc: doc),
+      builder: (context) => _ProductForm(doc: doc, initialCategory: _category == 'all' ? null : _category),
     );
   }
 
@@ -508,9 +508,12 @@ class _RoundIconButton extends StatelessWidget {
 }
 
 class _ProductForm extends StatefulWidget {
-  const _ProductForm({this.doc});
+  const _ProductForm({this.doc, this.initialCategory});
 
   final QueryDocumentSnapshot<Map<String, dynamic>>? doc;
+
+  /// Category pre-selected for a new product (the tab the admin was on).
+  final String? initialCategory;
 
   @override
   State<_ProductForm> createState() => _ProductFormState();
@@ -597,7 +600,8 @@ class _ProductFormState extends State<_ProductForm> {
     return null;
   }
 
-  late String _categoryId = _d?['categoryId'] as String? ?? kDefaultCategories.first.id;
+  // Empty = a new product added from "All Products": the admin must pick one.
+  late String _categoryId = _d?['categoryId'] as String? ?? widget.initialCategory ?? '';
   late String _stockStatus = _d == null ? _stockStatuses.first : _stock(_d!['stockStatus']);
   late bool _isNew = _d?['isNew'] as bool? ?? false;
   late DateTime? _saleEndsAt = (_d?['saleEndsAt'] as Timestamp?)?.toDate();
@@ -909,11 +913,13 @@ class _ProductFormState extends State<_ProductForm> {
                     final categories = snap.data ?? kDefaultCategories;
                     final ids = {for (final c in categories) c.id};
                     return DropdownButtonFormField<String>(
-                      initialValue: _categoryId,
+                      initialValue: _categoryId.isEmpty ? null : _categoryId,
                       decoration: const InputDecoration(labelText: 'Category'),
+                      hint: const Text('Select a category'),
+                      validator: (v) => (v == null || v.isEmpty) ? 'Choose a category' : null,
                       items: [
                         for (final c in categories) DropdownMenuItem(value: c.id, child: Text(c.name)),
-                        if (!ids.contains(_categoryId))
+                        if (_categoryId.isNotEmpty && !ids.contains(_categoryId))
                           DropdownMenuItem(value: _categoryId, child: Text('$_categoryId (removed)')),
                       ],
                       onChanged: (v) => setState(() => _categoryId = v!),
