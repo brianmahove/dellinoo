@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'admin_access.dart';
 import 'router.dart';
 import 'theme.dart';
 import 'user_avatar.dart';
@@ -16,6 +17,12 @@ const _topNavHeight = 72.0;
 
 /// Destinations that get their own bottom-bar tab on mobile; the rest go under "More".
 const _mobileTabs = 4;
+
+/// The nav destinations the signed-in admin may use, with their branch index.
+List<(int, AdminDestination)> _allowedDestinations() => [
+  for (var i = 0; i < adminDestinations.length; i++)
+    if (AdminAccess.allows(adminDestinations[i].area)) (i, adminDestinations[i]),
+];
 
 /// Signed-in shell: checks the `admins/{email}` allowlist (mirrors
 /// firestore.rules' `isAdmin()`) before showing any admin screen — this is a
@@ -40,11 +47,28 @@ class AdminShell extends StatefulWidget {
 }
 
 class _AdminShellState extends State<AdminShell> {
-  /// Fetched once. Creating this future inside build() restarted it on every
-  /// navigation, flashing the spinner and discarding the pages.
-  late final Future<DocumentSnapshot<Map<String, dynamic>>>? _adminCheck = widget.user.email == null
+  /// The admin's own doc, streamed so a change to their access (or removing
+  /// them) shows up without a reload. Created once, not inside build().
+  late final Stream<DocumentSnapshot<Map<String, dynamic>>>? _adminCheck = widget.user.email == null
       ? null
-      : FirebaseFirestore.instance.collection('admins').doc(widget.user.email).get();
+      : FirebaseFirestore.instance.collection('admins').doc(widget.user.email).snapshots();
+
+  /// Nav destinations this admin may use, as (branch index, destination).
+  List<(int, AdminDestination)> get _allowed => _allowedDestinations();
+
+  /// Branch indices that have a bottom-bar tab of their own on mobile.
+  List<int> get _tabBranches => [for (final (i, _) in _allowed.take(_mobileTabs)) i];
+
+  /// A limited admin who opened (or bookmarked) a screen they can't use is
+  /// sent to their first allowed one.
+  void _keepInsideAccess() {
+    final i = _index;
+    if (i >= adminDestinations.length || AdminAccess.allows(adminDestinations[i].area)) return;
+    final first = _allowed.firstOrNull?.$1;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.navigationShell.goBranch(first ?? accountBranch);
+    });
+  }
 
   int get _index => widget.navigationShell.currentIndex;
 
@@ -57,13 +81,16 @@ class _AdminShellState extends State<AdminShell> {
     final email = user.email;
     if (email == null) return _denied('This account has no email address.');
 
-    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      future: _adminCheck,
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: _adminCheck,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         if (snapshot.data?.exists != true) return _denied('$email is not an admin.');
+        AdminAccess.load(snapshot.data!.data());
+        _keepInsideAccess();
+        if (_allowed.isEmpty) return _denied('$email has no access yet — ask the owner to give you some.');
 
         return LayoutBuilder(
           builder: (context, constraints) {
@@ -82,7 +109,13 @@ class _AdminShellState extends State<AdminShell> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            _TopNav(index: _index, onSelect: _select, onAccount: () => _select(accountBranch), user: user),
+            _TopNav(
+              index: _index,
+              items: _allowed,
+              onSelect: _select,
+              onAccount: () => _select(accountBranch),
+              user: user,
+            ),
             const SizedBox(height: 16),
             Expanded(
               child: Container(
@@ -106,7 +139,8 @@ class _AdminShellState extends State<AdminShell> {
   Widget _narrowLayout(User user) {
     // Pages without a bottom-bar tab of their own are reached through "More",
     // so that is where their back arrow goes.
-    final underMore = _index >= _mobileTabs && _index != moreBranch;
+    final tabs = _tabBranches;
+    final underMore = !tabs.contains(_index) && _index != moreBranch;
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -142,11 +176,15 @@ class _AdminShellState extends State<AdminShell> {
       body: widget.navigationShell,
       bottomNavigationBar: NavigationBar(
         // Eight labels don't fit a phone: the first few get a tab, the rest live under "More".
-        selectedIndex: _index < _mobileTabs ? _index : _mobileTabs,
-        onDestinationSelected: (i) => _select(i == _mobileTabs ? moreBranch : i),
+        selectedIndex: tabs.contains(_index) ? tabs.indexOf(_index) : tabs.length,
+        onDestinationSelected: (i) => _select(i == tabs.length ? moreBranch : tabs[i]),
         destinations: [
-          for (final d in adminDestinations.take(_mobileTabs))
-            NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: d.label),
+          for (final i in tabs)
+            NavigationDestination(
+              icon: Icon(adminDestinations[i].icon),
+              selectedIcon: Icon(adminDestinations[i].selectedIcon),
+              label: adminDestinations[i].label,
+            ),
           const NavigationDestination(
             icon: Icon(IconlyLight.more_square),
             selectedIcon: Icon(IconlyBold.more_square),
@@ -192,9 +230,18 @@ class _AdminShellState extends State<AdminShell> {
 /// Desktop-web top bar: logo, horizontal nav links, avatar menu — replaces
 /// the old NavigationRail sidebar.
 class _TopNav extends StatelessWidget {
-  const _TopNav({required this.index, required this.onSelect, required this.onAccount, required this.user});
+  const _TopNav({
+    required this.index,
+    required this.items,
+    required this.onSelect,
+    required this.onAccount,
+    required this.user,
+  });
 
   final int index;
+
+  /// The destinations this admin may use, with their branch index.
+  final List<(int, AdminDestination)> items;
   final ValueChanged<int> onSelect;
   final VoidCallback onAccount;
   final User user;
@@ -224,9 +271,13 @@ class _TopNav extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      for (var i = 0; i < adminDestinations.length; i++) ...[
-                        if (i != 0) const SizedBox(width: 28),
-                        _NavLink(destination: adminDestinations[i], selected: i == index, onTap: () => onSelect(i)),
+                      for (var n = 0; n < items.length; n++) ...[
+                        if (n != 0) const SizedBox(width: 28),
+                        _NavLink(
+                          destination: items[n].$2,
+                          selected: items[n].$1 == index,
+                          onTap: () => onSelect(items[n].$1),
+                        ),
                       ],
                     ],
                   ),
@@ -321,7 +372,7 @@ class MorePage extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        for (final d in adminDestinations.skip(_mobileTabs)) ...[
+        for (final (_, d) in _allowedDestinations().skip(_mobileTabs)) ...[
           _MoreTile(icon: d.icon, label: d.label, hint: _hints[d.label], onTap: () => context.go(d.path)),
           const SizedBox(height: 10),
         ],

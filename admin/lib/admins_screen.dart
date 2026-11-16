@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'admin_access.dart';
 import 'glass_dialog.dart';
 import 'router.dart';
 import 'theme.dart';
@@ -16,7 +17,9 @@ const _protectedAdminEmail = 'mahovebrian@gmail.com';
 
 /// Manages the `admins/{email}` allowlist (see firestore.rules' `isAdmin()`)
 /// so new admins can be added from the panel instead of by hand in the
-/// Firebase console. Doc existing = admin; the value inside is unused.
+/// Firebase console. Doc existing = admin. Its optional `access` list limits
+/// which areas of the panel that person can use (see `admin_access.dart`);
+/// no list = full admin.
 class AdminsScreen extends StatelessWidget {
   const AdminsScreen({super.key});
 
@@ -66,13 +69,23 @@ class AdminsScreen extends StatelessWidget {
                         backgroundColor: AppColors.primarySoft,
                         child: Icon(IconlyLight.shield_done, color: AppColors.accent, size: 20),
                       ),
-                      onTap: isMe ? () => context.go(accountPath) : null,
-                      title: Text(doc.id, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: isMe
-                          ? Text('You · tap to manage your account', style: TextStyle(color: AppColors.muted))
+                      onTap: isMe
+                          ? () => context.go(accountPath)
                           : isProtected
-                          ? Text('Protected', style: TextStyle(color: AppColors.muted))
-                          : null,
+                          ? null
+                          : () => showFormPage(
+                              context: context,
+                              builder: (context) => _AdminForm(existing: doc),
+                            ),
+                      title: Text(doc.id, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Text(
+                        isMe
+                            ? 'You · tap to manage your account'
+                            : isProtected
+                            ? 'Protected · Full access'
+                            : '${AdminAccess.summary(doc.data())} · tap to change',
+                        style: TextStyle(color: AppColors.muted),
+                      ),
                       trailing: IconButton(
                         icon: Icon(isProtected ? IconlyLight.lock : IconlyLight.delete),
 
@@ -112,7 +125,10 @@ class AdminsScreen extends StatelessWidget {
 }
 
 class _AdminForm extends StatefulWidget {
-  const _AdminForm();
+  const _AdminForm({this.existing});
+
+  /// Set when editing someone's access; the email is then fixed.
+  final QueryDocumentSnapshot<Map<String, dynamic>>? existing;
 
   @override
   State<_AdminForm> createState() => _AdminFormState();
@@ -120,7 +136,11 @@ class _AdminForm extends StatefulWidget {
 
 class _AdminFormState extends State<_AdminForm> {
   final _formKey = GlobalKey<FormState>();
-  final _email = TextEditingController();
+  late final _email = TextEditingController(text: widget.existing?.id);
+  late bool _full = widget.existing == null || widget.existing!.data()['access'] is! List;
+  late final Set<String> _areas = {
+    if (widget.existing?.data()['access'] is List) ...(widget.existing!.data()['access'] as List).whereType<String>(),
+  };
   bool _saving = false;
   String? _error;
 
@@ -134,16 +154,31 @@ class _AdminFormState extends State<_AdminForm> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_full && _areas.isEmpty) {
+      setState(() => _error = 'Pick at least one area, or give full access.');
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
     });
     final email = _email.text.trim().toLowerCase();
     try {
-      await FirebaseFirestore.instance.collection('admins').doc(email).set({
-        'addedAt': FieldValue.serverTimestamp(),
-        'addedBy': FirebaseAuth.instance.currentUser?.email,
-      });
+      // Keep the list in the panel's own order, whatever order they ticked in.
+      final access = [
+        for (final a in accessAreas)
+          if (_areas.contains(a.key)) a.key,
+      ];
+      final doc = FirebaseFirestore.instance.collection('admins').doc(email);
+      if (widget.existing == null) {
+        await doc.set({
+          'addedAt': FieldValue.serverTimestamp(),
+          'addedBy': FirebaseAuth.instance.currentUser?.email,
+          if (!_full) 'access': access,
+        });
+      } else {
+        await doc.update({'access': _full ? FieldValue.delete() : access});
+      }
       if (mounted) Navigator.pop(context);
     } catch (e) {
       setState(() {
@@ -156,28 +191,55 @@ class _AdminFormState extends State<_AdminForm> {
   @override
   Widget build(BuildContext context) {
     return GlassAlertDialog(
-      title: const Text('Add admin'),
+      title: Text(widget.existing == null ? 'Add admin' : 'Change access'),
       content: SizedBox(
         width: 420,
         child: Form(
           key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            spacing: 14,
-            children: [
-              TextFormField(
-                controller: _email,
-                autofocus: true,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email'),
-                validator: (v) => _emailPattern.hasMatch(v?.trim() ?? '') ? null : 'Enter a valid email',
-                onFieldSubmitted: (_) => _saving ? null : _save(),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 13)),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 14,
+              children: [
+                TextFormField(
+                  controller: _email,
+                  enabled: widget.existing == null,
+                  autofocus: widget.existing == null,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                  validator: (v) => _emailPattern.hasMatch(v?.trim() ?? '') ? null : 'Enter a valid email',
+                  onFieldSubmitted: (_) => _saving ? null : _save(),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Full access', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text(
+                    'Everything, including adding and removing admins',
+                    style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                  ),
+                  value: _full,
+                  onChanged: (v) => setState(() => _full = v),
+                ),
+                if (!_full) ...[
+                  Text(
+                    'They can use only:',
+                    style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
+                  ),
+                  for (final a in accessAreas)
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(a.label, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Text(a.hint, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                      value: _areas.contains(a.key),
+                      onChanged: (v) => setState(() => v == true ? _areas.add(a.key) : _areas.remove(a.key)),
+                    ),
+                ],
+                if (_error != null) Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 13)),
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -187,7 +249,7 @@ class _AdminFormState extends State<_AdminForm> {
           onPressed: _saving ? null : _save,
           child: _saving
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Add'),
+              : Text(widget.existing == null ? 'Add' : 'Save'),
         ),
       ],
     );

@@ -27,8 +27,10 @@ import 'shell.dart';
 /// its own address (`/orders`, `/delivery-areas`, …) so links can be shared and
 /// bookmarked, the browser's back/forward buttons work, and a refresh stays put.
 class AdminDestination {
-  const AdminDestination(this.path, this.icon, this.selectedIcon, this.label, this.screen);
+  const AdminDestination(this.path, this.icon, this.selectedIcon, this.label, this.screen, {this.area});
 
+  /// Which `accessAreas` key unlocks this screen; `null` = full admins only.
+  final String? area;
   final String path;
   final IconData icon;
   final IconData selectedIcon;
@@ -37,27 +39,64 @@ class AdminDestination {
 }
 
 const adminDestinations = [
-  AdminDestination('/dashboard', IconlyLight.category, IconlyBold.category, 'Dashboard', DashboardScreen()),
-  AdminDestination('/products', IconlyLight.bag, IconlyBold.bag, 'Products', ProductsScreen()),
-  AdminDestination('/orders', IconlyLight.paper, IconlyBold.paper, 'Orders', OrdersScreen()),
-  AdminDestination('/categories', IconlyLight.folder, IconlyBold.folder, 'Categories', CategoriesScreen()),
-  AdminDestination('/customers', IconlyLight.user_1, IconlyBold.user_3, 'Customers', CustomersScreen()),
+  AdminDestination(
+    '/dashboard',
+    IconlyLight.category,
+    IconlyBold.category,
+    'Dashboard',
+    DashboardScreen(),
+    area: 'dashboard',
+  ),
+  AdminDestination('/products', IconlyLight.bag, IconlyBold.bag, 'Products', ProductsScreen(), area: 'products'),
+  AdminDestination('/orders', IconlyLight.paper, IconlyBold.paper, 'Orders', OrdersScreen(), area: 'orders'),
+  AdminDestination(
+    '/categories',
+    IconlyLight.folder,
+    IconlyBold.folder,
+    'Categories',
+    CategoriesScreen(),
+    area: 'categories',
+  ),
+  AdminDestination(
+    '/customers',
+    IconlyLight.user_1,
+    IconlyBold.user_3,
+    'Customers',
+    CustomersScreen(),
+    area: 'customers',
+  ),
   AdminDestination(
     '/delivery-areas',
     IconlyLight.location,
     IconlyBold.location,
     'Delivery areas',
     DeliveryAreasScreen(),
+    area: 'delivery',
   ),
-  AdminDestination('/coupons', IconlyLight.discount, IconlyBold.discount, 'Coupons', CouponsScreen()),
-  AdminDestination('/requests', IconlyLight.discovery, IconlyBold.discovery, 'Requests', RequestsScreen()),
-  AdminDestination('/invoices', IconlyLight.document, IconlyBold.document, 'Invoices', InvoicesScreen()),
+  AdminDestination('/coupons', IconlyLight.discount, IconlyBold.discount, 'Coupons', CouponsScreen(), area: 'coupons'),
+  AdminDestination(
+    '/requests',
+    IconlyLight.discovery,
+    IconlyBold.discovery,
+    'Requests',
+    RequestsScreen(),
+    area: 'requests',
+  ),
+  AdminDestination(
+    '/invoices',
+    IconlyLight.document,
+    IconlyBold.document,
+    'Invoices',
+    InvoicesScreen(),
+    area: 'invoices',
+  ),
   AdminDestination(
     '/notifications',
     IconlyLight.notification,
     IconlyBold.notification,
     'Notifications',
     NotificationsScreen(),
+    area: 'notifications',
   ),
   AdminDestination(
     '/payment-details',
@@ -65,6 +104,7 @@ const adminDestinations = [
     IconlyBold.wallet,
     'Payment details',
     PaymentDetailsScreen(),
+    area: 'payments',
   ),
   AdminDestination('/admins', IconlyLight.shield_done, IconlyBold.shield_done, 'Admins', AdminsScreen()),
 ];

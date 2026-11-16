@@ -345,6 +345,14 @@ async function recordFailedAttempt(obj: Record<string, string>, env: Env): Promi
   }
 }
 
+// An `admins/{email}` doc with no `access` list is a full admin (every admin
+// created before limited accounts existed); otherwise the list names the
+// panel areas they may use. Mirrors firestore.rules' hasAccess().
+function hasAccess(adminDoc: Record<string, unknown>, area: string): boolean {
+  const access = adminDoc.access;
+  return !Array.isArray(access) || access.includes(area);
+}
+
 // Shared gate for the admin panel's /notify/* calls: a valid Firebase ID
 // token whose email is in `admins/` (the same allowlist firestore.rules'
 // isAdmin() enforces). Returns the admin's email and a Google access token,
@@ -353,6 +361,7 @@ async function requireAdmin(
   request: Request,
   env: Env,
   cors: Record<string, string>,
+  area: string,
 ): Promise<{ email: string; token: string } | Response> {
   let email: string | undefined;
   try {
@@ -361,10 +370,12 @@ async function requireAdmin(
     return json({ ok: false, error: 'unauthorized', message: err instanceof AuthError ? err.message : 'Unauthorized' }, 401, cors);
   }
   const token = await getAccessToken(env);
-  if (!email || !(await getDocFields(`admins/${email}`, env, token))) {
-    return json({ ok: false, error: 'forbidden', message: 'Admins only' }, 403, cors);
+  const adminDoc = email ? await getDocFields(`admins/${email}`, env, token) : null;
+  if (!adminDoc) return json({ ok: false, error: 'forbidden', message: 'Admins only' }, 403, cors);
+  if (!hasAccess(adminDoc, area)) {
+    return json({ ok: false, error: 'forbidden', message: 'Your admin account cannot do this' }, 403, cors);
   }
-  return { email, token };
+  return { email: email!, token };
 }
 
 // Any signed-in user, plus whether they're an admin — for /images, where
@@ -378,7 +389,9 @@ async function identify(request: Request, env: Env, cors: Record<string, string>
     return json({ ok: false, error: 'unauthorized', message: err instanceof AuthError ? err.message : 'Unauthorized' }, 401, cors);
   }
   const token = await getAccessToken(env);
-  const isAdmin = !!email && !!(await getDocFields(`admins/${email}`, env, token));
+  // `isAdmin` here means "may manage product photos" — the only admin-only use.
+  const adminDoc = email ? await getDocFields(`admins/${email}`, env, token) : null;
+  const isAdmin = !!adminDoc && hasAccess(adminDoc, 'products');
   return { uid, isAdmin, token };
 }
 
@@ -397,7 +410,7 @@ async function handleNotifyOrderStatus(request: Request, env: Env): Promise<Resp
   // derived from the order doc's own latest status, never from the request,
   // so the endpoint can't be used to push arbitrary text.
   const cors = corsHeaders(request);
-  const admin = await requireAdmin(request, env, cors);
+  const admin = await requireAdmin(request, env, cors, 'orders');
   if (admin instanceof Response) return admin;
   const { email, token } = admin;
 
@@ -429,7 +442,7 @@ async function handleNotifyOrderStatus(request: Request, env: Env): Promise<Resp
 // "Run now" on the admin Notifications screen — the same job the cron runs.
 async function handleNotifyPriceDrops(request: Request, env: Env): Promise<Response> {
   const cors = corsHeaders(request);
-  const admin = await requireAdmin(request, env, cors);
+  const admin = await requireAdmin(request, env, cors, 'notifications');
   if (admin instanceof Response) return admin;
   try {
     const summary = await runPriceDrops(env, admin.token);
@@ -445,7 +458,7 @@ async function handleNotifyPriceDrops(request: Request, env: Env): Promise<Respo
 // from the admin, so it's length-checked and logged to `broadcasts`.
 async function handleNotifyBroadcast(request: Request, env: Env): Promise<Response> {
   const cors = corsHeaders(request);
-  const admin = await requireAdmin(request, env, cors);
+  const admin = await requireAdmin(request, env, cors, 'notifications');
   if (admin instanceof Response) return admin;
   const { email, token } = admin;
 
@@ -489,7 +502,7 @@ async function handleNotifyBroadcast(request: Request, env: Env): Promise<Respon
 // (admin/lib/requests_screen.dart). Built from the request doc itself.
 async function handleNotifyItemRequest(request: Request, env: Env): Promise<Response> {
   const cors = corsHeaders(request);
-  const admin = await requireAdmin(request, env, cors);
+  const admin = await requireAdmin(request, env, cors, 'requests');
   if (admin instanceof Response) return admin;
   const body = await readJson<{ requestId?: string }>(request);
   const requestId = body?.requestId;
@@ -521,7 +534,7 @@ async function handleNotifyItemRequest(request: Request, env: Env): Promise<Resp
 // (admin/lib/invoices_screen.dart). Built from the invoice doc itself.
 async function handleNotifyInvoice(request: Request, env: Env): Promise<Response> {
   const cors = corsHeaders(request);
-  const admin = await requireAdmin(request, env, cors);
+  const admin = await requireAdmin(request, env, cors, 'invoices');
   if (admin instanceof Response) return admin;
   const body = await readJson<{ invoiceId?: string }>(request);
   const invoiceId = body?.invoiceId;
