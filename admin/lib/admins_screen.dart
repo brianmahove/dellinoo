@@ -275,6 +275,7 @@ class _AreaRow extends StatelessWidget {
         Text(area.hint, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
         SegmentedButton<String?>(
           showSelectedIcon: false,
+          style: SegmentedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
           segments: [
             const ButtonSegment(value: null, label: Text('None')),
             if (area.hasLevels) const ButtonSegment(value: 'view', label: Text('View only')),
