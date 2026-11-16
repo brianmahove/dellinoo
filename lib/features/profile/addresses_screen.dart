@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/iconly.dart';
+import '../../core/phone.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
@@ -129,7 +130,7 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
   bool get _valid =>
       _label.text.trim().isNotEmpty &&
       _name.text.trim().isNotEmpty &&
-      _phone.text.trim().isNotEmpty &&
+      isZimMobile(_phone.text) &&
       _street.text.trim().isNotEmpty &&
       _city.text.trim().isNotEmpty;
 
@@ -145,7 +146,7 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
     setState(() => _saving = true);
     final address = Address(
       fullName: _name.text.trim(),
-      phone: _phone.text.trim(),
+      phone: formatZimPhone(_phone.text) ?? _phone.text.trim(),
       street: _street.text.trim(),
       city: _city.text.trim(),
     );
@@ -194,7 +195,12 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
           const SizedBox(height: 10),
           TextField(
             controller: _phone,
-            decoration: const InputDecoration(labelText: 'Phone number'),
+            decoration: InputDecoration(
+              labelText: 'Phone number',
+              hintText: '077 123 4567',
+              errorText: _phone.text.trim().isEmpty || isZimMobile(_phone.text) ? null : zimPhoneHint,
+              errorMaxLines: 2,
+            ),
             keyboardType: TextInputType.phone,
             onChanged: (_) => setState(() {}),
           ),

@@ -197,11 +197,11 @@ class AuthPhoneField extends StatelessWidget {
                             keyboardType: TextInputType.phone,
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(9),
+                              LengthLimitingTextInputFormatter(10), // allows a leading 0
                             ],
                             onChanged: onChanged,
                             decoration: InputDecoration(
-                              hintText: 'Enter your phone number',
+                              hintText: 'e.g. 77 123 4567',
                               isDense: true,
                               filled: false,
                               contentPadding: const EdgeInsets.symmetric(vertical: 6),

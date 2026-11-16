@@ -118,6 +118,15 @@ class AuthNotifier extends Notifier<AppUser?> {
     // so the authStateChanges listener above picks up the new name.
     await FirebaseAuth.instance.currentUser?.reload();
     state = _appUserFrom(FirebaseAuth.instance.currentUser);
+    // Firebase has no field for an unverified number, so keep it on the
+    // customer's own profile doc (owner-only rule). Best effort: sign-up has
+    // already succeeded.
+    final uid = credential.user?.uid;
+    if (uid != null && phone.isNotEmpty) {
+      try {
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({'phone': phone}, SetOptions(merge: true));
+      } catch (_) {}
+    }
     _logSafely(() => FirebaseAnalytics.instance.logSignUp(signUpMethod: 'password'));
   }
 

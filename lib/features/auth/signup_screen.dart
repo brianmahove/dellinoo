@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/app_info.dart';
 import '../../core/contact.dart';
 import '../../core/iconly.dart';
+import '../../core/phone.dart';
 import '../../core/theme.dart';
 import '../../state/providers.dart';
 import '../../widgets/glass.dart';
@@ -32,7 +33,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   bool get _valid =>
       _name.text.trim().isNotEmpty &&
       emailPattern.hasMatch(_email.text.trim()) &&
-      _phone.text.replaceAll(' ', '').length == 9 &&
+      isZimMobile(_phone.text) &&
       _password.text.length >= 6 &&
       _confirm.text == _password.text &&
       _agreed;
@@ -66,7 +67,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
           .signUp(
             name: _name.text.trim(),
             email: _email.text.trim(),
-            phone: '+263 ${_phone.text}',
+            phone: formatZimPhone(_phone.text) ?? '',
             password: _password.text,
           );
       if (!mounted) return;

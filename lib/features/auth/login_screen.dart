@@ -8,6 +8,7 @@ import '../../state/providers.dart';
 import '../../widgets/brand.dart';
 import '../../widgets/glass.dart';
 import 'auth_widgets.dart';
+import 'phone_gate.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -32,7 +33,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   /// Returns to whatever pushed the login screen (e.g. checkout, redirected
   /// there by the router when unauthenticated) rather than always going home.
-  void _afterSuccess() => context.canPop() ? context.pop() : context.go('/home');
+  /// Google/Facebook (and older accounts) have no phone yet, so ask for a
+  /// Zimbabwe number before leaving; see [ensurePhoneOnFile].
+  Future<void> _afterSuccess() async {
+    if (!await ensurePhoneOnFile(context, ref)) return;
+    if (!mounted) return;
+    context.canPop() ? context.pop() : context.go('/home');
+  }
 
   Future<void> _logIn() async {
     setState(() => _submitting = true);
@@ -41,7 +48,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .read(authProvider.notifier)
           .signInWithPassword(email: _identifier.text.trim(), password: _password.text);
       if (!mounted) return;
-      _afterSuccess();
+      await _afterSuccess();
     } catch (e) {
       final message = authErrorMessage(e);
       if (mounted && message != null) showGlassToast(context, message);
@@ -55,7 +62,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       await ref.read(authProvider.notifier).signInWithGoogle();
       if (!mounted) return;
-      _afterSuccess();
+      await _afterSuccess();
     } catch (e) {
       final message = authErrorMessage(e);
       if (mounted && message != null) showGlassToast(context, message);
@@ -69,7 +76,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       await ref.read(authProvider.notifier).signInWithFacebook();
       if (!mounted) return;
-      _afterSuccess();
+      await _afterSuccess();
     } catch (e) {
       final message = authErrorMessage(e);
       if (mounted && message != null) showGlassToast(context, message);

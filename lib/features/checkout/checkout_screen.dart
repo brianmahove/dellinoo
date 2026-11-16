@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/format.dart';
+import '../../core/phone.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../../widgets/common.dart';
+import '../auth/phone_gate.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/motion.dart';
 import '../../widgets/manual_payment.dart';
@@ -100,6 +102,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (_area == null) {
       showGlassToast(context, 'Please choose a delivery option');
       return;
+    }
+    // Accounts made before the Zimbabwe-only rule may have no number yet.
+    if (!await ensurePhoneOnFile(context, ref)) return;
+    if (!mounted) return;
+    if (_payment.needsPhone) {
+      final wallet = _walletPhone.text;
+      if (!isZimMobile(wallet)) {
+        showGlassToast(context, '${_payment.label}: $zimPhoneHint');
+        return;
+      }
+      if (_payment == PaymentMethod.ecocash && !isEconet(wallet)) {
+        showGlassToast(context, 'EcoCash numbers start with 077, 078 or 079');
+        return;
+      }
     }
     setState(() => _placing = true);
 
