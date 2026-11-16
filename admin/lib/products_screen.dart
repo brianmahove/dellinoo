@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
+import 'admin_access.dart';
 import 'catalog_version.dart';
 import 'glass_dialog.dart';
 import 'colour_swatches.dart';
@@ -51,7 +52,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 600;
     return Scaffold(
-      floatingActionButton: compact
+      floatingActionButton: !AdminAccess.canEdit('products')
+          ? null
+          : compact
           ? FloatingActionButton.small(
               tooltip: 'Add product',
               onPressed: () => _openForm(),
@@ -115,7 +118,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       itemBuilder: (context, i) => _ProductCard(
                         docs[i],
                         accent: i.isEven ? AppColors.accentOrange : AppColors.primary,
-                        onEdit: () => _openForm(doc: docs[i]),
+                        onEdit: AdminAccess.canEdit('products') ? () => _openForm(doc: docs[i]) : () {},
                       ),
                     );
                   },
@@ -382,7 +385,7 @@ class _ProductCard extends StatelessWidget {
     final price = (d['price'] as num?)?.toDouble() ?? 0;
     final oldPrice = (d['oldPrice'] as num?)?.toDouble();
     return GestureDetector(
-      onLongPress: () => _confirmDelete(context),
+      onLongPress: AdminAccess.canEdit('products') ? () => _confirmDelete(context) : null,
       child: Container(
         decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(22)),
         clipBehavior: Clip.antiAlias,
@@ -411,6 +414,7 @@ class _ProductCard extends StatelessWidget {
                         iconColor: isNew ? AppColors.accentOrange : AppColors.ink,
                         tooltip: 'Toggle "New" badge',
                         onTap: () async {
+                          if (!AdminAccess.canEdit('products')) return;
                           await doc.reference.update({'isNew': !isNew});
                           await bumpCatalogVersion();
                         },

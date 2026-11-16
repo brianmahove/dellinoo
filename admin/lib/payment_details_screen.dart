@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'admin_access.dart';
 import 'theme.dart';
 import 'iconly.dart';
 
@@ -116,62 +117,67 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text('Error: $_error'));
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _saving ? null : _save,
-        icon: _saving
-            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Icon(IconlyLight.tick_square),
-        label: const Text('Save'),
-      ),
+      floatingActionButton: !AdminAccess.canEdit('payments')
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _saving ? null : _save,
+              icon: _saving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(IconlyLight.tick_square),
+              label: const Text('Save'),
+            ),
       body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-            children: [
-              Text(
-                'Customers who choose "Pay manually" send money to these accounts and enter the transaction '
-                'reference. Match it on your statement, then confirm the order on the Orders screen. '
-                'Leave a number blank to hide that option.',
-                style: TextStyle(color: AppColors.muted, height: 1.4),
-              ),
-              const SizedBox(height: 14),
-              _section(IconlyLight.wallet, 'EcoCash', 'Merchant code or the number customers send money to.', [
-                _field('ecocashNumber', 'EcoCash number / merchant code', hint: 'e.g. 0771234567'),
-                _field('ecocashName', 'Registered name', hint: 'The name customers see when they send'),
-                _field(
-                  'ecocashUssd',
-                  'USSD code the app dials (optional)',
-                  hint: 'Blank = *153*1*1*{number}*{amount}#  (Send money). Use {number} and {amount}.',
+        child: AbsorbPointer(
+          absorbing: !AdminAccess.canEdit('payments'),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+              children: [
+                Text(
+                  'Customers who choose "Pay manually" send money to these accounts and enter the transaction '
+                  'reference. Match it on your statement, then confirm the order on the Orders screen. '
+                  'Leave a number blank to hide that option.',
+                  style: TextStyle(color: AppColors.muted, height: 1.4),
                 ),
-              ]),
-              const SizedBox(height: 10),
-              _section(IconlyLight.wallet, 'InnBucks', 'The InnBucks account customers send money to.', [
-                _field('innbucksNumber', 'InnBucks number'),
-                _field('innbucksName', 'Registered name'),
-              ]),
-              const SizedBox(height: 10),
-              _section(IconlyLight.document, 'Bank transfer', 'For customers paying from a bank or ZIPIT.', [
-                _field('bankName', 'Bank', hint: 'e.g. NMB Bank'),
-                _field('bankAccountName', 'Account name'),
-                _field('bankAccountNumber', 'Account number'),
-                _field('bankBranch', 'Branch'),
-              ]),
-              const SizedBox(height: 10),
-              _section(
-                IconlyLight.info_circle,
-                'Instructions (optional)',
-                'Replaces the default text at the top of the sheet.',
-                [
+                const SizedBox(height: 14),
+                _section(IconlyLight.wallet, 'EcoCash', 'Merchant code or the number customers send money to.', [
+                  _field('ecocashNumber', 'EcoCash number / merchant code', hint: 'e.g. 0771234567'),
+                  _field('ecocashName', 'Registered name', hint: 'The name customers see when they send'),
                   _field(
-                    'instructions',
-                    'Instructions',
-                    hint: 'e.g. Send the exact amount, then enter the reference from your SMS.',
-                    maxLines: 3,
+                    'ecocashUssd',
+                    'USSD code the app dials (optional)',
+                    hint: 'Blank = *153*1*1*{number}*{amount}#  (Send money). Use {number} and {amount}.',
                   ),
-                ],
-              ),
-            ],
+                ]),
+                const SizedBox(height: 10),
+                _section(IconlyLight.wallet, 'InnBucks', 'The InnBucks account customers send money to.', [
+                  _field('innbucksNumber', 'InnBucks number'),
+                  _field('innbucksName', 'Registered name'),
+                ]),
+                const SizedBox(height: 10),
+                _section(IconlyLight.document, 'Bank transfer', 'For customers paying from a bank or ZIPIT.', [
+                  _field('bankName', 'Bank', hint: 'e.g. NMB Bank'),
+                  _field('bankAccountName', 'Account name'),
+                  _field('bankAccountNumber', 'Account number'),
+                  _field('bankBranch', 'Branch'),
+                ]),
+                const SizedBox(height: 10),
+                _section(
+                  IconlyLight.info_circle,
+                  'Instructions (optional)',
+                  'Replaces the default text at the top of the sheet.',
+                  [
+                    _field(
+                      'instructions',
+                      'Instructions',
+                      hint: 'e.g. Send the exact amount, then enter the reference from your SMS.',
+                      maxLines: 3,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

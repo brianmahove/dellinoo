@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'admin_access.dart';
 import 'glass_dialog.dart';
 import 'theme.dart';
 import 'iconly.dart';
@@ -11,11 +12,13 @@ class DeliveryAreasScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showFormPage(context: context, builder: (context) => const _AreaForm()),
-        icon: const Icon(IconlyLight.plus),
-        label: const Text('Add area'),
-      ),
+      floatingActionButton: AdminAccess.canEdit('delivery')
+          ? FloatingActionButton.extended(
+              onPressed: () => showFormPage(context: context, builder: (context) => const _AreaForm()),
+              icon: const Icon(IconlyLight.plus),
+              label: const Text('Add area'),
+            )
+          : null,
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance.collection('delivery_areas').orderBy('sortOrder').snapshots(),
         builder: (context, snapshot) {
@@ -65,38 +68,40 @@ class DeliveryAreasScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(IconlyLight.edit),
-                            onPressed: () => showFormPage(
-                              context: context,
-                              builder: (context) => _AreaForm(doc: doc),
-                            ),
-                          ),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(IconlyLight.delete),
-                            onPressed: () async {
-                              final ok = await showGlassDialog<bool>(
+                          if (AdminAccess.canEdit('delivery'))
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(IconlyLight.edit),
+                              onPressed: () => showFormPage(
                                 context: context,
-                                builder: (context) => GlassAlertDialog(
-                                  title: const Text('Delete area?'),
-                                  content: Text('"${d['name']}" will be removed.'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, false),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    FilledButton(
-                                      onPressed: () => Navigator.pop(context, true),
-                                      child: const Text('Delete'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (ok == true) await doc.reference.delete();
-                            },
-                          ),
+                                builder: (context) => _AreaForm(doc: doc),
+                              ),
+                            ),
+                          if (AdminAccess.canEdit('delivery'))
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(IconlyLight.delete),
+                              onPressed: () async {
+                                final ok = await showGlassDialog<bool>(
+                                  context: context,
+                                  builder: (context) => GlassAlertDialog(
+                                    title: const Text('Delete area?'),
+                                    content: Text('"${d['name']}" will be removed.'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () => Navigator.pop(context, true),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (ok == true) await doc.reference.delete();
+                              },
+                            ),
                         ],
                       ),
                     ),

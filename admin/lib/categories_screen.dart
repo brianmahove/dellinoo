@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'admin_access.dart';
 import 'category_icons.dart';
 import 'glass_dialog.dart';
 import 'iconly.dart';
@@ -63,18 +64,20 @@ class CategoriesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showFormPage(context: context, builder: (context) => const _CategoryForm()),
-        icon: const Icon(IconlyLight.plus),
-        label: const Text('Add category'),
-      ),
+      floatingActionButton: AdminAccess.canEdit('categories')
+          ? FloatingActionButton.extended(
+              onPressed: () => showFormPage(context: context, builder: (context) => const _CategoryForm()),
+              icon: const Icon(IconlyLight.plus),
+              label: const Text('Add category'),
+            )
+          : null,
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: _col.orderBy('sortOrder').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           final docs = snapshot.data!.docs;
-          if (docs.isEmpty) return _Empty(onSeed: _seedDefaults);
+          if (docs.isEmpty) return _Empty(onSeed: AdminAccess.canEdit('categories') ? _seedDefaults : null);
           return Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 900),
@@ -104,36 +107,38 @@ class CategoriesScreen extends StatelessWidget {
                       ),
                       title: Text(d['name'] as String? ?? doc.id, style: const TextStyle(fontWeight: FontWeight.w700)),
                       subtitle: Text(doc.id, style: TextStyle(color: AppColors.muted)),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            tooltip: 'Move up',
-                            icon: const Icon(Icons.arrow_upward, size: 18),
-                            onPressed: i == 0 ? null : () => _swap(docs[i - 1], doc),
-                          ),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            tooltip: 'Move down',
-                            icon: const Icon(Icons.arrow_downward, size: 18),
-                            onPressed: i == docs.length - 1 ? null : () => _swap(doc, docs[i + 1]),
-                          ),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(IconlyLight.edit),
-                            onPressed: () => showFormPage(
-                              context: context,
-                              builder: (context) => _CategoryForm(doc: doc),
+                      trailing: !AdminAccess.canEdit('categories')
+                          ? null
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip: 'Move up',
+                                  icon: const Icon(Icons.arrow_upward, size: 18),
+                                  onPressed: i == 0 ? null : () => _swap(docs[i - 1], doc),
+                                ),
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip: 'Move down',
+                                  icon: const Icon(Icons.arrow_downward, size: 18),
+                                  onPressed: i == docs.length - 1 ? null : () => _swap(doc, docs[i + 1]),
+                                ),
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  icon: const Icon(IconlyLight.edit),
+                                  onPressed: () => showFormPage(
+                                    context: context,
+                                    builder: (context) => _CategoryForm(doc: doc),
+                                  ),
+                                ),
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  icon: const Icon(IconlyLight.delete),
+                                  onPressed: () => _delete(context, doc),
+                                ),
+                              ],
                             ),
-                          ),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(IconlyLight.delete),
-                            onPressed: () => _delete(context, doc),
-                          ),
-                        ],
-                      ),
                     ),
                   );
                 },
@@ -195,7 +200,7 @@ class CategoriesScreen extends StatelessWidget {
 class _Empty extends StatelessWidget {
   const _Empty({required this.onSeed});
 
-  final Future<void> Function() onSeed;
+  final Future<void> Function()? onSeed;
 
   @override
   Widget build(BuildContext context) {
@@ -216,7 +221,7 @@ class _Empty extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          FilledButton(onPressed: onSeed, child: const Text('Add the standard categories')),
+          if (onSeed != null) FilledButton(onPressed: onSeed, child: const Text('Add the standard categories')),
         ],
       ),
     );

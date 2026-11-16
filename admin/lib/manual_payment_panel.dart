@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+import 'admin_access.dart';
 import 'glass_dialog.dart';
 import 'notify.dart';
 import 'theme.dart';
@@ -116,7 +117,7 @@ class ManualPaymentPanel extends StatelessWidget {
             const SizedBox(height: 4),
             Text('Reason given: ${mp['note']}', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
           ],
-          if (pending) ...[
+          if (pending && AdminAccess.canEdit('orders')) ...[
             const SizedBox(height: 12),
             Wrap(
               spacing: 10,

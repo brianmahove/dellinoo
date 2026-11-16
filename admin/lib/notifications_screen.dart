@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'admin_access.dart';
 import 'glass_dialog.dart';
 import 'iconly.dart';
 import 'notify.dart';
@@ -22,7 +23,15 @@ class NotificationsScreen extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 900),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 48),
-          children: const [_BroadcastCard(), SizedBox(height: 16), _PriceDropCard(), SizedBox(height: 24), _History()],
+          children: [
+            if (AdminAccess.canEdit('notifications')) ...const [
+              _BroadcastCard(),
+              SizedBox(height: 16),
+              _PriceDropCard(),
+              SizedBox(height: 24),
+            ],
+            const _History(),
+          ],
         ),
       ),
     );

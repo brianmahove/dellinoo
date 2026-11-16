@@ -17,7 +17,8 @@ service cloud.firestore {
     // Limited admins: an `admins/{email}` doc may carry `access`, a list of the
     // panel areas that person can use (products, orders, categories, customers,
     // delivery, coupons, requests, invoices, notifications, payments,
-    // dashboard). No `access` field = full admin, which is every admin created
+    // dashboard); `orders` lets them change things there, `orders:view` only look.
+    // No `access` field = full admin, which is every admin created
     // before this existed. Only full admins manage other admins, so a limited
     // one can't widen their own access. Mirrored in the panel's
     // admin/lib/admin_access.dart and the Worker's hasAccess().
@@ -27,8 +28,14 @@ service cloud.firestore {
     function isFullAdmin() {
       return isAdmin() && !('access' in adminDoc());
     }
+    // Can change things in the area: add, edit, delete, process.
     function hasAccess(area) {
       return isAdmin() && (!('access' in adminDoc()) || area in adminDoc().access);
+    }
+    // Can at least look: `area` (edit) or `area:view` (read only).
+    function canView(area) {
+      return isAdmin() && (!('access' in adminDoc()) ||
+        area in adminDoc().access || (area + ':view') in adminDoc().access);
     }
 
     match /admins/{email} {
@@ -68,13 +75,14 @@ service cloud.firestore {
     // The payments Worker re-validates the code itself before charging.
     match /coupons/{code} {
       allow get: if request.auth != null;
-      allow list, write: if hasAccess('coupons');
+      allow list: if canView('coupons');
+      allow write: if hasAccess('coupons');
     }
 
     // "Request an item" (customer app → admin quote). A customer creates
     // their own as `new` and reads only theirs; only admins quote/close.
     match /item_requests/{requestId} {
-      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || hasAccess('requests'));
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || canView('requests'));
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId &&
         request.resource.data.status == 'new' && request.resource.data.link is string &&
         request.resource.data.link.size() <= 2000;
@@ -98,7 +106,7 @@ service cloud.firestore {
     // only theirs, and only admins issue/close. The bill-to details are the
     // customer's own (company name, TIN) so they're written client-side.
     match /invoice_requests/{requestId} {
-      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || hasAccess('invoices'));
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || canView('invoices'));
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId &&
         request.resource.data.status == 'new' && request.resource.data.orderDocId is string;
       allow update, delete: if hasAccess('invoices');
@@ -111,7 +119,7 @@ service cloud.firestore {
     match /invoices/{invoiceId} {
       // Orders show their invoice number, so order admins may read them too.
       allow read: if request.auth != null && (request.auth.uid == resource.data.userId ||
-        hasAccess('invoices') || hasAccess('orders'));
+        canView('invoices') || canView('orders'));
       allow write: if hasAccess('invoices');
     }
 
@@ -125,7 +133,7 @@ service cloud.firestore {
       // customer list, invoicing), so those areas may read them; only the
       // Orders area may change one.
       allow read: if request.auth != null && (request.auth.uid == resource.data.userId ||
-        hasAccess('orders') || hasAccess('dashboard') || hasAccess('customers') || hasAccess('invoices'));
+        canView('orders') || canView('dashboard') || canView('customers') || canView('invoices'));
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       // Manual payment: the owner may record (or correct) the transaction
       // reference they paid with, only while the order is still unpaid, and
@@ -179,7 +187,8 @@ service cloud.firestore {
     // meta/orderCounter, only admins ever touch this one — invoices are
     // issued from the panel, never by a customer.
     match /meta/invoiceCounter {
-      allow read, write: if hasAccess('invoices');
+      allow read: if canView('invoices');
+      allow write: if hasAccess('invoices');
     }
 
     // A customer's own saved delivery addresses (see AddressBookNotifier in
@@ -231,7 +240,7 @@ service cloud.firestore {
     // Promo pushes sent from the admin Notifications screen. Written only by
     // the Worker (it logs each broadcast after sending); admins read history.
     match /broadcasts/{id} {
-      allow read: if hasAccess('notifications');
+      allow read: if canView('notifications');
       allow write: if false;
     }
   }

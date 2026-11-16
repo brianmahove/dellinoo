@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'admin_access.dart';
 import 'glass_dialog.dart';
 import 'invoice_pdf.dart';
 import 'invoices_screen.dart';
@@ -336,11 +337,12 @@ class _OrderDetailCard extends StatelessWidget {
               alignment: WrapAlignment.end,
               children: [
                 _InvoiceButton(orderDocId: doc.id),
-                FilledButton.icon(
-                  onPressed: () => _advanceStatus(context, doc, status),
-                  icon: const Icon(IconlyLight.arrow_right, size: 18),
-                  label: const Text('Update status'),
-                ),
+                if (AdminAccess.canEdit('orders'))
+                  FilledButton.icon(
+                    onPressed: () => _advanceStatus(context, doc, status),
+                    icon: const Icon(IconlyLight.arrow_right, size: 18),
+                    label: const Text('Update status'),
+                  ),
               ],
             ),
           ],
@@ -436,11 +438,12 @@ class _OrderTile extends StatelessWidget {
                   alignment: WrapAlignment.end,
                   children: [
                     _InvoiceButton(orderDocId: doc.id),
-                    FilledButton.icon(
-                      onPressed: () => _advanceStatus(context, doc, status),
-                      icon: const Icon(IconlyLight.arrow_right, size: 18),
-                      label: const Text('Update status'),
-                    ),
+                    if (AdminAccess.canEdit('orders'))
+                      FilledButton.icon(
+                        onPressed: () => _advanceStatus(context, doc, status),
+                        icon: const Icon(IconlyLight.arrow_right, size: 18),
+                        label: const Text('Update status'),
+                      ),
                   ],
                 ),
               ],
@@ -544,6 +547,8 @@ class _InvoiceButton extends StatelessWidget {
           .snapshots(),
       builder: (context, snapshot) {
         final invoice = snapshot.data?.docs.firstOrNull?.data();
+        // Creating one is the Invoices area's job; an existing one can be downloaded.
+        if (invoice == null && !AdminAccess.canEdit('invoices')) return const SizedBox.shrink();
         return OutlinedButton.icon(
           style: OutlinedButton.styleFrom(minimumSize: const Size(150, 48)),
           onPressed: invoice == null

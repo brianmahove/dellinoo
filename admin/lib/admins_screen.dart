@@ -138,8 +138,12 @@ class _AdminFormState extends State<_AdminForm> {
   final _formKey = GlobalKey<FormState>();
   late final _email = TextEditingController(text: widget.existing?.id);
   late bool _full = widget.existing == null || widget.existing!.data()['access'] is! List;
-  late final Set<String> _areas = {
-    if (widget.existing?.data()['access'] is List) ...(widget.existing!.data()['access'] as List).whereType<String>(),
+
+  /// Area key -> 'edit' or 'view'; an area not in the map has no access.
+  late final Map<String, String> _levels = {
+    if (widget.existing?.data()['access'] is List)
+      for (final k in (widget.existing!.data()['access'] as List).whereType<String>())
+        if (k.endsWith(':view')) k.substring(0, k.length - 5): 'view' else k: 'edit',
   };
   bool _saving = false;
   String? _error;
@@ -154,7 +158,7 @@ class _AdminFormState extends State<_AdminForm> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (!_full && _areas.isEmpty) {
+    if (!_full && _levels.isEmpty) {
       setState(() => _error = 'Pick at least one area, or give full access.');
       return;
     }
@@ -167,7 +171,7 @@ class _AdminFormState extends State<_AdminForm> {
       // Keep the list in the panel's own order, whatever order they ticked in.
       final access = [
         for (final a in accessAreas)
-          if (_areas.contains(a.key)) a.key,
+          if (_levels[a.key] == 'edit') a.key else if (_levels[a.key] == 'view') '${a.key}:view',
       ];
       final doc = FirebaseFirestore.instance.collection('admins').doc(email);
       if (widget.existing == null) {
@@ -227,14 +231,10 @@ class _AdminFormState extends State<_AdminForm> {
                     style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
                   ),
                   for (final a in accessAreas)
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(a.label, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: Text(a.hint, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
-                      value: _areas.contains(a.key),
-                      onChanged: (v) => setState(() => v == true ? _areas.add(a.key) : _areas.remove(a.key)),
+                    _AreaRow(
+                      area: a,
+                      level: _levels[a.key],
+                      onChanged: (v) => setState(() => v == null ? _levels.remove(a.key) : _levels[a.key] = v),
                     ),
                 ],
                 if (_error != null) Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 13)),
@@ -251,6 +251,39 @@ class _AdminFormState extends State<_AdminForm> {
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
               : Text(widget.existing == null ? 'Add' : 'Save'),
         ),
+      ],
+    );
+  }
+}
+
+/// One area: None / View only / Can edit (Dashboard and Customers have no
+/// "view only", they're just on or off).
+class _AreaRow extends StatelessWidget {
+  const _AreaRow({required this.area, required this.level, required this.onChanged});
+
+  final AccessArea area;
+  final String? level;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 6,
+      children: [
+        Text(area.label, style: const TextStyle(fontWeight: FontWeight.w700)),
+        Text(area.hint, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+        SegmentedButton<String?>(
+          showSelectedIcon: false,
+          segments: [
+            const ButtonSegment(value: null, label: Text('None')),
+            if (area.hasLevels) const ButtonSegment(value: 'view', label: Text('View only')),
+            ButtonSegment(value: 'edit', label: Text(area.hasLevels ? 'Can edit' : 'Allowed')),
+          ],
+          selected: {level},
+          onSelectionChanged: (s) => onChanged(s.first),
+        ),
+        const SizedBox(height: 6),
       ],
     );
   }

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'admin_access.dart';
 import 'notify.dart';
 import 'theme.dart';
 import 'iconly.dart';
@@ -121,7 +122,9 @@ class _RequestCardState extends State<_RequestCard> {
                   child: DropdownButton<String>(
                     value: _statuses.containsKey(status) ? status : 'new',
                     items: [for (final e in _statuses.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
-                    onChanged: (v) => widget.doc.reference.update({'status': v}),
+                    onChanged: AdminAccess.canEdit('requests')
+                        ? (v) => widget.doc.reference.update({'status': v})
+                        : null,
                   ),
                 ),
               ],

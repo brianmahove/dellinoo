@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'admin_access.dart';
 import 'glass_dialog.dart';
 import 'invoice_pdf.dart';
 import 'notify.dart';
@@ -198,7 +199,7 @@ class _RequestCard extends StatelessWidget {
                   child: DropdownButton<String>(
                     value: _statuses.containsKey(status) ? status : 'new',
                     items: [for (final e in _statuses.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
-                    onChanged: (v) => doc.reference.update({'status': v}),
+                    onChanged: AdminAccess.canEdit('invoices') ? (v) => doc.reference.update({'status': v}) : null,
                   ),
                 ),
               ],

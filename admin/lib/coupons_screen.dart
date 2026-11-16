@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'admin_access.dart';
 import 'glass_dialog.dart';
 import 'theme.dart';
 import 'iconly.dart';
@@ -14,11 +15,13 @@ class CouponsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showFormPage(context: context, builder: (context) => const _CouponForm()),
-        icon: const Icon(IconlyLight.plus),
-        label: const Text('Add coupon'),
-      ),
+      floatingActionButton: AdminAccess.canEdit('coupons')
+          ? FloatingActionButton.extended(
+              onPressed: () => showFormPage(context: context, builder: (context) => const _CouponForm()),
+              icon: const Icon(IconlyLight.plus),
+              label: const Text('Add coupon'),
+            )
+          : null,
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance.collection('coupons').snapshots(),
         builder: (context, snapshot) {
@@ -71,40 +74,47 @@ class CouponsScreen extends StatelessWidget {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Switch(value: active, onChanged: (v) => doc.reference.update({'active': v})),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            tooltip: 'Edit',
-                            icon: const Icon(IconlyLight.edit),
-                            onPressed: () => showFormPage(
-                              context: context,
-                              builder: (context) => _CouponForm(doc: doc),
-                            ),
+                          Switch(
+                            value: active,
+                            onChanged: AdminAccess.canEdit('coupons')
+                                ? (v) => doc.reference.update({'active': v})
+                                : null,
                           ),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            tooltip: 'Delete',
-                            icon: const Icon(IconlyLight.delete),
-                            onPressed: () async {
-                              final ok = await showGlassDialog<bool>(
+                          if (AdminAccess.canEdit('coupons'))
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Edit',
+                              icon: const Icon(IconlyLight.edit),
+                              onPressed: () => showFormPage(
                                 context: context,
-                                builder: (context) => GlassAlertDialog(
-                                  title: Text('Delete ${doc.id}?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, false),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    FilledButton(
-                                      onPressed: () => Navigator.pop(context, true),
-                                      child: const Text('Delete'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (ok == true) await doc.reference.delete();
-                            },
-                          ),
+                                builder: (context) => _CouponForm(doc: doc),
+                              ),
+                            ),
+                          if (AdminAccess.canEdit('coupons'))
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Delete',
+                              icon: const Icon(IconlyLight.delete),
+                              onPressed: () async {
+                                final ok = await showGlassDialog<bool>(
+                                  context: context,
+                                  builder: (context) => GlassAlertDialog(
+                                    title: Text('Delete ${doc.id}?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () => Navigator.pop(context, true),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (ok == true) await doc.reference.delete();
+                              },
+                            ),
                         ],
                       ),
                     ),
