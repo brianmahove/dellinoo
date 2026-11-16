@@ -23,6 +23,10 @@ Future<Rect?> showPhotoCropper(BuildContext context, ProductPhoto photo) async {
 }
 
 const _full = Rect.fromLTWH(0, 0, 1, 1);
+
+/// Standard shape for product photos (width / height): 4:5 portrait suits clothes,
+/// shoes and phones, and the customer app's product page is laid out for it.
+const kPhotoRatio = 0.8;
 const _minSide = 0.08; // of the photo, so the box can't collapse
 const _handle = 22.0; // touch size of a corner handle, in pixels
 
@@ -39,8 +43,11 @@ class _Cropper extends StatefulWidget {
 }
 
 class _CropperState extends State<_Cropper> {
-  Rect _area = _full;
-  bool _square = false;
+  late Rect _area = _ratio == null ? _full : _ratioAround(const Offset(0.5, 0.5), _view.width, _view.height);
+
+  /// Width / height the box is locked to; null = free. Defaults to 4:5 portrait,
+  /// the shape the shop's product page is laid out for (see kPhotoRatio).
+  double? _ratio = kPhotoRatio;
   bool _trimming = false;
   String? _note;
   _Drag? _drag;
@@ -54,21 +61,27 @@ class _CropperState extends State<_Cropper> {
   Rect _px(Rect r) =>
       Rect.fromLTRB(r.left * _view.width, r.top * _view.height, r.right * _view.width, r.bottom * _view.height);
 
-  void _setSquare(bool on) {
+  void _setRatio(double? r) {
     setState(() {
-      _square = on;
-      if (on) _area = _squareAround(_area.center, math.min(_px(_area).width, _px(_area).height));
+      _ratio = r;
+      if (r != null) _area = _ratioAround(_area.center, _px(_area).width, _px(_area).height);
     });
   }
 
-  /// A square (in pixels) of side [side] centred on [c], kept inside the photo.
-  Rect _squareAround(Offset c, double side) {
-    side = math.min(side, math.min(_view.width, _view.height));
-    final w = side / _view.width;
-    final h = side / _view.height;
-    final left = (c.dx - w / 2).clamp(0.0, 1 - w);
-    final top = (c.dy - h / 2).clamp(0.0, 1 - h);
-    return Rect.fromLTWH(left, top, w, h);
+  /// A box locked to [_ratio], centred on [c] and as large as fits inside
+  /// [width]×[height] pixels, kept inside the photo.
+  Rect _ratioAround(Offset c, double width, double height) {
+    final r = _ratio!;
+    var w = width / height > r ? height * r : width;
+    var h = w / r;
+    final k = math.min(1.0, math.min(_view.width / w, _view.height / h));
+    w *= k;
+    h *= k;
+    final fw = w / _view.width;
+    final fh = h / _view.height;
+    final left = (c.dx - fw / 2).clamp(0.0, 1 - fw);
+    final top = (c.dy - fh / 2).clamp(0.0, 1 - fh);
+    return Rect.fromLTWH(left, top, fw, fh);
   }
 
   Future<void> _autoTrim() async {
@@ -83,7 +96,15 @@ class _CropperState extends State<_Cropper> {
         if (bounds == null) {
           _note = 'No empty background to trim — the product fills the photo.';
         } else {
-          _area = _square ? _squareAround(bounds.center, math.max(_px(bounds).width, _px(bounds).height)) : bounds;
+          final r = _ratio;
+          if (r == null) {
+            _area = bounds;
+          } else {
+            // Smallest box of the locked shape that still holds the whole product.
+            final b = _px(bounds);
+            final w = math.max(b.width, b.height * r);
+            _area = _ratioAround(bounds.center, w, w / r);
+          }
         }
       });
     } finally {
@@ -127,12 +148,13 @@ class _CropperState extends State<_Cropper> {
       if (drag == _Drag.topLeft || drag == _Drag.topRight) top = (top + dy).clamp(0.0, bottom - _minSide);
       if (drag == _Drag.bottomLeft || drag == _Drag.bottomRight) bottom = (bottom + dy).clamp(top + _minSide, 1.0);
       r = Rect.fromLTRB(left, top, right, bottom);
-      if (_square) {
-        // Keep the corner opposite the dragged one fixed; side = the smaller.
+      final ratio = _ratio;
+      if (ratio != null) {
+        // Keep the corner opposite the dragged one fixed; the box shrinks to the shape.
         final px = _px(r);
-        final side = math.min(px.width, px.height);
-        final w = side / _view.width;
-        final h = side / _view.height;
+        final pw = math.min(px.width, px.height * ratio);
+        final w = pw / _view.width;
+        final h = (pw / ratio) / _view.height;
         r = switch (drag) {
           _Drag.topLeft => Rect.fromLTRB(r.right - w, r.bottom - h, r.right, r.bottom),
           _Drag.topRight => Rect.fromLTRB(r.left, r.bottom - h, r.left + w, r.bottom),
@@ -188,8 +210,9 @@ class _CropperState extends State<_Cropper> {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                ChoiceChip(label: const Text('Free'), selected: !_square, onSelected: (_) => _setSquare(false)),
-                ChoiceChip(label: const Text('Square'), selected: _square, onSelected: (_) => _setSquare(true)),
+                ChoiceChip(label: const Text('Free'), selected: _ratio == null, onSelected: (_) => _setRatio(null)),
+                ChoiceChip(label: const Text('4:5 (shop)'), selected: _ratio == 0.8, onSelected: (_) => _setRatio(0.8)),
+                ChoiceChip(label: const Text('Square'), selected: _ratio == 1, onSelected: (_) => _setRatio(1)),
                 ActionChip(
                   avatar: const Icon(Icons.auto_fix_high, size: 16),
                   label: const Text('Auto-trim'),
@@ -199,7 +222,7 @@ class _CropperState extends State<_Cropper> {
                   avatar: const Icon(Icons.restart_alt, size: 16),
                   label: const Text('Reset'),
                   onPressed: () => setState(() {
-                    _area = _square ? _squareAround(const Offset(0.5, 0.5), double.infinity) : _full;
+                    _area = _ratio == null ? _full : _ratioAround(const Offset(0.5, 0.5), _view.width, _view.height);
                     _note = null;
                   }),
                 ),

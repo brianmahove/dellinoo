@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -184,6 +185,34 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           decoration: productBackdrop(product, photo: _image, radius: _headerRadius),
                         ),
                       ),
+                      // Photos come in all shapes, so the sides of a narrow one would show
+                      // bare backdrop. Fill the header with a soft blur of the photo itself
+                      // (skipped when the admin set a matching background colour).
+                      if (product.photoBg(_image) == null && !deferred(_image))
+                        Positioned.fill(
+                          child: ClipRRect(
+                            borderRadius: _headerRadius,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              child: SizedBox.expand(
+                                key: ValueKey(_image),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    ImageFiltered(
+                                      imageFilter: ImageFilter.blur(sigmaX: 28, sigmaY: 28, tileMode: TileMode.clamp),
+                                      child: Transform.scale(
+                                        scale: 1.3,
+                                        child: NetImage(photoUrl(_image), fit: BoxFit.cover),
+                                      ),
+                                    ),
+                                    ColoredBox(color: AppColors.tintFor(product.id).withValues(alpha: 0.35)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       Positioned.fill(
                         top: top + 60,
                         bottom: 10,
