@@ -3,89 +3,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/iconly.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
-import '../../widgets/common.dart';
-import '../../widgets/glass.dart';
 import '../../widgets/payment_logos.dart';
 
-/// Three-slide intro shown on first launch: what Dellinoo sells, the two
-/// delivery speeds, and how to pay / get help.
-class WelcomeScreen extends ConsumerStatefulWidget {
+/// Single welcome screen shown on first launch: how to pay and get help.
+class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
 
-  @override
-  ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
-}
-
-class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
-  final _pages = PageController();
-  int _page = 0;
-
-  static const _count = 3;
-
-  @override
-  void dispose() {
-    _pages.dispose();
-    super.dispose();
-  }
-
-  Future<void> _finish() async {
+  Future<void> _finish(BuildContext context, WidgetRef ref) async {
     await markWelcomeSeen(ref.read(prefsProvider));
-    if (mounted) context.go('/login');
+    if (context.mounted) context.go('/login');
   }
 
   @override
-  Widget build(BuildContext context) {
-    final last = _page == _count - 1;
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, 8, 12, 0),
-                child: AnimatedOpacity(
-                  opacity: last ? 0 : 1,
-                  duration: const Duration(milliseconds: 200),
-                  child: TextButton(onPressed: last ? null : _finish, child: const Text('Skip')),
-                ),
-              ),
-            ),
-            Expanded(
-              child: PageView(
-                controller: _pages,
-                onPageChanged: (i) => setState(() => _page = i),
-                children: const [_ShopSlide(), _DeliverySlide(), _PaySlide()],
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < _count; i++)
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: i == _page ? 22 : 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: i == _page ? AppColors.ink : AppColors.muted.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-              ],
-            ),
+            const Expanded(child: _PaySlide()),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-              child: FilledButton(
-                onPressed: last
-                    ? _finish
-                    : () => _pages.nextPage(duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic),
-                child: Text(last ? 'Get started' : 'Next'),
-              ),
+              child: FilledButton(onPressed: () => _finish(context, ref), child: const Text('Get started')),
             ),
           ],
         ),
@@ -156,121 +97,6 @@ class _Art extends StatelessWidget {
           ...children,
         ],
       ),
-    );
-  }
-}
-
-class _ShopSlide extends StatelessWidget {
-  const _ShopSlide();
-
-  @override
-  Widget build(BuildContext context) {
-    Widget photo(String url, double size, double angle) => Transform.rotate(
-      angle: angle,
-      child: Container(
-        width: size,
-        height: size,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(26),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 10)),
-          ],
-        ),
-        child: NetImage(url, fit: BoxFit.contain),
-      ),
-    );
-
-    return _Slide(
-      art: _Art(
-        children: [
-          Positioned(
-            left: 6,
-            top: 40,
-            child: photo(
-              'https://cdn.dummyjson.com/product-images/smartphones/iphone-13-pro/thumbnail.webp',
-              110,
-              -0.12,
-            ),
-          ),
-          Positioned(
-            right: 4,
-            top: 20,
-            child: photo(
-              'https://cdn.dummyjson.com/product-images/mens-shoes/nike-air-jordan-1-red-and-black/thumbnail.webp',
-              104,
-              0.14,
-            ),
-          ),
-          Positioned(
-            bottom: 14,
-            child: photo(
-              "https://cdn.dummyjson.com/product-images/womens-dresses/black-women's-gown/thumbnail.webp",
-              124,
-              0.02,
-            ),
-          ),
-        ],
-      ),
-      title: 'Shop the world,\ndelivered in Zim',
-      body: 'Fashion, shoes, phones, laptops and more, at great prices.',
-    );
-  }
-}
-
-class _DeliverySlide extends StatelessWidget {
-  const _DeliverySlide();
-
-  @override
-  Widget build(BuildContext context) {
-    Widget option(IconData icon, Color color, String title, String sub) => GlassBox(
-      shadow: true,
-      borderRadius: BorderRadius.circular(22),
-      tint: AppColors.glass(0.85),
-      padding: const EdgeInsets.all(14),
-      child: SizedBox(
-        width: 220,
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                  Text(sub, style: TextStyle(color: AppColors.muted, fontSize: 13)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    return _Slide(
-      art: _Art(
-        children: [
-          Positioned(
-            top: 60,
-            left: 10,
-            child: option(IconlyBold.tick_square, AppColors.inStock, 'In stock', 'Here in Zimbabwe'),
-          ),
-          Positioned(
-            bottom: 60,
-            right: 10,
-            child: option(IconlyBold.send, AppColors.accent, 'Ask for anything', "We'll bring it in for you"),
-          ),
-        ],
-      ),
-      title: 'Already in Zimbabwe',
-      body: "What you see is in stock and ready to send. Can't find it? Ask us and we'll source it for you.",
     );
   }
 }
