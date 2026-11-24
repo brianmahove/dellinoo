@@ -89,8 +89,11 @@ class AuthField extends StatefulWidget {
     this.onChanged,
     this.errorText,
     this.spacing = 14,
+    this.pill = false,
   });
 
+  /// Stadium-shaped, white field with a violet icon and a thin violet outline (sign-up).
+  final bool pill;
   final String? label;
   final TextEditingController controller;
   final IconData icon;
@@ -111,7 +114,8 @@ class _AuthFieldState extends State<AuthField> {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(_fieldRadius);
+    final radius = BorderRadius.circular(widget.pill ? 30 : _fieldRadius);
+    final pillSide = BorderSide(color: AppColors.primary.withValues(alpha: 0.22));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -128,16 +132,19 @@ class _AuthFieldState extends State<AuthField> {
           decoration: InputDecoration(
             hintText: widget.hint,
             errorText: widget.errorText,
-            fillColor: authFieldFill,
-            border: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide.none),
-            enabledBorder: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide.none),
+            fillColor: widget.pill ? AppColors.surface : authFieldFill,
+            border: OutlineInputBorder(borderRadius: radius, borderSide: widget.pill ? pillSide : BorderSide.none),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: radius,
+              borderSide: widget.pill ? pillSide : BorderSide.none,
+            ),
             focusedBorder: OutlineInputBorder(
               borderRadius: radius,
               borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
             ),
             prefixIcon: Padding(
               padding: const EdgeInsets.only(left: 16, right: 12),
-              child: Icon(widget.icon, size: 20, color: AppColors.muted),
+              child: Icon(widget.icon, size: 22, color: widget.pill ? AppColors.primary : AppColors.muted),
             ),
             prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
             suffixIcon: widget.obscure
@@ -157,14 +164,16 @@ class _AuthFieldState extends State<AuthField> {
 /// Phone input for Zimbabwe numbers: a "Phone Number" caption, then the flag
 /// and +263 prefix, a divider and the 9-digit number.
 class AuthPhoneField extends StatelessWidget {
-  const AuthPhoneField({super.key, required this.controller, this.onChanged, this.spacing = 14});
+  const AuthPhoneField({super.key, required this.controller, this.onChanged, this.spacing = 14, this.pill = false});
 
+  final bool pill;
   final TextEditingController controller;
   final ValueChanged<String>? onChanged;
   final double spacing;
 
   @override
   Widget build(BuildContext context) {
+    if (pill) return _buildPill();
     return Column(
       children: [
         Container(
@@ -225,6 +234,122 @@ class AuthPhoneField extends StatelessWidget {
   }
 }
 
+/// Single-line phone pill: icon, flag, +263, divider, number.
+extension on AuthPhoneField {
+  Widget _buildPill() {
+    return Column(
+      children: [
+        Container(
+          height: 54,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.22)),
+          ),
+          child: Row(
+            children: [
+              const Icon(IconlyLight.call, size: 22, color: AppColors.primary),
+              const SizedBox(width: 10),
+              const Text('🇿🇼', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 6),
+              const Text('+263', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+              Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: AppColors.muted),
+              Container(
+                width: 1,
+                height: 24,
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                color: AppColors.line,
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+                  onChanged: onChanged,
+                  decoration: const InputDecoration(
+                    hintText: 'Phone Number',
+                    isDense: true,
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: spacing),
+      ],
+    );
+  }
+}
+
+/// Soft violet/orange swooshes in the corners behind the sign-up form.
+class AuthBackdrop extends StatelessWidget {
+  const AuthBackdrop({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(child: CustomPaint(painter: _SwooshPainter(AppColors.dark))),
+        ),
+        child,
+      ],
+    );
+  }
+}
+
+class _SwooshPainter extends CustomPainter {
+  _SwooshPainter(this.dark);
+
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final a = dark ? 0.55 : 1.0;
+    canvas.drawPath(
+      Path()
+        ..lineTo(w * 0.34, 0)
+        ..quadraticBezierTo(w * 0.12, h * 0.05, 0, h * 0.16)
+        ..close(),
+      Paint()..color = AppColors.primary.withValues(alpha: 0.9 * a),
+    );
+    canvas.drawPath(
+      Path()
+        ..lineTo(w * 0.5, 0)
+        ..quadraticBezierTo(w * 0.2, h * 0.07, 0, h * 0.26)
+        ..close(),
+      Paint()..color = AppColors.primary.withValues(alpha: 0.10 * a),
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(w, h * 0.27)
+        ..quadraticBezierTo(w * 0.8, h * 0.29, w * 0.72, h * 0.30)
+        ..quadraticBezierTo(w * 0.9, h * 0.31, w, h * 0.35)
+        ..close(),
+      Paint()..color = AppColors.accentOrange.withValues(alpha: 0.5 * a),
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(w, h)
+        ..lineTo(w * 0.55, h)
+        ..quadraticBezierTo(w * 0.85, h * 0.975, w, h * 0.9)
+        ..close(),
+      Paint()..color = AppColors.primary.withValues(alpha: 0.85 * a),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SwooshPainter old) => old.dark != dark;
+}
+
 /// Violet gradient pill button used for "Sign Up" / "Log In".
 class AuthGradientButton extends StatelessWidget {
   const AuthGradientButton({super.key, required this.label, required this.onPressed, this.loading = false});
@@ -281,7 +406,9 @@ class AuthGradientButton extends StatelessWidget {
 
 /// "―――  OR  ―――" divider between the form and the social buttons.
 class AuthDivider extends StatelessWidget {
-  const AuthDivider({super.key});
+  const AuthDivider({super.key, this.label = 'OR'});
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -291,7 +418,7 @@ class AuthDivider extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Text(
-            'OR',
+            label,
             style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600, fontSize: 12),
           ),
         ),
@@ -305,8 +432,10 @@ enum SocialProvider { google, apple, facebook }
 
 /// White outlined "Continue with …" pill with the provider's own colours.
 class AuthSocialButton extends StatelessWidget {
-  const AuthSocialButton({super.key, required this.provider, required this.onTap});
+  const AuthSocialButton({super.key, required this.provider, required this.onTap, this.compact = false});
 
+  /// Shorter label and smaller text, for two buttons side by side.
+  final bool compact;
   final SocialProvider provider;
   final VoidCallback onTap;
 
@@ -360,8 +489,14 @@ class AuthSocialButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SizedBox(width: 26, child: Center(child: _icon())),
-              const SizedBox(width: 12),
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+              SizedBox(width: compact ? 8 : 12),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: compact ? 13.5 : 15),
+                ),
+              ),
             ],
           ),
         ),

@@ -1,171 +1,272 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/iconly.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../state/providers.dart';
+import '../../widgets/brand.dart';
 import '../../widgets/payment_logos.dart';
+import 'auth_widgets.dart';
 
-/// Single welcome screen shown on first launch: how to pay and get help.
+/// Welcome screen shown on first launch: brand, three selling points, payment options.
 class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
 
-  Future<void> _finish(BuildContext context, WidgetRef ref) async {
+  Future<void> _go(BuildContext context, WidgetRef ref, String route) async {
     await markWelcomeSeen(ref.read(prefsProvider));
-    if (context.mounted) context.go('/login');
+    if (context.mounted) context.go(route);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            const Expanded(child: _PaySlide()),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-              child: FilledButton(onPressed: () => _finish(context, ref), child: const Text('Get started')),
+      body: AuthBackdrop(
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, box) => SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: box.maxHeight),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                  child: Column(
+                    children: [
+                      const BrandLogo(width: 240),
+                      const SizedBox(height: 8),
+                      const BrandHero(width: 260),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.auto_awesome, size: 18, color: AppColors.accentOrange),
+                          const SizedBox(width: 8),
+                          const Flexible(
+                            child: Text(
+                              'Welcome to Dellinoo!',
+                              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.primary),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.auto_awesome, size: 18, color: AppColors.accentOrange),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Shop a wide range of quality products,\nall in one place.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.muted, fontSize: 16, height: 1.35),
+                      ),
+                      const SizedBox(height: 20),
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Expanded(
+                              child: _Feature(icon: IconlyLight.buy, title: 'One-Stop\nShop'),
+                            ),
+                            VerticalDivider(color: AppColors.line, width: 1),
+                            const Expanded(
+                              child: _Feature(
+                                icon: Icons.local_shipping_outlined,
+                                title: 'Flexible\nDelivery Options',
+                                badge: 'Nationwide',
+                              ),
+                            ),
+                            VerticalDivider(color: AppColors.line, width: 1),
+                            const Expanded(
+                              child: _Feature(icon: IconlyLight.shield_done, title: 'Safe &\nReliable\nShopping'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const _PaymentStrip(),
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (var i = 0; i < 3; i++)
+                            Container(
+                              width: 10,
+                              height: 10,
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: i == 0 ? AppColors.primary : AppColors.primary.withValues(alpha: 0.18),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: AppColors.buttonGradient),
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.35),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(30),
+                            onTap: () => _go(context, ref, '/signup'),
+                            child: const SizedBox(
+                              height: 56,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Get Started',
+                                    style: TextStyle(
+                                      color: AppColors.onPrimary,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 17,
+                                    ),
+                                  ),
+                                  SizedBox(width: 10),
+                                  Icon(Icons.arrow_forward_rounded, color: AppColors.onPrimary),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: OutlinedButton(
+                          onPressed: () => _go(context, ref, '/login'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary, width: 1.4),
+                            shape: const StadiumBorder(),
+                          ),
+                          child: const Text('Log In', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text("Don't have an account? ", style: TextStyle(color: AppColors.ink)),
+                          GestureDetector(
+                            onTap: () => _go(context, ref, '/signup'),
+                            child: const Text(
+                              'Sign Up',
+                              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _Slide extends StatelessWidget {
-  const _Slide({required this.art, required this.title, required this.body});
+class _Feature extends StatelessWidget {
+  const _Feature({required this.icon, required this.title, this.badge});
 
-  final Widget art;
+  final IconData icon;
   final String title;
-  final String body;
+  final String? badge;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
         children: [
-          Expanded(child: Center(child: art)),
+          Icon(icon, size: 34, color: AppColors.primary),
+          const SizedBox(height: 8),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, height: 1.15),
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, height: 1.2),
           ),
-          const SizedBox(height: 12),
-          Text(
-            body,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.muted, fontSize: 16, height: 1.45),
-          ),
-          const SizedBox(height: 12),
-        ],
-      ),
-    );
-  }
-}
-
-/// Yellow disc with content floating on top — shared backdrop for the slides.
-class _Art extends StatelessWidget {
-  const _Art({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 300,
-      height: 300,
-      child: Stack(
-        alignment: Alignment.center,
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 250,
-            height: 250,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: AppColors.brandGradient,
+          if (badge != null) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+              decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(20)),
+              child: Text(
+                badge!,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF020910)),
               ),
-              shape: BoxShape.circle,
             ),
-          ),
-          ...children,
+          ],
         ],
       ),
     );
   }
 }
 
-class _PaySlide extends StatelessWidget {
-  const _PaySlide();
+class _PaymentStrip extends StatelessWidget {
+  const _PaymentStrip();
 
   @override
   Widget build(BuildContext context) {
-    Widget chip(String asset, {double width = 96}) => Container(
-      width: width,
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 16, offset: const Offset(0, 6))],
-      ),
-      child: Image.asset(asset, fit: BoxFit.contain),
+    Widget logo(PaymentMethod m) => Expanded(
+      child: SizedBox(height: 30, child: Image.asset(m.logo!, fit: BoxFit.contain)),
     );
-
-    return _Slide(
-      art: _Art(
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 0, 10, 14),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
         children: [
-          Positioned(
-            top: 50,
-            left: 16,
-            child: Transform.rotate(angle: -0.1, child: chip(PaymentMethod.ecocash.logo!, width: 110)),
-          ),
-          Positioned(
-            top: 34,
-            right: 18,
-            child: Transform.rotate(angle: 0.1, child: chip(PaymentMethod.onemoney.logo!)),
-          ),
-          Positioned(
-            bottom: 70,
-            left: 26,
-            child: Transform.rotate(angle: 0.06, child: chip(PaymentMethod.innbucks.logo!, width: 64)),
-          ),
-          Positioned(
-            bottom: 90,
-            right: 20,
-            child: Transform.rotate(
-              angle: -0.08,
-              child: Column(
+          Transform.translate(
+            offset: const Offset(0, -12),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(8, 6, 18, 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: AppColors.buttonGradient),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  chip(PaymentMethod.card.logo!, width: 88),
-                  const SizedBox(height: 8),
-                  const CardBrandsChip(),
+                  CircleAvatar(
+                    radius: 15,
+                    backgroundColor: Colors.white24,
+                    child: Icon(IconlyLight.wallet, size: 18, color: AppColors.onPrimary),
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Easy Payment Options',
+                    style: TextStyle(color: AppColors.onPrimary, fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
                 ],
               ),
             ),
           ),
-          Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              color: const Color(0xFF25D366),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 20, offset: const Offset(0, 8)),
-              ],
-            ),
-            child: const Center(child: FaIcon(FontAwesomeIcons.whatsapp, color: Colors.white, size: 40)),
+          Row(
+            children: [
+              logo(PaymentMethod.ecocash),
+              logo(PaymentMethod.onemoney),
+              logo(PaymentMethod.innbucks),
+              logo(PaymentMethod.card),
+              const Expanded(child: CardBrandsChip()),
+            ],
           ),
         ],
       ),
-      title: 'Pay your way,\nhelp on WhatsApp',
-      body: 'EcoCash, OneMoney, InnBucks or card. Questions? Chat with us anytime.',
     );
   }
 }
